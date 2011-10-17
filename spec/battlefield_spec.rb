@@ -4,7 +4,6 @@ require 'spec_helper'
 describe Battlefield do
   before :each do
     @battlefield = Battlefield.new 60, 60, 1000, 60
-    @bullet = Bullet.new @battlefield, 20, 21, 180, 2, 5, 'robot'
   end
 
   it 'should create a new battlefield' do
@@ -15,8 +14,15 @@ describe Battlefield do
   end
 
   it 'should be able to use the << operator to add a bullet' do
+    @bullet = Bullet.new @battlefield, 20, 21, 180, 2, 5, 'robot'
     @battlefield << @bullet
     @battlefield.bullets[0].should == @bullet
+  end
+
+  it 'should be able to use the << operator to add an explosion' do
+    @explosion = Explosion.new @battlefield, 20, 22
+    @battlefield << @explosion
+    @battlefield.explosions[0].should == @explosion
   end
 
   #Need to test << opperator
@@ -27,12 +33,12 @@ describe Battlefield do
   #    @teams[object.team] << object
   #  when Bullet - DONE
   #    @bullets << object
-  #  when Explosion
+  #  when Explosion - DONE
   #    @explosions << object
   #  end
   #end
 
-  #specs to tst the following attributes
+  #specs to test the following attributes
   # attr_reader :robots
   # attr_reader :teams
   # attr_reader :bullets
