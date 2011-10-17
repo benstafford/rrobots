@@ -6,3 +6,7 @@ require 'numeric'
 require 'battlefield'
 require 'bullet'
 require 'explosion'
+require 'NervousDuck'
+require 'SittingDuck'
+require 'robot'
+

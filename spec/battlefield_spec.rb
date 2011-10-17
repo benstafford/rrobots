@@ -25,18 +25,17 @@ describe Battlefield do
     @battlefield.explosions[0].should == @explosion
   end
 
-  #Need to test << opperator
-  #def << object
-  #  case object
-  #  when RobotRunner
-  #    @robots << object
-  #    @teams[object.team] << object
-  #  when Bullet - DONE
-  #    @bullets << object
-  #  when Explosion - DONE
-  #    @explosions << object
-  #  end
-  #end
+  it 'should be able to use the << operator to add a robot' do
+    @robot = RobotRunner.new(Object.const_get('NervousDuck').new, @battlefield, 1)
+    @battlefield << @robot
+    @battlefield.robots[0].should == @robot
+  end
+
+  it 'should also add a team with a robot' do
+    @robot = RobotRunner.new(Object.const_get('NervousDuck').new, @battlefield, 1)
+    @battlefield << @robot
+    @battlefield.teams[1][0].should == @robot
+  end
 
   #specs to test the following attributes
   # attr_reader :robots
