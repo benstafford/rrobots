@@ -30,9 +30,17 @@ class VerticalInvader
         turn_gun -30
     end
 
-    if (y > 300)
+    broadcast "VerticalInvader"
+    if (events['broadcasts'].count > 0)
+      if (y > 300)
+        fire 0.1
+      end
+    else
       fire 0.1
     end
+
+
+
 
     if @reached_west and heading==@intent_heading
         accelerate 1

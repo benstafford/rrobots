@@ -19,27 +19,27 @@ class SpaceInvader
       end
     end
 
-    if y <= 150 and heading!=@intent_heading
+    if y <= 100 and heading!=@intent_heading
       @reached_north = true
       stop
       turn 10 - heading%10
     end
 
-#    if heading == 0
-#        if radar_heading < 300
-#            turn_radar 30
-#        end
-#        if radar_heading > 300
-#            turn_radar -30
-#        end
-#    else
-#        if radar_heading < 240
-#            turn_radar 30
-#        end
-#        if radar_heading > 240
-#            turn_radar -30
-#        end
-#    end
+    if heading == 0
+        if radar_heading < 300
+            turn_radar 30
+        end
+        if radar_heading > 300
+            turn_radar -30
+        end
+    else
+        if radar_heading < 240
+            turn_radar 30
+        end
+       if radar_heading > 240
+            turn_radar -30
+        end
+    end
     if gun_heading < 270
         turn_gun 30
     end
@@ -47,22 +47,22 @@ class SpaceInvader
         turn_gun -30
     end
 
-
-
-    #if @reached_north and events['robot_scanned']!=[]
-    #    say events['robot_scanned']
-        if (x > 300)
-        fire 0.1
-        end
-    #else
-    #   say radar_heading
-    #end
+    broadcast "SpaceInvader"
+    if (events['broadcasts'].count > 0)
+      if (x > 300)
+        #if (!events['robot_scanned'].empty?)
+          fire 0.1
+        #end
+      end
+    else
+      fire 0.1
+    end
 
     if @reached_north and heading==@intent_heading
         accelerate 1
     end
 
-    if @reached_north and heading==@intent_heading and heading == 180 and x <= 250
+    if @reached_north and heading==@intent_heading and heading == 180 and x <= 100
         @intent_heading = 0
     end
     if @reached_north and heading==@intent_heading and heading == 0 and x >= battlefield_width - 100
