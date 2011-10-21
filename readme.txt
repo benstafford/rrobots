@@ -30,9 +30,9 @@ end
 ----------------------- code -----------------------
 
 all you need to implement is the tick method which should accept a hash
-of events occured turing the last tick.
+of events occurred turing the last tick.
 
-By including Robot you get all this methods to controll your bot:
+By including Robot you get all this methods to control your bot:
 
   battlefield_height  #the height of the battlefield
   battlefield_width   #the width of the battlefield
@@ -51,7 +51,7 @@ By including Robot you get all this methods to controll your bot:
   y                   #your y coordinate, 0...battlefield_height
   accelerate(param)   #accelerate (max speed is 8, max accelerate is 1/-1, 
                       #negativ speed means moving backwards)
-  stop                #accelerates negativ if moving forward (and vice versa), 
+  stop                #accelerates negative if moving forward (and vice versa),
                       #may take 8 ticks to stop (and you have to call it every tick)
   fire(power)         #fires a bullet in the direction of your gun, 
                       #power is 0.1 - 3, this power will heat your gun
@@ -61,7 +61,7 @@ By including Robot you get all this methods to controll your bot:
   turn_radar(degrees) #turns the radar, max 60 degrees per tick
   dead                #true if you are dead
   say(msg)            #shows msg above the robot on screen
-  broadcast(msg)      #broadcasts msg to all bots (they recieve 'broadcasts'
+  broadcast(msg)      #broadcasts msg to all bots (they receive 'broadcasts'
                       #events with the msg and rough direction)
 
 These methods are intentionally of very basic nature, you are free to
@@ -69,11 +69,11 @@ unleash the whole power of ruby to create higher level functions.
 (e.g. move_to, fire_at and so on)
 
 Some words of explanation: The gun is mounted on the body, if you turn
-the body the gun will follow. In a simmilar way the radar is mounted on
+the body the gun will follow. In a similar way the radar is mounted on
 the gun. The radar scans everything it sweeps over in a single tick (100 
 degrees if you turn your body, gun and radar in the same direction) but
 will report only the distance of scanned robots, not the angle. If you 
-want more precission you have to turn your radar slower.
+want more precision you have to turn your radar slower.
 
 RRobots is implemented in pure ruby using a tk ui and should run on all
 platforms that have ruby and tk. (until now it's tested on windows, OS X
