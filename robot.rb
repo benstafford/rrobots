@@ -329,7 +329,7 @@ class RobotRunner
 
   def broadcast
     @battlefield.robots.each do |other|
-      if (other != self) && (!other.dead)
+      if (other != self) && !other.dead && (other.team == self.team)
         msg = other.actions[:broadcast]
         if msg != 0
           a = Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360

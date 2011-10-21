@@ -37,11 +37,47 @@ describe Battlefield do
     @battlefield.teams[1][0].should == @robot
   end
 
+  it 'should be able to remove a dead explosion in a tick' do
+    @explosion = Explosion.new @battlefield, 20, 22
+    @battlefield << @explosion
+    @explosion.dead = true
+    @battlefield.handle_explosions
+    @battlefield.explosions.should == []
+  end
+
+  it 'should increment the tick in an explosion' do
+    @explosion = Explosion.new @battlefield, 20, 22
+    @battlefield << @explosion
+    @battlefield.handle_explosions
+    @explosion.t.should == 1
+  end
+
+  it 'should delete an explosion on the 17th tick' do
+    @explosion = Explosion.new @battlefield, 20, 22
+    @battlefield << @explosion
+    17.times do
+      @battlefield.handle_explosions
+    end
+    @battlefield.explosions.should == []
+  end
+
+  it 'should be able to remove a dead bullet in a tick' do
+    @bullet = Bullet.new @battlefield, 20, 21, 180, 2, 5, 'robot'
+    @battlefield << @bullet
+    @bullet.dead = true
+    @battlefield.handle_bullets
+    @battlefield.bullets.should == []
+  end
+
+  #it 'should increment the tick in an bullet' do
+  #  fail "need test and refactoring"
+  #end
+
+
   #specs to test the following attributes
   # attr_reader :robots
   # attr_reader :teams
   # attr_reader :bullets
-  # attr_reader :explosions
   # attr_reader :time
   # attr_reader :game_over
 end

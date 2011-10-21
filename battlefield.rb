@@ -38,10 +38,8 @@ class Battlefield
   end
 
   def tick
-    explosions.delete_if{|explosion| explosion.dead}
-    explosions.each{|explosion| explosion.tick}
-
-    bullets.delete_if{|bullet| bullet.dead}
+    handle_explosions
+    handle_bullets
     bullets.each{|bullet| bullet.tick}
 
     robots.each do |robot|
@@ -61,6 +59,15 @@ class Battlefield
                     (live_robots.all?{|r| r.team == live_robots.first.team})) # all other teams are dead
     not @game_over
   end
+
+  def handle_explosions
+    explosions.delete_if{|explosion| explosion.dead}
+    explosions.each{|explosion| explosion.tick}
+  end
+
+   def handle_bullets
+     bullets.delete_if{|bullet| bullet.dead}
+   end
 
   def state
     {:explosions => explosions.map{|e| e.state},
