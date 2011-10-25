@@ -3,20 +3,25 @@ require 'robot'
 class Invader
    include Robot
 
-  attr_state :distance_to_edge
-  attr_state :position_on_edge
-  attr_state :width_of_edge
-  attr_state :heading_of_edge
+  attr_accessor :distance_to_edge
+  attr_accessor :position_on_edge
+  attr_accessor :width_of_edge
+  attr_accessor :heading_of_edge
+  attr_accessor :heading_of_bottom_edge
+  attr_accessor :heading_of_top_edge
+  attr_accessor :direction_of_turn
 
   def initialize
-    @intent_heading = 180
+    @direction_of_turn = 10
   end
 
-  def record_position distance_to_edge, position_on_edge, width_of_edge, heading_of_edge
+  def record_position distance_to_edge, position_on_edge, width_of_edge, heading_of_edge, bottom_edge, top_edge
     @distance_to_edge = distance_to_edge
     @position_on_edge = position_on_edge
     @width_of_edge = width_of_edge
     @heading_of_edge = heading_of_edge
+    @heading_of_bottom_edge = bottom_edge
+    @heading_of_top_edge = top_edge
   end
 
   def process_tick events, name
@@ -57,11 +62,11 @@ private
 
   def turn_around
       stop
-      turn 10 - heading%10
+      turn @direction_of_turn - heading%@direction_of_turn
   end
 
   def point_gun_away_from_edge
-    direction = 360 - @heading_of_edge
+    direction = opposite_edge
     if gun_heading < direction
         turn_gun 30
     end
@@ -108,14 +113,47 @@ private
   end
 
   def reaching_bottom_edge_turn_around
-    if heading == @heading_of_edge + 90 and @position_on_edge <= size + 1
-        @intent_heading = @heading_of_edge - 90
+    if heading == @heading_of_bottom_edge and @position_on_edge <= size + 1
+      if heading == left
+        @direction_of_turn = -10
+      else
+        @direction_of_turn = 10
+      end
+      @intent_heading = @heading_of_top_edge
     end
   end
 
   def reaching_top_edge_turn_around
-    if heading == @heading_of_edge - 90 and @position_on_edge >= @width_of_edge - size
-        @intent_heading = @heading_of_edge + 90
+    if heading == @heading_of_top_edge  and @position_on_edge >= @width_of_edge - size
+      if heading == left
+        @direction_of_turn = -10
+      else
+        @direction_of_turn = 10
+      end
+      @intent_heading = @heading_of_bottom_edge
+    end
+  end
+
+  def opposite_edge
+    direction = @heading_of_edge + 180
+    if direction >= 360
+      direction -= 360
+    end
+    direction
+  end
+
+  def left
+    result = heading_of_edge + 90
+    if result >= 360
+      result -= 360
+    end
+    result
+  end
+
+  def right
+    result = heading_of_edge - 90
+    if result < 0
+      result += 360
     end
   end
 
