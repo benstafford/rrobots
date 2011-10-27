@@ -7,27 +7,30 @@ class Invader
   attr_accessor :position_on_edge
   attr_accessor :width_of_edge
   attr_accessor :heading_of_edge
-  attr_accessor :heading_of_bottom_edge
-  attr_accessor :heading_of_top_edge
-  attr_accessor :direction_of_turn
+  attr_accessor :name
+  attr_accessor :intent_heading
+  attr_accessor :currrent_direction
 
   def initialize
-    @direction_of_turn = 10
+    @current_direction = 1
   end
 
-  def record_position distance_to_edge, position_on_edge, width_of_edge, heading_of_edge, bottom_edge, top_edge
+  def record_position distance_to_edge, position_on_edge, width_of_edge, heading_of_edge
     @distance_to_edge = distance_to_edge
     @position_on_edge = position_on_edge
     @width_of_edge = width_of_edge
     @heading_of_edge = heading_of_edge
-    @heading_of_bottom_edge = bottom_edge
-    @heading_of_top_edge = top_edge
   end
 
-  def process_tick events, name
-    turn_radar 1 if time == 0
-    broadcast name
+  def tick events
+    if events['robot_scanned'].count>0
+      broadcast events['robot_scanned'].pop.first
+    else
+      broadcast -1
+    end
+
     if at_edge?
+      get_heading_from_friend events['broadcasts']
       if need_to_turn?
         turn_around
       else
@@ -44,13 +47,29 @@ class Invader
   end
 
 private
+  def get_heading_from_friend broadcast_events
+    if broadcast_events.count > 0
+      target_loc = broadcast_events[0].first.to_f
+      if target_loc > 0
+        if target_loc < @position_on_edge - size
+          say "Coming Buddy!"
+          @current_direction = -8
+        else
+          "Hold on, I'll get him!'"
+          if target_loc > @position_on_edge + size
+            @current_direction = 8
+          end
+        end
+      end
+    end
+  end
 
   def at_edge?
     @distance_to_edge <= (size + 1)
   end
 
   def head_to_edge
-    accelerate 1
+    accelerate 8
     if heading != @heading_of_edge
       turn 10 - heading%10
     end
@@ -62,7 +81,7 @@ private
 
   def turn_around
       stop
-      turn @direction_of_turn - heading%@direction_of_turn
+      turn 10 - heading%10
   end
 
   def point_gun_away_from_edge
@@ -75,33 +94,10 @@ private
     end
   end
 
-  def turn_radar_away_from_edge
-    if heading == 0
-        if radar_heading <= 300
-            turn_radar 30
-        end
-        if radar_heading > 300
-            turn_radar -30
-        end
-    else
-        if radar_heading <= 240
-            turn_radar 30
-        end
-       if radar_heading > 240
-            turn_radar -30
-        end
-    end
-  end
-
-
   def fire_stream_but_dont_hit_friend
     if (events['broadcasts'].count > 0)
       if (@position_on_edge > size * 2)
-        #if (!events['robot_scanned'].empty?)
-        #  fire 3
-        #else
-          fire 0.1
-        #end
+        fire 0.1
       end
     else
       fire 0.1
@@ -109,28 +105,22 @@ private
   end
 
   def full_speed_ahead
-      accelerate 1
+      accelerate @current_direction
+  end
+
+  def turn_radar_away_from_edge
+
   end
 
   def reaching_bottom_edge_turn_around
-    if heading == @heading_of_bottom_edge and @position_on_edge <= size + 1
-      if heading == left
-        @direction_of_turn = -10
-      else
-        @direction_of_turn = 10
-      end
-      @intent_heading = @heading_of_top_edge
+    if @current_direction < 0 and @position_on_edge <= size + 1
+      @current_direction = 8
     end
   end
 
   def reaching_top_edge_turn_around
-    if heading == @heading_of_top_edge  and @position_on_edge >= @width_of_edge - size
-      if heading == left
-        @direction_of_turn = -10
-      else
-        @direction_of_turn = 10
-      end
-      @intent_heading = @heading_of_bottom_edge
+    if @current_direction > 0 and @position_on_edge >= @width_of_edge - size
+      @current_direction = -8
     end
   end
 
@@ -143,7 +133,7 @@ private
   end
 
   def left
-    result = heading_of_edge + 90
+    result = @heading_of_edge + 90
     if result >= 360
       result -= 360
     end
@@ -151,7 +141,7 @@ private
   end
 
   def right
-    result = heading_of_edge - 90
+    result = @heading_of_edge - 90
     if result < 0
       result += 360
     end
