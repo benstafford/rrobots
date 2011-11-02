@@ -13,20 +13,12 @@ class SpaceInvader < Invader
   end
 
   def turn_radar_away_from_edge
-    if @current_direction > 0
-        if radar_heading <= 280
-            turn_radar 10
-        end
-        if radar_heading > 280
-            turn_radar -10
-        end
-    else
-        if radar_heading <= 260
-            turn_radar 10
-        end
-       if radar_heading > 260
-            turn_radar -10
-        end
+    if radar_heading >= 270 or radar_heading< 90
+      turn_radar -10 + radar_heading%10
+    end
+
+    if radar_heading >= 90 and radar_heading < 270
+      turn_radar 10 - radar_heading%10
     end
   end
 

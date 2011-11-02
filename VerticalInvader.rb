@@ -13,20 +13,12 @@ class VerticalInvader < Invader
   end
 
   def turn_radar_away_from_edge
-    if @current_direction < 0
-        if radar_heading <= 10
-            turn_radar 10
-        end
-        if radar_heading > 10
-            turn_radar -10
-        end
-    else
-        if radar_heading <= 350 and radar_heading > 0
-            turn_radar 10
-        end
-       if radar_heading > 350 or radar_heading == 0
-            turn_radar -10
-        end
+    if radar_heading >= 0 and radar_heading< 180
+      turn_radar -10 + radar_heading%10
+    end
+
+    if radar_heading >= 180
+      turn_radar 10 - radar_heading%10
     end
   end
 end
