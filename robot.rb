@@ -343,12 +343,7 @@ class RobotRunner
     end
   end
 
-  def get_safe_atan x1, x2, y1, y2
-    Math.atan2(y2 - y1, x1 - ) / Math::PI * 180 % 360
-    #Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
-  end
-
-  def to_s
+   def to_s
     @robot.class.name
   end
 
