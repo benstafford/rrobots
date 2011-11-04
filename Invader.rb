@@ -12,6 +12,9 @@ class Invader
   attr_accessor :intent_heading
   attr_accessor :currrent_direction
 
+  DISTANCE_PAST_SCAN = 3
+  FIRE_POWER = 1.0
+
   def initialize
     @current_direction = 1
     @last_scan_time = 0
@@ -48,12 +51,17 @@ class Invader
       if need_to_turn?
         turn_around
       else
+        if reaching_bottom_edge_turn_around
+          return
+        end
+        if reaching_top_edge_turn_around
+          return
+        end
+
         full_speed_ahead
-        point_gun_away_from_edge
+        point_gun opposite_edge
         turn_radar_away_from_edge
         fire_stream_but_dont_hit_friend
-        reaching_bottom_edge_turn_around
-        reaching_top_edge_turn_around
       end
     else
       head_to_edge
@@ -67,11 +75,11 @@ private
       if target_loc > 0
         if target_loc < @position_on_edge - size
           say "Coming Buddy!"
-          @current_direction = -8
+          @current_direction = -1
         else
           "Hold on, I'll get him!'"
           if target_loc > @position_on_edge + size
-            @current_direction = 8
+            @current_direction = 1
           end
         end
         true
@@ -81,7 +89,7 @@ private
   end
 
   def check_recent_radar
-    if time - 5 > @last_scan_time and @last_scan_pursued == false
+    if time - DISTANCE_PAST_SCAN > @last_scan_time and @last_scan_pursued == false
       @current_direction = 0 - @current_direction
       @last_scan_pursued = true
     end
@@ -93,7 +101,7 @@ private
   end
 
   def head_to_edge
-    accelerate 8
+    accelerate 1
     if heading != @heading_of_edge
       turn 10 - heading%10
     end
@@ -108,8 +116,7 @@ private
       turn 10 - heading%10
   end
 
-  def point_gun_away_from_edge
-    direction = opposite_edge
+  def point_gun direction
     if gun_heading < direction
         turn_gun 30
     end
@@ -121,10 +128,10 @@ private
   def fire_stream_but_dont_hit_friend
     if (events['broadcasts'].count > 0)
       if (@position_on_edge > size * 2)
-        fire 0.2
+        fire FIRE_POWER
       end
     else
-      fire 0.2
+      fire FIRE_POWER
     end
   end
 
@@ -138,14 +145,30 @@ private
 
   def reaching_bottom_edge_turn_around
     if @current_direction < 0 and @position_on_edge <= size + 1
-      @current_direction = 8
+      #if check_top_corner?
+      #  return true
+      #end
+      @current_direction = 1
     end
+    false
+  end
+
+  def check_top_corner?
+   false
   end
 
   def reaching_top_edge_turn_around
     if @current_direction > 0 and @position_on_edge >= @width_of_edge - size
-      @current_direction = -8
+      #if check_bottom_corner?
+      #  return true
+      #end
+      @current_direction = -1
     end
+    false
+  end
+
+  def check_bottom_corner?
+    false
   end
 
   def opposite_edge
@@ -154,6 +177,62 @@ private
       direction -= 360
     end
     direction
+  end
+
+  def toward_bottom
+    if @heading_of_edge < 135
+      @heading_of_edge + 90
+    else
+      @heading_of_edge - 90
+    end
+  end
+
+  def toward_top
+    if @heading_of_edge < 135
+      top = @heading_of_edge - 90
+    else
+      top = @heading_of_edge + 90
+    end
+    if top >= 360
+      top -= 360
+    end
+    if top < 0
+      top += 360
+    end
+  end
+
+  CLOCKWISE = -1
+  COUNTERCLOCKWISE = 1
+
+  def turn_direction current_heading, desired_heading
+    if desired_heading == 0
+       if current_heading > 180
+         return COUNTERCLOCKWISE
+       else
+         return CLOCKWISE
+       end
+    end
+    if desired_heading == 90
+      if current_heading > 90 and current_heading < 270
+        return CLOCKWISE
+      else
+        return COUNTERCLOCKWISE
+      end
+    end
+    if desired_heading == 180
+      if current_heading < 180
+        return COUNTERCLOCKWISE
+      else
+        return CLOCKWISE
+      end
+    end
+    if desired_heading == 270
+      if current_heading > 90 and current_heading < 270
+        return COUNTERCLOCKWISE
+      else
+        return CLOCKWISE
+      end
+    end
   end
 
 end

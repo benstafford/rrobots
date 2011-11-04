@@ -22,5 +22,44 @@ class SpaceInvader < Invader
     end
   end
 
+  def check_top_corner?
+   if (gun_heading <180)
+     turn_gun -30 + gun_heading%30
+     return true
+   else
+     if (gun_heading != 0)
+       turn_gun 30 - gun_heading%30
+       return true
+     end
+   end
+   if (gun_heading == 0)
+     if time - 5 > @last_scan_time
+       return false
+     end
+     fire 0.1
+     return true
+   end
+   false
+  end
+
+  def check_bottom_corner?
+   if (gun_heading > 180)
+     turn_gun -30 + gun_heading%30
+     return true
+   else
+     if (gun_heading != 180)
+       turn_gun 30 - gun_heading%30
+       return true
+     end
+   end
+   if (gun_heading == 180)
+     if time - 5 > @last_scan_time
+       return false
+     end
+     fire 0.1
+     return true
+   end
+   false
+  end
 
 end
