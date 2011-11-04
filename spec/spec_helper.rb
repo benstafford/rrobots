@@ -9,4 +9,3 @@ require 'explosion'
 require 'NervousDuck'
 require 'SittingDuck'
 require 'robot'
-
