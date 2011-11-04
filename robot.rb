@@ -308,7 +308,7 @@ class RobotRunner
   def scan
     @battlefield.robots.each do |other|
       if (other != self) && (!other.dead)
-        a = Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
+        a = get_safe_atan other.x, @x, @y, other.y
         if (@old_radar_heading <= a && a <= @new_radar_heading) || (@old_radar_heading >= a && a >= @new_radar_heading) ||
           (@old_radar_heading <= a+360 && a+360 <= @new_radar_heading) || (@old_radar_heading >= a+360 && a+360 >= new_radar_heading) ||
           (@old_radar_heading <= a-360 && a-360 <= @new_radar_heading) || (@old_radar_heading >= a-360 && a-360 >= @new_radar_heading)
@@ -332,7 +332,7 @@ class RobotRunner
       if (other != self) && !other.dead && (other.team == self.team)
         msg = other.actions[:broadcast]
         if msg != 0
-          a = Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
+          a = get_safe_atan other.x, @x, @y, other.y
           dir = 'east'
           dir = 'north' if a.between? 45,135
           dir = 'west' if a.between? 135,225
@@ -340,6 +340,14 @@ class RobotRunner
           @events['broadcasts'] << [msg, dir]
         end
       end
+    end
+  end
+
+  def get_safe_atan x1, x2, y1, y2
+    if (y2 - y1 == 0) or (x1 - x2 == 0)
+      a = 0
+    else
+       Math.atan2(y2 - y1, x1 - x2) / Math::PI * 180 % 360
     end
   end
 
