@@ -16,10 +16,4 @@ describe Bullet do
   it 'should create a new bullet' do
     @bullet.class.should == Bullet
   end
-
-  it 'should move a bullet on a tick' do
-    @bullet.tick
-    @bullet.x.should == 1.7071067811865475
-    @bullet.y.should == 1.2928932188134525
-  end
 end
