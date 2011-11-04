@@ -1,49 +1,64 @@
-require 'robot'
+require 'Invader'
 
-class VerticalInvader
-   include Robot
-
+class VerticalInvader < Invader
   def initialize
-    @reached_west = false
-    @intent_heading = 90
-
+    @intent_heading = 270
+    @name = "VerticalInvader"
+    super
   end
 
   def tick events
-    if @reached_west == false
-      accelerate 1
-      if heading != 180
-        turn 10 - heading%10
-      end
+    record_position x, y, battlefield_height, 180
+    super events
+  end
+
+  def turn_radar_away_from_edge
+    if radar_heading >= 0 and radar_heading< 180
+      turn_radar -10 + radar_heading%10
     end
 
-    if x <= 100 and heading!=@intent_heading
-      @reached_west = true
-      stop
-      turn 10 - heading%10
-    end
-
-    if gun_heading < 0
-        turn_gun 30
-    end
-    if gun_heading > 0
-        turn_gun -30
-    end
-
-    if (y > 300)
-      fire 0.1
-    end
-
-    if @reached_west and heading==@intent_heading
-        accelerate 1
-    end
-
-    if @reached_west and heading==@intent_heading and heading == 90 and y <= 200
-        @intent_heading = 270
-    end
-    if @reached_west and heading==@intent_heading and heading == 270 and y >= battlefield_height - 100
-        @intent_heading = 90
+    if radar_heading >= 180
+      turn_radar 10 - radar_heading%10
     end
   end
 
+  def check_top_corner?
+   if ((gun_heading > 270) or (gun_heading < 90))
+     turn_gun -30 + gun_heading%30
+     return true
+   else
+     if (gun_heading != 270)
+       turn_gun 30 - gun_heading%30
+       return true
+     end
+   end
+   if (gun_heading == 270)
+     if time - 5 > @last_scan_time
+       return false
+     end
+     fire 0.1
+     return true
+   end
+   false
+  end
+
+  def check_bottom_corner?
+   if ((gun_heading > 90) or (gun_heading < 270))
+     turn_gun -30 + gun_heading%30
+     return true
+   else
+     if (gun_heading != 90)
+       turn_gun 30 - gun_heading%30
+       return true
+     end
+   end
+   if (gun_heading == 90)
+     if time - 5 > @last_scan_time
+       return false
+     end
+     fire 0.1
+     return true
+   end
+   false
+  end
 end
