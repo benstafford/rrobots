@@ -343,7 +343,7 @@ class RobotRunner
     end
   end
 
-  def to_s
+   def to_s
     @robot.class.name
   end
 

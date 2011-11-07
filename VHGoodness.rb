@@ -1,4 +1,5 @@
 require 'robot'
+require 'numeric'
 
 class VHGoodness
    include Robot
@@ -32,14 +33,20 @@ class VHGoodness
 #  broadcast(msg)      #broadcasts msg to all bots (they recieve 'broadcasts'
 #                      #events with the msg and rough direction)
   def tick events
-    location = [x,y]
     if events['robot_scanned'].empty?
       turn_gun(10)
     else
-      #turn_gun(-1)
       navigate
-      fire 3
+      if !dont_shoot?(gun_heading)
+        fire(3)
+      end
     end
+    broadcast_location
+  end
+
+  def broadcast_location
+    puts "SENDING LCOATION AS: #{x.to_i}|#{y.to_i}"
+    broadcast "#{x.to_i}|#{y.to_i}"
   end
 
   def navigate
@@ -48,12 +55,36 @@ class VHGoodness
       accelerate(1)
     end
     if x >= (battlefield_width - distance_from_edge) or x <= distance_from_edge or y >= (battlefield_height - distance_from_edge) or y <= distance_from_edge
-      #turn_radar 30
       turn 10
     end
-    #if y >= (battlefield_height - 40) or y <= 40
-    # turn 10
-    #end
+  end
+
+  def dont_shoot? my_gun_angle
+    p_x, p_y = 0.0,0.0
+    if !events['broadcasts'].nil?
+      #puts "RECEIVED BROADCASTS: #{events['broadcasts']}"
+      p_vars = events['broadcasts'][0][0].split('|')
+      p_x = p_vars[0].to_f
+      p_y = p_vars[1].to_f
+      #puts "RECIEVED LCOATION AS #{p_x},#{p_y}"
+    end
+    
+    p_angle = angle_give_two_points x, y, p_x, p_y
+    should_not_fire = is_within_fifteen_degree_range? p_angle, my_gun_angle
+    puts "(#{x}, #{y} should fire = #{should_not_fire}; on #{p_x}, #{p_y} (p_angle: #{p_angle}, my_gun_angle: #{my_gun_angle})"
+    should_not_fire
+  end
+
+  def angle_give_two_points x_1, y_1, x_2, y_2
+    d_x = (x_2-x_1)
+    d_y = (y_2-y_1)
+    angle = Math.atan2(d_y, d_x).to_deg
+    angle += 360 if angle < 0
+    angle
+  end
+
+  def is_within_fifteen_degree_range? p_angle, my_gun_angle
+    (p_angle - my_gun_angle).abs < 15
   end
 
   def heading_up_down?

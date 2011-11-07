@@ -12,8 +12,10 @@ class Invader
   attr_accessor :intent_heading
   attr_accessor :currrent_direction
 
-  DISTANCE_PAST_SCAN = 3
-  FIRE_POWER = 1.0
+  DISTANCE_PAST_SCAN = 2
+  FIRE_POWER = 0.1
+  CLOCKWISE = -1
+  COUNTERCLOCKWISE = 1
 
   def initialize
     @current_direction = 1
@@ -201,8 +203,7 @@ private
     end
   end
 
-  CLOCKWISE = -1
-  COUNTERCLOCKWISE = 1
+
 
   def turn_direction current_heading, desired_heading
     if desired_heading == 0
