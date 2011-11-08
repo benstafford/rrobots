@@ -3,7 +3,6 @@ require 'Invader'
 class SpaceInvader < Invader
   def initialize
     @intent_heading = 0
-    @name = "SpaceInvader"
     super
   end
 
@@ -21,6 +20,11 @@ class SpaceInvader < Invader
       turn_radar 10 - radar_heading%10
     end
   end
+
+  def get_target_position enemy
+    return enemy.x
+  end
+
 
   def check_top_corner?
    if (gun_heading <180)

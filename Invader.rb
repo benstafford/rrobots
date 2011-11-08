@@ -4,22 +4,25 @@ class Invader
    include Robot
   attr_accessor :last_scan_time
   attr_accessor :last_scan_pursued
+  attr_accessor :friend_provided_target
+  attr_accessor :last_target_time
   attr_accessor :distance_to_edge
   attr_accessor :position_on_edge
   attr_accessor :width_of_edge
   attr_accessor :heading_of_edge
-  attr_accessor :name
   attr_accessor :intent_heading
   attr_accessor :currrent_direction
 
-  DISTANCE_PAST_SCAN = 2
+  DISTANCE_PAST_SCAN = 0
   FIRE_POWER = 0.1
   CLOCKWISE = -1
   COUNTERCLOCKWISE = 1
+  SAFE_DISTANCE = 125
 
   def initialize
     @current_direction = 1
     @last_scan_time = 0
+    @last_target_time = 0
   end
 
   def record_position distance_to_edge, position_on_edge, width_of_edge, heading_of_edge
@@ -29,27 +32,14 @@ class Invader
     @heading_of_edge = heading_of_edge
   end
 
-  def tick events
-    if events['robot_scanned'].count>0
-      scan = events['robot_scanned'].pop.first
-      broadcast scan
-      if (events['broadcasts'].count > 0)
-        if (@position_on_edge > size * 2)
-          @last_scan_time = time
-          @last_scan_pursued = false
-        end
-      else
-        @last_scan_time = time
-        @last_scan_pursued = false
-      end
+def tick events
+  broadcast "me=#{@x.to_i},#{@y.to_i}"
+  if at_edge?
+    if get_heading_from_friend?
+      full_speed_ahead
     else
-      broadcast "I'm at #{@position_on_edge}"
-    end
-
-    if at_edge?
-      if !get_heading_from_friend? events['broadcasts']
-        check_recent_radar
-      end
+      handle_radar_scan_results
+      check_recent_radar
       if need_to_turn?
         turn_around
       else
@@ -61,33 +51,131 @@ class Invader
         end
 
         full_speed_ahead
-        point_gun opposite_edge
-        turn_radar_away_from_edge
-        fire_stream_but_dont_hit_friend
+        if @last_target_time > @last_scan_time and time - @last_target_time < 5
+          #aim at last provided target still.
+          fire_toward_target @friend_provided_target
+        else
+          point_gun opposite_edge
+          turn_radar_away_from_edge
+          fire_stream_but_dont_hit_friend
+        end
       end
-    else
-      head_to_edge
+    end
+  else
+    head_to_edge
+  end
+end
+
+private
+  def handle_radar_scan_results
+    robots_scanned = events['robot_scanned']
+    if robots_scanned.count>0 and radar_heading == opposite_edge
+      scan = robots_scanned.pop.first
+      enemy = get_scan_loc(scan)
+      if isEnemy?(enemy)
+        broadcast "Enemy=#{enemy.x.to_i},#{enemy.y.to_i}"
+        @last_scan_time = time
+        @last_scan_pursued = false
+      end
     end
   end
 
-private
-  def get_heading_from_friend? broadcast_events
-    if broadcast_events.count > 0
-      target_loc = broadcast_events[0].first.to_f
-      if target_loc > 0
-        if target_loc < @position_on_edge - size
-          say "Coming Buddy!"
-          @current_direction = -1
-        else
-          "Hold on, I'll get him!'"
-          if target_loc > @position_on_edge + size
-            @current_direction = 1
+  def isEnemy? object
+    friend = friend_location()
+    distance = distance_between_objects(object, friend)
+    if distance < SAFE_DISTANCE
+      false
+    else
+      true
+    end
+  end
+
+  def friend_location
+    broadcasts = events['broadcasts']
+    if (broadcasts.count > 0)
+      broadcasts.each do |broadcast_message|
+        broadcast_message[0].split(";").each do |message|
+          if message[0..2]=="me="
+            location = message[3..100].split(",")
+            return Point.new(location[0].to_i, location[1].to_i)
           end
         end
-        true
       end
     end
-    false
+    return Point.new(0,0)
+  end
+
+  def enemy_location
+   broadcasts = events['broadcasts']
+   if (broadcasts.count > 0)
+     broadcasts.each do |broadcast_message|
+       message = broadcast_message[0]
+       if message[0..5]=="Enemy="
+         location = message[6..100].split(",")
+         enemy = Point.new(location[0].to_i, location[1].to_i)
+         return enemy
+       end
+     end
+   end
+   return Point.new(0,0)
+  end
+
+  def distance_between_objects object1, object2
+    Math.hypot(object1.y - object2.y, object2.x - object1.x)
+  end
+
+  def get_scan_loc distance
+    Point.new(@position_on_edge, @distance_to_edge + distance)
+  end
+
+  def get_heading_from_friend?
+    enemy = enemy_location
+    if (enemy.x == 0 and enemy.y == 0)
+      return false
+    end
+
+    @friend_provided_target = enemy
+    @last_target_time = time
+    target_position = get_target_position(enemy)
+    if target_position > 0
+      if target_position < @position_on_edge - size
+        say "Coming Buddy!"
+        @current_direction = -1
+      else
+        "Hold on, I'll get him!'"
+        if target_position > @position_on_edge + size
+          @current_direction = 1
+        end
+      end
+    end
+    fire_toward_target enemy
+
+    return true
+  end
+
+  def fire_toward_target enemy
+    gun_direction = toward_point(enemy, gun_heading)
+    if gun_direction > 30
+      gun_direction = 30
+    end
+    if gun_direction < -30
+      gun_direction = -30
+    end
+    turn_gun gun_direction
+    turn_radar 0-gun_direction
+    if gun_direction == gun_heading
+      fire 1.0
+    else
+      fire 0.1
+    end
+  end
+
+  def degree_from_point point
+    a = Math.atan2(@y - point.y, point.x - @x) / Math::PI * 180 % 360
+  end
+
+  def get_target_position enemy
+    0
   end
 
   def check_recent_radar
@@ -97,16 +185,18 @@ private
     end
   end
 
-
   def at_edge?
     @distance_to_edge <= (size + 1)
   end
 
   def head_to_edge
+    turn_radar 1 if time == 0
     accelerate 1
     if heading != @heading_of_edge
       turn 10 - heading%10
     end
+    turn_gun 10
+    fire 3 unless events['robot_scanned'].empty?
   end
 
   def need_to_turn?
@@ -119,11 +209,8 @@ private
   end
 
   def point_gun direction
-    if gun_heading < direction
-        turn_gun 30
-    end
-    if gun_heading > direction
-        turn_gun -30
+    if (gun_heading != direction)
+      turn_gun turn_direction(gun_heading, direction)* (30 - gun_heading%30)
     end
   end
 
@@ -203,6 +290,27 @@ private
     end
   end
 
+  def toward_heading to_heading, from_heading
+    difference_between = to_heading - from_heading
+    if difference_between > 0
+      if difference_between < 180
+        desired_turn = difference_between
+      else #difference_between > 180
+        desired_turn = -1 * (360 - difference_between.abs)
+      end
+    else #difference_between < 0
+      if difference_between > -180
+        desired_turn = difference_between
+      else #difference_between < -180
+        desired_turn = 1 * (360 - difference_between.abs)
+      end
+    end
+    desired_turn
+  end
+
+  def toward_point point,from_heading
+    toward_heading (degree_from_point point), from_heading
+  end
 
 
   def turn_direction current_heading, desired_heading
@@ -236,4 +344,10 @@ private
     end
   end
 
+  class Point
+    attr_accessor :x,:y
+    def initialize(x,y)
+      @x,@y = x,y
+    end
+  end
 end

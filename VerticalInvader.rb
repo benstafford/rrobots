@@ -3,7 +3,6 @@ require 'Invader'
 class VerticalInvader < Invader
   def initialize
     @intent_heading = 270
-    @name = "VerticalInvader"
     super
   end
 
@@ -21,6 +20,15 @@ class VerticalInvader < Invader
       turn_radar 10 - radar_heading%10
     end
   end
+
+  def get_scan_loc distance
+      Point.new(@distance_to_edge + distance, @position_on_edge)
+  end
+
+  def get_target_position enemy
+    return enemy.y
+  end
+
 
   def check_top_corner?
    if ((gun_heading > 270) or (gun_heading < 90))
