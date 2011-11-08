@@ -308,13 +308,23 @@ class RobotRunner
   def scan
     @battlefield.robots.each do |other|
       if (other != self) && (!other.dead)
-        a = Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
-        if (@old_radar_heading <= a && a <= @new_radar_heading) || (@old_radar_heading >= a && a >= @new_radar_heading) ||
-          (@old_radar_heading <= a+360 && a+360 <= @new_radar_heading) || (@old_radar_heading >= a+360 && a+360 >= new_radar_heading) ||
-          (@old_radar_heading <= a-360 && a-360 <= @new_radar_heading) || (@old_radar_heading >= a-360 && a-360 >= @new_radar_heading)
-           @events['robot_scanned'] << [Math.hypot(@y - other.y, other.x - @x)]
+        a = getAngleToOther(other)
+        if !a.nil?
+          if (@old_radar_heading <= a && a <= @new_radar_heading) || (@old_radar_heading >= a && a >= @new_radar_heading) ||
+            (@old_radar_heading <= a+360 && a+360 <= @new_radar_heading) || (@old_radar_heading >= a+360 && a+360 >= new_radar_heading) ||
+            (@old_radar_heading <= a-360 && a-360 <= @new_radar_heading) || (@old_radar_heading >= a-360 && a-360 >= @new_radar_heading)
+             @events['robot_scanned'] << [Math.hypot(@y - other.y, other.x - @x)]
+          end
         end
       end
+    end
+  end
+
+  def getAngleToOther other
+    if (@y - other.y == 0 and other.x - @x == 0)
+      return nil
+    else
+      return Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
     end
   end
 
@@ -332,11 +342,15 @@ class RobotRunner
       if (other != self) && !other.dead && (other.team == self.team)
         msg = other.actions[:broadcast]
         if msg != 0
-          a = Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
-          dir = 'east'
-          dir = 'north' if a.between? 45,135
-          dir = 'west' if a.between? 135,225
-          dir = 'south' if a.between? 225,315
+          a = getAngleToOther(other)
+          if a.nil?
+            dir = 'same'
+          else
+            dir = 'east'
+            dir = 'north' if a.between? 45,135
+            dir = 'west' if a.between? 135,225
+            dir = 'south' if a.between? 225,315
+          end
           @events['broadcasts'] << [msg, dir]
         end
       end
