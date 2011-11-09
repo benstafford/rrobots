@@ -117,14 +117,14 @@ class MarkBot
 
   def process_empty_scan
     @desired_radar_heading = (@radar_heading + @radar_search_direction * MAX_RADAR_SWEEP) % 360
-    @desired_gun_heading = angle_to_point(@target_position) + Math.sin(time/@fire_power) * 3
+    @desired_gun_heading = angle_to_point(@target_position) + Math.sin(time) * (3-@fire_power)
     decrease_fire_power
     accelerate(-Math.sin(time/100).abs)
   end
 
   def set_target_position(test_target_position)
     @target_position = test_target_position
-    @desired_gun_heading = angle_to_point(@target_position) + Math.sin(time/@fire_power) * 3
+    @desired_gun_heading = angle_to_point(@target_position) + Math.sin(time) * (3-@fire_power)
     @radar_search_direction *= -1
     @desired_radar_heading = (angle_to_point(@target_position) + @radar_search_direction * MAX_RADAR_SWEEP) % 360
     @desired_robot_heading = (angle_to_point(@target_position) + 90) % 360
@@ -145,11 +145,12 @@ class MarkBot
   end
 
   def increase_fire_power
-    @fire_power = [@fire_power + 0.02, MAX_FIRE_POWER].min
+    @fire_power = [@fire_power + 0.01, MAX_FIRE_POWER].min
+  #  @fire_power = ((@battlefield_height - distance_between_points(@my_position, @target_position)).abs / @battlefield_height) * MAX_FIRE_POWER
   end
 
   def decrease_fire_power
-    @fire_power = [MIN_FIRE_POWER, @fire_power - 0.06].max
+    @fire_power = [MIN_FIRE_POWER, @fire_power - 0.03].max
   end
 
   def position_from_distance_and_angle(distance, angle)
