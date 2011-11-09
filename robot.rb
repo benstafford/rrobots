@@ -34,6 +34,9 @@ module Robot
   #path to where your robot's optional skin images are
   attr_accessor :skin_prefix
 
+  #used by teamExperimenter to communicate trial numbers, used to test a varying factor.
+  attr_accessor :trial
+
   #team of your robot
   attr_state :team
 
@@ -131,6 +134,10 @@ class RobotRunner
     attr_accessor "#{iv}_max"
   }
 
+
+  #used by teamExperimenter to communicate trial numbers, used to test a varying factor.
+  attr_accessor :trial
+
   #AI of this robot
   attr_accessor :robot
 
@@ -147,6 +154,7 @@ class RobotRunner
 
   def initialize robot, bf, team=0
     @robot = robot
+    @robot.trial = @trial
     @battlefield = bf
     @team = team
     set_action_limits
