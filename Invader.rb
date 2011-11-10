@@ -14,10 +14,20 @@ class Invader
   attr_accessor :currrent_direction
 
   DISTANCE_PAST_SCAN = 0
-  FIRE_POWER = 0.1
   CLOCKWISE = -1
   COUNTERCLOCKWISE = 1
   SAFE_DISTANCE = 125
+  FIRE_POWER = 0.1
+
+  def firePower
+    if trial.nil?
+      return FIRE_POWER
+    else
+      return trial / 10
+    end
+  end
+
+
 
   def initialize
     @current_direction = 1
@@ -166,7 +176,7 @@ private
     if gun_direction == gun_heading
       fire 1.0
     else
-      fire 0.1
+      fire firePower()
     end
   end
 
@@ -217,10 +227,10 @@ private
   def fire_stream_but_dont_hit_friend
     if (events['broadcasts'].count > 0)
       if (@position_on_edge > size * 2)
-        fire FIRE_POWER
+        fire firePower()
       end
     else
-      fire FIRE_POWER
+      fire firePower()
     end
   end
 
