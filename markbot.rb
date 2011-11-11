@@ -85,7 +85,7 @@ Direction: #{radar_search_direction}\n\
       process_damage(events["got_hit"])
       process_radar(events["robot_scanned"])
       process_partner_messages(events["broadcasts"])
-      attack(closest_target)
+      attack(closest_target) if closest_target != nil
       move_the_robot(closest_target)
       scan_for_target
       fire @fire_power if not_aiming_at_partner && closest_target != nil
@@ -248,11 +248,7 @@ Direction: #{radar_search_direction}\n\
   end
 
   def attack target
-    if target != nil
       @desired_gun_heading = angle_to_point(target) + Math.sin(time) * (3-@fire_power)
-    else
-      @desired_gun_heading = angle_to_point(center_position) + Math.sin(time) * (3-@fire_power)
-    end
   end
 
   def distance_to(point)
