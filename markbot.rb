@@ -251,9 +251,8 @@ Direction: #{radar_search_direction}\n\
     if target != nil
       @desired_gun_heading = angle_to_point(target) + Math.sin(time) * (3-@fire_power)
     else
-      @desired_gun_heading = angle_to_point(heading) + Math.sin(time) * (3-@fire_power)
+      @desired_gun_heading = angle_to_point(center_position) + Math.sin(time) * (3-@fire_power)
     end
-
   end
 
   def distance_to(point)
