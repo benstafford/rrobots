@@ -7,6 +7,8 @@ class MarkBot
   X = 0
   Y = 1
 
+  TARGET_EXPIRATION = 20
+
   MAX_RADAR_SWEEP = 7
   MAX_SCAN_RANGE = 170
 
@@ -25,13 +27,14 @@ class MarkBot
   MOVE_ROBOT = true
 
   def initialize
-    @my_target_position = Vector[0,0]
-    @my_position = Vector[0,0]
+    @my_target_position = nil
+    @my_target_time = -1
+    @my_position = nil
 
-    @partner_position = Vector[0,0]
-    @partner_target_position = Vector[0,0]
+    @partner_position = nil
+    @partner_target_position = nil
+    @partner_target_time = -1
 
-    @new_target_position = false
     @partner_dead = false
 
     @desired_robot_heading = 0
@@ -69,11 +72,10 @@ Direction: #{radar_search_direction}\n\
   end
 
   def broadcast_message
-    if time % 2 == 0
+    if time % 2 == 0 || @my_target_position == nil
       broadcast_position("P", @my_position)
     else
       broadcast_position("T", @my_target_position)
-      @new_target_position = true
     end
   end
 
@@ -86,11 +88,29 @@ Direction: #{radar_search_direction}\n\
       attack(closest_target)
       move_the_robot(closest_target)
       scan_for_target
-      fire @fire_power if not_aiming_at_partner
+      fire @fire_power if not_aiming_at_partner && closest_target != nil
       broadcast_message
     end
     turn_elements #if time % 50 == 0
-    #say_info
+    expire_targets
+    say_info
+  end
+
+  def expire_targets
+    expire_my_target
+    expire_partner_target
+  end
+
+  def expire_my_target
+    if time - @my_target_time >= TARGET_EXPIRATION
+      @my_target_position = nil
+    end
+  end
+
+  def expire_partner_target
+    if time - @partner_target_time >= TARGET_EXPIRATION
+      @partner_target_position = nil
+    end
   end
 
   def move_the_robot(target)
@@ -112,7 +132,9 @@ Direction: #{radar_search_direction}\n\
   end
 
   def move_toward(target)
-    if distance_to(target) > 800
+    if target == nil
+      stop
+    elsif distance_to(target) > 800
       @desired_robot_heading = (angle_to_point(target) + 70) % 360
       accelerate_the_robot(1)
     else
@@ -126,12 +148,12 @@ Direction: #{radar_search_direction}\n\
   end
 
   def toward_partner(angle)
-    (angle_to_point(@partner_position) - angle).abs <= MIN_PARTNER_SAFETY_ANGLE
+    !@partner_dead && (@partner_position == nil || (angle_to_point(@partner_position) - angle).abs <= MIN_PARTNER_SAFETY_ANGLE)
   end
 
   def move_away_from_partner
     moving_away = false
-    if distance_between_points(@my_position, @partner_position) < MIN_DISTANCE_FROM_PARTNER && !@partner_dead
+    if @partner_position != nil && !@partner_dead && distance_to(@partner_position) < MIN_DISTANCE_FROM_PARTNER
       @desired_robot_heading = angle_to_point(@partner_position)
       accelerate(-1)
       moving_away = true
@@ -146,6 +168,7 @@ Direction: #{radar_search_direction}\n\
       @partner_position = Vector[message_x,message_y]
     else
       @partner_target_position = Vector[message_x, message_y]
+      @partner_target_time = time
     end
   end
 
@@ -171,8 +194,6 @@ Direction: #{radar_search_direction}\n\
 
   def init
     @center_position = Vector[battlefield_width/2,battlefield_height/2]
-    @my_target_position = @center_position
-    @partner_target_position = @center_position
     headingToCenter = angle_to_point(@center_position)
     @desired_gun_heading = headingToCenter
     @desired_radar_heading = headingToCenter
@@ -202,7 +223,11 @@ Direction: #{radar_search_direction}\n\
     if (@desired_radar_heading == @radar_heading)
       increase_scan_range
       reverse_scan
-      @desired_radar_heading = angle_to_point(@my_target_position) + @radar_search_direction * @radar_scan_range
+      if @my_target_position != nil
+        @desired_radar_heading = angle_to_point(@my_target_position) + @radar_search_direction * @radar_scan_range
+      else
+        @desired_radar_heading = angle_to_point(@center_position) + @radar_search_direction * @radar_scan_range
+      end
     end
   end
 
@@ -223,7 +248,9 @@ Direction: #{radar_search_direction}\n\
   end
 
   def attack target
-    @desired_gun_heading = angle_to_point(target) + Math.sin(time) * (3-@fire_power)
+    if target != nil
+      @desired_gun_heading = angle_to_point(target) + Math.sin(time) * (3-@fire_power)
+    end
   end
 
   def distance_to(point)
@@ -231,7 +258,11 @@ Direction: #{radar_search_direction}\n\
   end
 
   def closest_target
-    if distance_to(@partner_target_position) < distance_to(@my_target_position) && !@partner_dead
+    if @partner_target_position == nil
+      @my_target_position
+    elsif @my_target_position == nil
+      @partner_target_position
+    elsif distance_to(@partner_target_position) < distance_to(@my_target_position) && !@partner_dead
       @partner_target_position
     else
       @my_target_position
@@ -240,6 +271,7 @@ Direction: #{radar_search_direction}\n\
 
   def process_found_target(test_target_position)
     @my_target_position = test_target_position
+    @my_target_time = time
     @desired_radar_heading = angle_to_point(@my_target_position)
     decrease_scan_range
     increase_fire_power
@@ -247,11 +279,10 @@ Direction: #{radar_search_direction}\n\
 
   def process_target(target)
     test_target_position = position_from_distance_and_angle(target.first, @radar_heading - MAX_RADAR_SWEEP/2)
-    distance_between_firing_line_and_partner = distance_between_point_and_line(@partner_position, @my_position, test_target_position)
-    #distance_between_firing_line_and_partners_target = distance_between_point_and_line(@partner_target_position, @my_position, test_target_position)
+    distance_between_firing_line_and_partner = 0
+    distance_between_firing_line_and_partner = distance_between_point_and_line(@partner_position, @my_position, test_target_position) if @partner_position != nil
 
     if @partner_dead || (distance_between_firing_line_and_partner > MIN_PARTNER_SAFETY_DISTANCE) && !toward_partner(angle_to_point(test_target_position))
-    #&& (distance_between_firing_line_and_partners_target > MIN_PARTNER_SAFETY_DISTANCE)
       process_found_target(test_target_position)
     else
       process_empty_scan
@@ -357,6 +388,8 @@ Direction: #{radar_search_direction}\n\
   
   attr_accessor :my_position
   attr_accessor :my_target_position
+  attr_accessor :my_target_time
+
   attr_accessor :partner_position
   attr_accessor :partner_target_position
 
