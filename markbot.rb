@@ -7,7 +7,7 @@ class MarkBot
   X = 0
   Y = 1
 
-  TARGET_EXPIRATION = 20
+  TARGET_EXPIRATION = 30
 
   MAX_RADAR_SWEEP = 7
   MAX_SCAN_RANGE = 170
@@ -93,7 +93,7 @@ Direction: #{radar_search_direction}\n\
     end
     turn_elements #if time % 50 == 0
     expire_targets
-    say_info
+    #say_info
   end
 
   def expire_targets
@@ -133,7 +133,7 @@ Direction: #{radar_search_direction}\n\
 
   def move_toward(target)
     if target == nil
-      stop
+      move_toward(@center_position)
     elsif distance_to(target) > 800
       @desired_robot_heading = (angle_to_point(target) + 70) % 360
       accelerate_the_robot(1)
@@ -250,7 +250,10 @@ Direction: #{radar_search_direction}\n\
   def attack target
     if target != nil
       @desired_gun_heading = angle_to_point(target) + Math.sin(time) * (3-@fire_power)
+    else
+      @desired_gun_heading = angle_to_point(heading) + Math.sin(time) * (3-@fire_power)
     end
+
   end
 
   def distance_to(point)
