@@ -2,6 +2,7 @@ $LOAD_PATH.unshift(File.dirname(__FILE__))
 $LOAD_PATH.unshift File.join(File.dirname(__FILE__), '../')
 
 require 'PolarIce'
+require 'Matrix'
 
 describe 'PolarIce' do
   before(:each) do
@@ -73,5 +74,20 @@ describe 'PolarIce' do
     end
   end
 
+  describe 'It should handle ticks' do
+    it 'should handle a nil tick' do
+      @bot.tick nil
+    end
+    describe 'It should initialize variables on a tick' do
+    before(:each) do
+      @bot.stub!(:x).and_return(5)
+      @bot.stub!(:y).and_return(10)
+    end
+    it 'should store its location as a vector' do
+      @bot.tick nil
+      @bot.currentPosition.should == Vector[5,10]
+    end
+    end
+  end
 end
 
