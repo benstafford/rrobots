@@ -74,20 +74,62 @@ describe 'PolarIce' do
     end
   end
 
+  describe 'It should initialize variables' do
+    it 'should have a default acceleration rate' do
+      @bot.accelerationRate.should_not == nil
+    end
+    it 'should have a default hull rotation' do
+      @bot.hullRotation.should_not == nil
+    end
+    it 'should have a default gun rotation' do
+      @bot.gunRotation.should_not == nil
+    end
+    it 'should have a default radar rotation' do
+      @bot.radarRotation.should_not == nil
+    end
+  end
+
   describe 'It should handle ticks' do
+    before(:each) do
+      @bot.stub!(:x).and_return(5)
+      @bot.stub!(:y).and_return(10)
+      @bot.stub!(:accelerate)
+      @bot.stub!(:turn)
+      @bot.stub!(:turn_gun)
+      @bot.stub!(:turn_radar)
+    end
     it 'should handle a nil tick' do
       @bot.tick nil
     end
     describe 'It should initialize variables on a tick' do
-    before(:each) do
-      @bot.stub!(:x).and_return(5)
-      @bot.stub!(:y).and_return(10)
+      it 'should store its location as a vector' do
+        @bot.tick nil
+        @bot.currentPosition.should == Vector[5,10]
+      end
     end
-    it 'should store its location as a vector' do
-      @bot.tick nil
-      @bot.currentPosition.should == Vector[5,10]
-    end
+    describe 'It should move its parts' do
+      it 'should accelerate the desired amount' do
+        @bot.accelerationRate = 1.0
+        @bot.should_receive(:accelerate).with(1.0)
+        @bot.tick nil
+      end
+      it 'should rotate its hull the desired amount' do
+        @bot.hullRotation = 15
+        @bot.should_receive(:turn).with(15)
+        @bot.tick nil
+      end
+      it 'should rotate its gun the desired amount' do
+        @bot.gunRotation = 15
+        @bot.should_receive(:turn_gun).with(15)
+        @bot.tick nil
+      end
+      it 'should rotate its radar the desired amount' do
+        @bot.radarRotation = 15
+        @bot.should_receive(:turn_radar).with(15)
+        @bot.tick nil
+      end
     end
   end
+
 end
 
