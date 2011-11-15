@@ -20,10 +20,11 @@ class MarkBot
   MIN_PARTNER_SAFETY_DISTANCE = 300
 
   MIN_DISTANCE_FROM_PARTNER = 500
-  MIN_DISTANCE_FROM_WALL = 120
+  MIN_DISTANCE_FROM_WALL = 200
 
   DESIRED_DISTANCE_FROM_TARGET = 800
 
+  MOVE_TOWARD_ANGLE = 80
   MIN_FIRE_POWER = 0.1
   MAX_FIRE_POWER = 3
 
@@ -139,10 +140,10 @@ Direction: #{radar_search_direction}\n\
     if target == nil
       move_toward(@center_position)
     elsif distance_to(target) > DESIRED_DISTANCE_FROM_TARGET
-      @desired_robot_heading = (angle_to_point(target) + 70) % 360
+      @desired_robot_heading = (angle_to_point(target) + MOVE_TOWARD_ANGLE) % 360
       accelerate_the_robot(1)
     else
-      @desired_robot_heading = (angle_to_point(target) - 70) % 360
+      @desired_robot_heading = (angle_to_point(target) - MOVE_TOWARD_ANGLE) % 360
       accelerate_the_robot(-1)
     end
   end
