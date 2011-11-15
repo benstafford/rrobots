@@ -23,66 +23,6 @@ class PolarIce
     say @quote
   end
 
-  def currentPosition
-    @currentPosition
-  end
-
-  def accelerationRate
-    @accelerationRate
-  end
-
-  def accelerationRate=(rate)
-    @accelerationRate = rate
-  end
-
-  def hullRotation
-    @hullRotation
-  end
-
-  def hullRotation=(rotation)
-    @hullRotation = rotation
-  end
-
-  def gunRotation
-    @gunRotation
-  end
-
-  def gunRotation=(rotation)
-   @gunRotation = rotation
-  end
-
-  def radarRotation
-    @radarRotation
-  end
-
-  def radarRotation=(rotation)
-    @radarRotation = rotation
-  end
-
-  def firePower
-    @firePower
-  end
-
-  def firePower=(power)
-    @firePower = power
-  end
-
-  def broadcastMessage
-    @broadcastMessage
-  end
-
-  def broadcastMessage=(message)
-    @broadcastMessage = message
-  end
-
-  def quote
-    @quote
-  end
-
-  def quote=(message)
-    @quote = message
-  end
-
   def initialize
     @accelerationRate = 0
     @hullRotation = 0
@@ -92,4 +32,13 @@ class PolarIce
     @broadcastMessage = ""
     @quote = "quote"
   end
+
+  attr_reader(:currentPosition)
+  attr_accessor(:accelerationRate)
+  attr_accessor(:hullRotation)
+  attr_accessor(:gunRotation)
+  attr_accessor(:radarRotation)
+  attr_accessor(:firePower)
+  attr_accessor(:broadcastMessage)
+  attr_accessor(:quote)
 end
