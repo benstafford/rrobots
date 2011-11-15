@@ -101,53 +101,12 @@ class NewInvader
   end
 
   def record_radar_detected
-    @found_enemy = nil
-    robots_scanned = events['robot_scanned']
-    if robots_scanned.count > 0 and radar_heading == @math.opposite_edge
-      scan = robots_scanned.pop.first
-      enemy = get_scan_loc(scan)
-      if isEnemy?(enemy)
-        broadcast "Enemy=#{enemy.x.to_i},#{enemy.y.to_i}"
-        if @mode == InvaderMode::SEARCHING
-          say "Found!"
-          @mode = InvaderMode::FOUND_TARGET
-        end
-        @found_enemy = enemy
-      end
+    @found_enemy = @radar_engine.scan_radar(events['robot_scanned'])
+    if not @found_enemy.nil? and @mode == InvaderMode::SEARCHING
+      say "Found!"
+      @mode = InvaderMode::FOUND_TARGET
     end
   end
-
-  def get_scan_loc distance
-    leading_distance = (Math.sin(5 * Math::PI/180) * distance.to_f)
-    distance = (Math.cos(5 * Math::PI/180) * distance.to_f)
-    direction = @move_engine.current_direction
-    leading_distance *= direction
-    case @math.opposite_edge
-      when 0
-        InvaderPoint.new(@x + distance, @y - leading_distance)
-      when 90
-        InvaderPoint.new(@x - leading_distance, @y - distance)
-      when 180
-        InvaderPoint.new(@x - distance, @y + leading_distance)
-      when 270
-        InvaderPoint.new(@x + leading_distance, @y + distance)
-    end
-  end
-
-  SAFE_DISTANCE = 125
-
-  def isEnemy? object
-    return true if @friend.nil?
-    friend = @friend
-    distance = @math.distance_between_objects(object, friend)
-    if distance < SAFE_DISTANCE
-      false
-    else
-      true
-    end
-  end
-
-
 
   class InvaderMovementEngine
     attr_accessor :accelerate
@@ -177,6 +136,8 @@ class NewInvader
           pursue_found_target
         when InvaderMode::SEARCHING
           search_my_row
+        when InvaderMode::SEARCH_OPPOSITE_CORNER
+          @accelerate = 0 - @robot.speed
       end
     end
 
@@ -187,9 +148,11 @@ class NewInvader
           end
           if @current_direction > 0 and @robot.math.distance_to_edge(right_of_edge) <= @robot.size + 1
             @current_direction = -1
+            @robot.mode = InvaderMode::SEARCH_OPPOSITE_CORNER
           end
           if @current_direction < 0 and @robot.math.distance_to_edge(left_of_edge) <= @robot.size + 1
             @current_direction = 1
+            @robot.mode = InvaderMode::SEARCH_OPPOSITE_CORNER
           end
           @accelerate = @current_direction
     end
@@ -352,6 +315,12 @@ class NewInvader
         when InvaderMode::SEARCHING
           point_gun @robot.math.opposite_edge
           @firepower = 0.1
+        when InvaderMode::SEARCH_OPPOSITE_CORNER
+          desired_gun_heading = @robot.math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
+          point_gun desired_gun_heading
+          if @robot.gun_heading == desired_gun_heading
+            @firepower = 3.0
+          end
       end
       dont_fire_at_friend
     end
@@ -378,6 +347,7 @@ class NewInvader
   class InvaderRadarEngine
     attr_accessor :turn_radar
     attr_accessor :robot
+    attr_accessor :check_flag
 
     RADAR_LEAD = 5
 
@@ -387,21 +357,100 @@ class NewInvader
 
     def radar_sweep
       @turn_radar = 0
+      @check_flag = false
       case @robot.mode
         when InvaderMode::HEAD_TO_EDGE
           @turn_radar = 1 if @robot.time == 0
+        when InvaderMode::SEARCH_OPPOSITE_CORNER
+          desired_direction = @robot.math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
+          check_direction = @robot.math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -91)
+          if (@robot.radar_heading == desired_direction)
+            @check_flag = true
+            desired_direction = check_direction
+          end
+          if (@robot.radar_heading == check_direction) and @robot.found_enemy.nil?
+            @robot.mode = InvaderMode::SEARCHING
+          end
+          @turn_radar = @robot.math.turn_toward(@robot.radar_heading, desired_direction)
         else
           desired_direction = @robot.math.opposite_edge
           if (@robot.radar_heading == desired_direction)
             desired_direction = lead_search_movement(@robot.radar_heading, @robot.move_engine.current_direction)
           end
           @turn_radar = @robot.math.turn_toward(@robot.radar_heading, desired_direction)
-      end
+        end
     end
 
     def lead_search_movement(current_heading, direction)
       current_heading + (direction * RADAR_LEAD)
     end
+
+    def scan_radar robots_scanned
+      if robots_scanned.count > 0
+        if @robot.mode == InvaderMode::SEARCH_OPPOSITE_CORNER && @check_flag == true
+          scan = robots_scanned.pop.first
+          desired_direction = @robot.math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
+          enemy = get_corner_scan_location(desired_direction, scan.to_f)
+          if enemy?(enemy)
+            @robot.broadcast "Enemy=#{enemy.x.to_i},#{enemy.y.to_i}"
+            return enemy
+          end
+        end
+        if @robot.radar_heading == @robot.math.opposite_edge
+          scan = robots_scanned.pop.first
+          enemy = get_scan_loc(scan)
+          if enemy?(enemy)
+            @robot.broadcast "Enemy=#{enemy.x.to_i},#{enemy.y.to_i}"
+            return enemy
+          end
+        end
+      end
+      nil
+    end
+
+    def get_corner_scan_location radar_heading, distance
+      case radar_heading
+        when 0
+          InvaderPoint.new(@robot.x + distance, @robot.y)
+        when 90
+          InvaderPoint.new(@robot.x, @robot.y - distance)
+        when 180
+          InvaderPoint.new(@robot.x - distance, @robot.y)
+        when 270
+          InvaderPoint.new(@robot.x, @robot.y + distance)
+      end
+    end
+
+   def get_scan_loc distance
+      leading_distance = (Math.sin(5 * Math::PI/180) * distance.to_f)
+      distance = (Math.cos(5 * Math::PI/180) * distance.to_f)
+      direction = @robot.move_engine.current_direction
+      leading_distance *= direction
+      case @robot.math.opposite_edge
+        when 0
+          InvaderPoint.new(@robot.x + distance, @robot.y - leading_distance)
+        when 90
+          InvaderPoint.new(@robot.x - leading_distance, @robot.y - distance)
+        when 180
+          InvaderPoint.new(@robot.x - distance, @robot.y + leading_distance)
+        when 270
+          InvaderPoint.new(@robot.x + leading_distance, @robot.y + distance)
+      end
+    end
+
+    SAFE_DISTANCE = 125
+
+    def enemy? object
+      return true if @robot.friend.nil?
+      friend = @robot.friend
+      distance = @robot.math.distance_between_objects(object, friend)
+      if distance < SAFE_DISTANCE
+        false
+      else
+        true
+      end
+    end
+
 
   end
 
@@ -479,6 +528,7 @@ class NewInvader
     PROVIDED_TARGET = 2
     FOUND_TARGET = 3
     SEARCHING = 4
+    SEARCH_OPPOSITE_CORNER = 5
   end
 
   class InvaderPoint
