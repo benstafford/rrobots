@@ -73,7 +73,6 @@ describe 'PolarIce' do
       end
     end
   end
-
   describe 'It should initialize variables' do
     it 'should have a default acceleration rate' do
       @bot.accelerationRate.should_not == nil
@@ -87,9 +86,17 @@ describe 'PolarIce' do
     it 'should have a default radar rotation' do
       @bot.radarRotation.should_not == nil
     end
+    it 'should have a default fire power' do
+      @bot.firePower.should_not == nil
+    end
+    it 'should have a default broadcast message' do
+      @bot.broadcastMessage.should_not == nil
+    end
+    it 'should have a default quote' do
+      @bot.quote.should_not == nil
+    end
   end
-
-  describe 'It should handle ticks' do
+  describe 'It should perform actions on each tick' do
     before(:each) do
       @bot.stub!(:x).and_return(5)
       @bot.stub!(:y).and_return(10)
@@ -97,6 +104,9 @@ describe 'PolarIce' do
       @bot.stub!(:turn)
       @bot.stub!(:turn_gun)
       @bot.stub!(:turn_radar)
+      @bot.stub!(:fire)
+      @bot.stub!(:broadcast)
+      @bot.stub!(:say)
     end
     it 'should handle a nil tick' do
       @bot.tick nil
@@ -108,28 +118,72 @@ describe 'PolarIce' do
       end
     end
     describe 'It should move its parts' do
+      it 'should accelerate' do
+        @bot.should_receive(:accelerate)
+        @bot.tick nil
+      end
+      it 'should rotate its hull' do
+        @bot.should_receive(:turn)
+        @bot.tick nil
+      end
+      it 'should rotate its gun' do
+        @bot.should_receive(:turn_gun)
+        @bot.tick nil
+      end
+      it 'should rotate its radar' do
+        @bot.should_receive(:turn_radar)
+        @bot.tick nil
+      end
+      it 'should fire' do
+        @bot.should_receive(:fire)
+        @bot.tick nil
+      end
+      it 'should broadcast' do
+        @bot.should_receive(:broadcast)
+        @bot.tick nil
+      end
+      it 'should say' do
+        @bot.should_receive(:say)
+        @bot.tick nil
+      end
+    end
+    describe 'It should move its parts desired amounts' do
       it 'should accelerate the desired amount' do
         @bot.accelerationRate = 1.0
         @bot.should_receive(:accelerate).with(1.0)
-        @bot.tick nil
+        @bot.perform_actions
       end
       it 'should rotate its hull the desired amount' do
         @bot.hullRotation = 15
         @bot.should_receive(:turn).with(15)
-        @bot.tick nil
+        @bot.perform_actions
       end
       it 'should rotate its gun the desired amount' do
         @bot.gunRotation = 15
         @bot.should_receive(:turn_gun).with(15)
-        @bot.tick nil
+        @bot.perform_actions
       end
       it 'should rotate its radar the desired amount' do
         @bot.radarRotation = 15
         @bot.should_receive(:turn_radar).with(15)
-        @bot.tick nil
+        @bot.perform_actions
+      end
+      it 'should fire the desired amount' do
+        @bot.firePower = 0.1
+        @bot.should_receive(:fire).with(0.1)
+        @bot.perform_actions
+      end
+      it 'should broadcast the desired message' do
+        @bot.broadcastMessage = "message"
+        @bot.should_receive(:broadcast).with("message")
+        @bot.perform_actions
+      end
+      it 'should say the desired quote' do
+        @bot.quote = "quote"
+        @bot.should_receive(:say).with("quote")
+        @bot.perform_actions
       end
     end
   end
-
 end
 
