@@ -51,7 +51,7 @@ class PolarIce
 
   def tick events
     initialize_tick
-    determine_desired_headings_from_positions
+    determine_desired_headings
     turn_toward_desired_headings
     accelerate_toward_desired_speed
     perform_actions
@@ -91,7 +91,7 @@ class PolarIce
     end
   end
 
-  def determine_desired_headings_from_positions
+  def determine_desired_headings
     @desiredHeading = currentPosition.angle_to(desiredPosition) if desiredPosition != nil && desiredPosition != currentPosition
     @desiredGunHeading = currentPosition.angle_to(desiredGunTarget) if desiredGunTarget != nil && desiredGunTarget != currentPosition
     @desiredRadarHeading = currentPosition.angle_to(desiredRadarTarget) if desiredRadarTarget != nil && desiredRadarTarget != currentPosition
@@ -124,6 +124,13 @@ class PolarIce
   end
 
   def initialize
+    initialize_basic_operations
+    initialize_desired_headings
+    initialize_desired_targets
+    initialize_desired_movement
+  end
+
+  def initialize_basic_operations
     @accelerationRate = INITIAL_ACCELERATION_RATE
     @hullRotation = INITIAL_HULL_ROTATION
     @gunRotation = INITIAL_GUN_ROTATION
@@ -131,15 +138,21 @@ class PolarIce
     @firePower = INITIAL_FIRE_POWER
     @broadcastMessage = INITIAL_BROADCAST_MESSAGE
     @quote = INITIAL_QUOTE
+  end
 
+  def initialize_desired_headings
     @desiredHeading = INITIAL_DESIRED_HEADING
     @desiredGunHeading = INITIAL_DESIRED_GUN_HEADING
     @desiredRadarHeading = INITIAL_DESIRED_RADAR_HEADING
+  end
 
+  def initialize_desired_targets
     @desiredPosition = INITIAL_DESIRED_POSITION
     @desiredGunTarget = INITIAL_DESIRED_GUN_TARGET
     @desiredRadarTarget = INITIAL_DESIRED_RADAR_TARGET
+  end
 
+  def initialize_desired_movement
     @desiredSpeed = INITIAL_DESIRED_SPEED
   end
 
