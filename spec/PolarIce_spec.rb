@@ -765,10 +765,22 @@ describe 'PolarIce' do
       @bot.stub!(:radar_heading).and_return(90)
     end
     describe 'at a desired speed' do
-      it 'should accelerate forward if slower than desired speed' do
+      it 'should not accelerate if already at desired speed' do
         @bot.stub!(:speed).and_return(0)
-        @bot.desiredSpeed = 1
+        @bot.desiredSpeed = 0
+        @bot.should_receive(:accelerate).with(0)
+        @bot.tick nil
+      end
+      it 'should accelerate if moving slower than desired speed' do
+        @bot.stub!(:speed).and_return(0)
+        @bot.desiredSpeed = 8
         @bot.should_receive(:accelerate).with(1)
+        @bot.tick nil
+      end
+      it 'should decelerate if moving faster than desired speed' do
+        @bot.stub!(:speed).and_return(0)
+        @bot.desiredSpeed = -8
+        @bot.should_receive(:accelerate).with(-1)
         @bot.tick nil
       end
     end

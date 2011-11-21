@@ -2,15 +2,42 @@ require 'robot'
 require 'Matrix'
 require 'Numeric'
 
-class PolarIce
-  include Robot
+class Numeric
+  def clamp(maximum)
+    [[-maximum, self].max, maximum].min
+  end
+end
 
+class FixNum
+  def sum_consecutive
+    self*(self+1)/2
+  end
+end
+
+class Vector
   X = 0
   Y = 1
+
+  def angle_to(position)
+    Math.atan2(self[Y] - position[Y], position[X] - self[X]).to_deg % 360
+  end
+end
+
+class PolarIce
+  include Robot
 
   MAXIMUM_HULL_TURN = 10
   MAXIMUM_GUN_TURN = 30
   MAXIMUM_RADAR_TURN = 60
+  MAXIMUM_ACCELERATION = 1
+
+  INITIAL_ACCELERATION_RATE = 0
+  INITIAL_HULL_ROTATION = 0
+  INITIAL_GUN_ROTATION = 0
+  INITIAL_RADAR_ROTATION = 0
+  INITIAL_FIRE_POWER = 0
+  INITIAL_BROADCAST_MESSAGE = ""
+  INITIAL_QUOTE = ""
 
   INITIAL_DESIRED_HEADING = nil
   INITIAL_DESIRED_GUN_HEADING = nil
@@ -26,7 +53,7 @@ class PolarIce
     initialize_tick
     determine_desired_headings_from_positions
     turn_toward_desired_headings
-    accerate_to_desired_speed
+    accelerate_toward_desired_speed
     perform_actions
     store_previous_status
   end
@@ -60,18 +87,22 @@ class PolarIce
     elsif desiredTurn < -180
       maximumTurn
     else
-      [[-maximumTurn, desiredTurn].max, maximumTurn].min
+      desiredTurn.clamp(maximumTurn)
     end
   end
 
   def determine_desired_headings_from_positions
-    @desiredHeading = angle_to(desiredPosition) if desiredPosition != nil && desiredPosition != currentPosition
-    @desiredGunHeading = angle_to(desiredGunTarget) if desiredGunTarget != nil && desiredGunTarget != currentPosition
-    @desiredRadarHeading = angle_to(desiredRadarTarget) if desiredRadarTarget != nil && desiredRadarTarget != currentPosition
+    @desiredHeading = currentPosition.angle_to(desiredPosition) if desiredPosition != nil && desiredPosition != currentPosition
+    @desiredGunHeading = currentPosition.angle_to(desiredGunTarget) if desiredGunTarget != nil && desiredGunTarget != currentPosition
+    @desiredRadarHeading = currentPosition.angle_to(desiredRadarTarget) if desiredRadarTarget != nil && desiredRadarTarget != currentPosition
   end
 
-  def angle_to(position)
-    Math.atan2(currentPosition[Y] - position[Y], position[X] - currentPosition[X]).to_deg % 360
+  def accelerate_toward_desired_speed
+    @accelerationRate = calculate_acceleration(desiredSpeed, speed) if desiredSpeed != nil
+  end
+
+  def calculate_acceleration(desiredSpeed, speed)
+    (desiredSpeed - speed).clamp(MAXIMUM_ACCELERATION)
   end
 
   def perform_actions
@@ -93,13 +124,13 @@ class PolarIce
   end
 
   def initialize
-    @accelerationRate = 0
-    @hullRotation = 0
-    @gunRotation = 0
-    @radarRotation = 0
-    @firePower = 0.1
-    @broadcastMessage = ""
-    @quote = ""
+    @accelerationRate = INITIAL_ACCELERATION_RATE
+    @hullRotation = INITIAL_HULL_ROTATION
+    @gunRotation = INITIAL_GUN_ROTATION
+    @radarRotation = INITIAL_RADAR_ROTATION
+    @firePower = INITIAL_FIRE_POWER
+    @broadcastMessage = INITIAL_BROADCAST_MESSAGE
+    @quote = INITIAL_QUOTE
 
     @desiredHeading = INITIAL_DESIRED_HEADING
     @desiredGunHeading = INITIAL_DESIRED_GUN_HEADING
