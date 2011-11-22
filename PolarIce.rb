@@ -42,19 +42,19 @@ class PolarIce
   INITIAL_DESIRED_GUN_HEADING = nil
   INITIAL_DESIRED_RADAR_HEADING = nil
 
-  INITIAL_DESIRED_POSITION = nil
+  INITIAL_DESIRED_POSITION = Vector[800,800]
   INITIAL_DESIRED_GUN_TARGET = nil
   INITIAL_DESIRED_RADAR_TARGET = nil
 
   INITIAL_DESIRED_SPEED = nil
+  INITIAL_DESIRED_MAXIMUM_SPEED = MAXIMUM_SPEED
 
   def tick events
     initialize_tick
-    determine_desired_headings
+    calculate_desired_headings
     turn_toward_desired_headings
     move_toward_desired_position
     accelerate_to_desired_speed
-    @quote = "Speed: #{speed}"
     perform_actions
     store_previous_status
   end
@@ -63,7 +63,7 @@ class PolarIce
     @currentPosition = Vector[x,y]
   end
 
-  def determine_desired_headings
+  def calculate_desired_headings
     @desiredHeading = currentPosition.angle_to(desiredPosition) if desiredPosition != nil && desiredPosition != currentPosition
     @desiredGunHeading = currentPosition.angle_to(desiredGunTarget) if desiredGunTarget != nil && desiredGunTarget != currentPosition
     @desiredRadarHeading = currentPosition.angle_to(desiredRadarTarget) if desiredRadarTarget != nil && desiredRadarTarget != currentPosition
@@ -103,7 +103,7 @@ class PolarIce
   end
 
   def calculate_desired_speed(desiredPosition)
-    Math.sqrt(currentPosition.distance_to(desiredPosition)).floor.clamp(MAXIMUM_SPEED)
+    Math.sqrt(currentPosition.distance_to(desiredPosition)).floor.clamp(MAXIMUM_SPEED).clamp(desiredMaximumSpeed)
   end
 
   def accelerate_to_desired_speed
@@ -163,6 +163,7 @@ class PolarIce
 
   def initialize_desired_movement
     @desiredSpeed = INITIAL_DESIRED_SPEED
+    @desiredMaximumSpeed = INITIAL_DESIRED_MAXIMUM_SPEED
   end
 
   attr_reader(:currentPosition)
@@ -184,7 +185,8 @@ class PolarIce
   attr_accessor(:desiredRadarTarget)
 
   attr_accessor(:desiredSpeed)
-
+  attr_accessor(:desiredMaximumSpeed)
+  
   attr_reader(:previousPosition)
   attr_reader(:previousHeading)
   attr_reader(:previousGunHeading)

@@ -784,6 +784,8 @@ describe 'PolarIce' do
       @bot.stub!(:heading).and_return(0)
       @bot.stub!(:gun_heading).and_return(0)
       @bot.stub!(:radar_heading).and_return(0)
+
+      @bot.desiredMaximumSpeed = 8
     end
     describe 'at a desired speed' do
       before(:each) do
@@ -855,12 +857,17 @@ describe 'PolarIce' do
         @bot.tick nil
         @bot.desiredSpeed.should == 8
       end
-      it 'should cap at 8' do
+      it 'should clamp at 8' do
         @bot.desiredPosition = Vector[1600,800]
         @bot.tick nil
         @bot.desiredSpeed.should == 8
       end
-
+      it 'should clamp at desired maximum speed' do
+        @bot.desiredMaximumSpeed = 4
+        @bot.desiredPosition = Vector[1600,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == @bot.desiredMaximumSpeed
+      end
     end
   end
 end
