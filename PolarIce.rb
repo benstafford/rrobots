@@ -8,18 +8,16 @@ class Numeric
   end
 end
 
-class FixNum
-  def sum_consecutive
-    self*(self+1)/2
-  end
-end
-
 class Vector
   X = 0
   Y = 1
 
   def angle_to(position)
     Math.atan2(self[Y] - position[Y], position[X] - self[X]).to_deg % 360
+  end
+
+  def distance_to(desiredPosition)
+    Math.hypot(desiredPosition[X] - self[X], desiredPosition[Y] - self[Y])
   end
 end
 
@@ -30,6 +28,7 @@ class PolarIce
   MAXIMUM_GUN_TURN = 30
   MAXIMUM_RADAR_TURN = 60
   MAXIMUM_ACCELERATION = 1
+  MAXIMUM_SPEED = 8
 
   INITIAL_ACCELERATION_RATE = 0
   INITIAL_HULL_ROTATION = 0
@@ -53,7 +52,9 @@ class PolarIce
     initialize_tick
     determine_desired_headings
     turn_toward_desired_headings
+    move_toward_desired_position
     accelerate_to_desired_speed
+    @quote = "Speed: #{speed}"
     perform_actions
     store_previous_status
   end
@@ -97,8 +98,16 @@ class PolarIce
     end
   end
 
+  def move_toward_desired_position
+    @desiredSpeed = calculate_desired_speed(desiredPosition) if desiredPosition != nil
+  end
+
+  def calculate_desired_speed(desiredPosition)
+    Math.sqrt(currentPosition.distance_to(desiredPosition)).floor.clamp(MAXIMUM_SPEED)
+  end
+
   def accelerate_to_desired_speed
-    @accelerationRate = calculate_acceleration(desiredSpeed, speed) if desiredSpeed != nil
+    @accelerationRate = calculate_acceleration(desiredSpeed, speed) if desiredSpeed != nil && speed != nil
   end
 
   def calculate_acceleration(desiredSpeed, speed)

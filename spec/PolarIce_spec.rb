@@ -243,6 +243,8 @@ describe 'PolarIce' do
       @bot.stub!(:heading).and_return(90)
       @bot.stub!(:gun_heading).and_return(90)
       @bot.stub!(:radar_heading).and_return(90)
+
+      @bot.desiredPosition = nil
     end
     describe 'towards headings' do
       describe 'It should turn its hull toward a desired heading' do
@@ -286,6 +288,8 @@ describe 'PolarIce' do
         describe 'It should turn its gun just like the hull if the hull is not turning' do
           before (:each) do
             @bot.desiredHeading = 90
+            @bot.desiredGunTarget = nil
+            @bot.desiredPosition = nil
           end
           it 'should not turn if it is at the desired heading' do
             @bot.desiredGunHeading = @bot.desiredHeading
@@ -327,6 +331,8 @@ describe 'PolarIce' do
           describe 'It should adjust for counter-clockwise hull movement' do
             before (:each) do
               @bot.desiredHeading = 100
+              @bot.desiredGunTarget = nil
+              @bot.desiredPosition = nil
             end
             it 'should not turn if it is at the desired heading' do
               @bot.desiredGunHeading = @bot.desiredHeading
@@ -367,6 +373,9 @@ describe 'PolarIce' do
           describe 'It should adjust for clockwise hull movement' do
             before (:each) do
               @bot.desiredHeading = 80
+              @bot.desiredGunTarget = nil
+              @bot.desiredRadarTarget = nil
+              @bot.desiredPosition = nil
             end
             it 'should not turn if it is at the desired heading' do
               @bot.desiredGunHeading = @bot.desiredHeading
@@ -411,6 +420,9 @@ describe 'PolarIce' do
           before (:each) do
             @bot.desiredHeading = 90
             @bot.desiredGunHeading = @bot.desiredHeading
+            @bot.desiredGunTarget = nil
+            @bot.desiredRadarTarget = nil
+            @bot.desiredPosition = nil
           end
           it 'should not turn if it is at the desired heading' do
             @bot.desiredRadarHeading = @bot.desiredHeading
@@ -453,6 +465,9 @@ describe 'PolarIce' do
             before (:each) do
               @bot.desiredHeading = 100
               @bot.desiredGunHeading = @bot.desiredHeading
+              @bot.desiredGunTarget = nil
+              @bot.desiredRadarTarget = nil
+              @bot.desiredPosition = nil
             end
             it 'should not turn if it is at the desired heading' do
               @bot.desiredRadarHeading = @bot.desiredHeading
@@ -494,6 +509,9 @@ describe 'PolarIce' do
             before (:each) do
               @bot.desiredHeading = 80
               @bot.desiredGunHeading = @bot.desiredHeading
+              @bot.desiredGunTarget = nil
+              @bot.desiredRadarTarget = nil
+              @bot.desiredPosition = nil
             end
             it 'should not turn if it is at the desired heading' do
               @bot.desiredRadarHeading = @bot.desiredHeading
@@ -578,6 +596,9 @@ describe 'PolarIce' do
             before (:each) do
               @bot.desiredHeading = 90
               @bot.desiredGunHeading = @bot.desiredHeading - 30
+              @bot.desiredGunTarget = nil
+              @bot.desiredRadarTarget = nil
+              @bot.desiredPosition = nil
             end
             it 'should not turn if it is at the desired heading' do
               @bot.desiredRadarHeading = @bot.desiredGunHeading
@@ -760,11 +781,14 @@ describe 'PolarIce' do
       @bot.stub!(:x).and_return(800)
       @bot.stub!(:y).and_return(800)
       @bot.stub!(:speed).and_return(0)
-      @bot.stub!(:heading).and_return(90)
-      @bot.stub!(:gun_heading).and_return(90)
-      @bot.stub!(:radar_heading).and_return(90)
+      @bot.stub!(:heading).and_return(0)
+      @bot.stub!(:gun_heading).and_return(0)
+      @bot.stub!(:radar_heading).and_return(0)
     end
     describe 'at a desired speed' do
+      before(:each) do
+        @bot.desiredPosition = nil
+      end
       it 'should not accelerate if already at desired speed' do
         @bot.stub!(:speed).and_return(0)
         @bot.desiredSpeed = 0
@@ -783,6 +807,60 @@ describe 'PolarIce' do
         @bot.should_receive(:accelerate).with(-1)
         @bot.tick nil
       end
+    end
+    describe "to a desired position" do
+      it 'should not move if at the desired position' do
+        @bot.desiredPosition = Vector[800,800]
+        @bot.should_receive(:accelerate).with(0)
+        @bot.tick nil
+        @bot.desiredSpeed.should == 0
+      end
+      it 'should accelerate to 1 if 1 <= distance < 4' do
+        @bot.desiredPosition = Vector[803,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 1
+      end
+      it 'should accelerate to 2 if 4 <= distance < 9' do
+        @bot.desiredPosition = Vector[808,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 2
+      end
+      it 'should accelerate to 3 if 9 <= distance < 16' do
+        @bot.desiredPosition = Vector[815,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 3
+      end
+      it 'should accelerate to 4 if 16 <= distance < 25' do
+        @bot.desiredPosition = Vector[824,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 4
+      end
+      it 'should accelerate to 5 if 25 < distance < 36' do
+        @bot.desiredPosition = Vector[835,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 5
+      end
+      it 'should accelerate to 6 if 36 < distance < 49' do
+        @bot.desiredPosition = Vector[848,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 6
+      end
+      it 'should accelerate to 7 if 49 < distance < 64' do
+        @bot.desiredPosition = Vector[863,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 7
+      end
+      it 'should accelerate to >= if 64' do
+        @bot.desiredPosition = Vector[864,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 8
+      end
+      it 'should cap at 8' do
+        @bot.desiredPosition = Vector[1600,800]
+        @bot.tick nil
+        @bot.desiredSpeed.should == 8
+      end
+
     end
   end
 end
