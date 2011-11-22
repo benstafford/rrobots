@@ -34,6 +34,9 @@ module Robot
   #path to where your robot's optional skin images are
   attr_accessor :skin_prefix
 
+  #used by teamExperimenter to communicate trial numbers, used to test a varying factor.
+  attr_accessor :trial
+
   #team of your robot
   attr_state :team
 
@@ -131,6 +134,10 @@ class RobotRunner
     attr_accessor "#{iv}_max"
   }
 
+
+  #used by teamExperimenter to communicate trial numbers, used to test a varying factor.
+  attr_accessor :trial
+
   #AI of this robot
   attr_accessor :robot
 
@@ -147,6 +154,7 @@ class RobotRunner
 
   def initialize robot, bf, team=0
     @robot = robot
+    @robot.trial = @trial
     @battlefield = bf
     @team = team
     set_action_limits
@@ -308,13 +316,23 @@ class RobotRunner
   def scan
     @battlefield.robots.each do |other|
       if (other != self) && (!other.dead)
-        a = Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
-        if (@old_radar_heading <= a && a <= @new_radar_heading) || (@old_radar_heading >= a && a >= @new_radar_heading) ||
-          (@old_radar_heading <= a+360 && a+360 <= @new_radar_heading) || (@old_radar_heading >= a+360 && a+360 >= new_radar_heading) ||
-          (@old_radar_heading <= a-360 && a-360 <= @new_radar_heading) || (@old_radar_heading >= a-360 && a-360 >= @new_radar_heading)
-           @events['robot_scanned'] << [Math.hypot(@y - other.y, other.x - @x)]
+        a = getAngleToOther(other)
+        if !a.nil?
+          if (@old_radar_heading <= a && a <= @new_radar_heading) || (@old_radar_heading >= a && a >= @new_radar_heading) ||
+            (@old_radar_heading <= a+360 && a+360 <= @new_radar_heading) || (@old_radar_heading >= a+360 && a+360 >= new_radar_heading) ||
+            (@old_radar_heading <= a-360 && a-360 <= @new_radar_heading) || (@old_radar_heading >= a-360 && a-360 >= @new_radar_heading)
+             @events['robot_scanned'] << [Math.hypot(@y - other.y, other.x - @x)]
+          end
         end
       end
+    end
+  end
+
+  def getAngleToOther other
+    if (@y - other.y == 0 and other.x - @x == 0)
+      return nil
+    else
+      return Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
     end
   end
 
@@ -332,11 +350,15 @@ class RobotRunner
       if (other != self) && !other.dead && (other.team == self.team)
         msg = other.actions[:broadcast]
         if msg != 0
-          a = Math.atan2(@y - other.y, other.x - @x) / Math::PI * 180 % 360
-          dir = 'east'
-          dir = 'north' if a.between? 45,135
-          dir = 'west' if a.between? 135,225
-          dir = 'south' if a.between? 225,315
+          a = getAngleToOther(other)
+          if a.nil?
+            dir = 'same'
+          else
+            dir = 'east'
+            dir = 'north' if a.between? 45,135
+            dir = 'west' if a.between? 135,225
+            dir = 'south' if a.between? 225,315
+          end
           @events['broadcasts'] << [msg, dir]
         end
       end

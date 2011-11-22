@@ -75,7 +75,7 @@ class Pair
   def center
     height = battlefield_height || 1600
     width = battlefield_width || 1600
-    Point.new(width / 2,height / 2)
+    PairVector.new(width / 2,height / 2)
   end
 
   def toward_heading to_heading, from_heading
@@ -113,7 +113,7 @@ class Pair
   end
 end
 
-class Point
+class PairVector
   attr_accessor :x,:y
   def initialize(x,y)
     @x,@y = x,y
