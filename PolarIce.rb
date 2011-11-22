@@ -53,13 +53,19 @@ class PolarIce
     initialize_tick
     determine_desired_headings
     turn_toward_desired_headings
-    accelerate_toward_desired_speed
+    accelerate_to_desired_speed
     perform_actions
     store_previous_status
   end
 
   def initialize_tick
     @currentPosition = Vector[x,y]
+  end
+
+  def determine_desired_headings
+    @desiredHeading = currentPosition.angle_to(desiredPosition) if desiredPosition != nil && desiredPosition != currentPosition
+    @desiredGunHeading = currentPosition.angle_to(desiredGunTarget) if desiredGunTarget != nil && desiredGunTarget != currentPosition
+    @desiredRadarHeading = currentPosition.angle_to(desiredRadarTarget) if desiredRadarTarget != nil && desiredRadarTarget != currentPosition
   end
 
   def turn_toward_desired_headings
@@ -91,13 +97,7 @@ class PolarIce
     end
   end
 
-  def determine_desired_headings
-    @desiredHeading = currentPosition.angle_to(desiredPosition) if desiredPosition != nil && desiredPosition != currentPosition
-    @desiredGunHeading = currentPosition.angle_to(desiredGunTarget) if desiredGunTarget != nil && desiredGunTarget != currentPosition
-    @desiredRadarHeading = currentPosition.angle_to(desiredRadarTarget) if desiredRadarTarget != nil && desiredRadarTarget != currentPosition
-  end
-
-  def accelerate_toward_desired_speed
+  def accelerate_to_desired_speed
     @accelerationRate = calculate_acceleration(desiredSpeed, speed) if desiredSpeed != nil
   end
 
