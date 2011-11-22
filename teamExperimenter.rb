@@ -35,6 +35,7 @@ def record_outcome(battlefield)
   teams = battlefield.teams.find_all{|name,team| !team.all?{|robot| robot.dead} }
   teams.map do |name,team|
         @win_record<<name
+    print "#{team} won\n"
   end
 end
 
@@ -122,6 +123,7 @@ end
 for variable_element in range_start..range_end do
   @win_record = []
   for trial in 1..100 do
+    print "Game #{trial}: "
     seed = Time.now.to_i + Process.pid
     battlefield = Battlefield.new xres*2, yres*2, timeout, seed
     c = 0
