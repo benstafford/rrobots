@@ -1,6 +1,6 @@
 require 'robot'
 
-class LcfVersion01
+class NoFireLCF
    include Robot
 
    def initialize
@@ -8,8 +8,6 @@ class LcfVersion01
      @y_destination = y
      @clipping_offset = 60
      @is_master = 0
-     @ticks_last_fired = 0
-     @has_fired = 0
    end
 
   def tick events
@@ -149,68 +147,28 @@ class LcfVersion01
 
   def set_gun_max_turn_stops
     if(@x_destination == @clipping_offset) && (@y_destination == @clipping_offset)
-      @gun_turn_max_left_stop=0
-      @gun_turn_max_right_stop=(270-1)
       @gun_turn_left_stop=0
-      @gun_turn_right_stop=(270-1)
+      @gun_turn_right_stop=270
+      if gun_heading < 270
+        turn_gun 30
+      end
     elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
-      @gun_turn_max_left_stop=270
-      @gun_turn_max_right_stop=(180-1)
       @gun_turn_left_stop=270
-      @gun_turn_right_stop=(180-1)
+      @gun_turn_right_stop=180
+      if (gun_heading > 270) || (gun_heading < 180)
+        turn_gun 30
+      end
     elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
-      @gun_turn_max_left_stop=180
-      @gun_turn_max_right_stop=(90-1)
       @gun_turn_left_stop=180
-      @gun_turn_right_stop=(90-1)
+      @gun_turn_right_stop=90
+      if (gun_heading > 180) || (gun_heading < 90)
+        turn_gun 30
+      end
     elsif(@x_destination == @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
-      @gun_turn_max_left_stop=90
-      @gun_turn_max_right_stop=359
       @gun_turn_left_stop=90
-      @gun_turn_right_stop=359
-    end
-  end
-
-   def set_gun_turn_stops
-    if @has_fired == 1
-      if @gun_turn_max_left_stop == 0
-        using_max_left = 360
-      else
-        using_max_left = @gun_turn_max_left_stop
-      end
-      if @gun_turn_max_right_stop == 359
-        using_max_right = 0
-      else
-        using_max_right = @gun_turn_max_right_stop
-      end
-
-      if @ticks_last_fired == 0
-        if (@gun_heading_fired + 1) <= using_max_left
-          @gun_turn_left_stop = @gun_heading_fired + 1
-        else
-          @gun_turn_left_stop = @gun_turn_max_left_stop
-        end
-
-        if (@gun_heading_fired - 1) >= using_max_right
-          @gun_turn_right_stop = @gun_heading_fired - 1
-        else
-          @gun_turn_right_stop = @gun_turn_max_right_stop
-        end
-      else
-        if (@gun_heading_fired + (0.5 * @ticks_last_fired)) <= using_max_left
-          @gun_turn_left_stop = @gun_heading_fired + (0.5 * @ticks_last_fired)
-        else
-          @gun_turn_left_stop = @gun_turn_max_left_stop
-        end
-
-        if (@gun_heading_fired - (0.5 * @ticks_last_fired)) >= using_max_right
-          @gun_turn_right_stop = @gun_heading_fired - (0.5 * @ticks_last_fired)
-        else
-          @gun_turn_right_stop = @gun_turn_max_right_stop
-        end
-      end
-      if @is_master == 1
-        #puts "#{@is_master}|#{@ticks_last_fired}|#{@gun_turn_max_left_stop}|#{@gun_turn_left_stop}|#{@gun_heading_fired}|#{@gun_turn_right_stop}|#{@gun_turn_max_right_stop}"
+      @gun_turn_right_stop=0
+      if gun_heading > 90
+        turn_gun 30
       end
     end
   end
@@ -272,44 +230,35 @@ class LcfVersion01
     #puts "radar, gun heading #{radar_heading}, #{gun_heading}"
     #puts "gun_heading->#{gun_heading.to_i}|@gun_turn_left_stop->#{@gun_turn_left_stop}|@gun_turn_right_stop->#{@gun_turn_right_stop}|@gun_turn_direction->#{@gun_turn_direction}"
 
-    set_gun_turn_stops
-
     if @gun_turn_direction > 0
       if gun_heading.to_i == @gun_turn_left_stop
         @gun_turn_direction = (-1 * @gun_turn_direction)
-        #puts "#{@is_master}|Max left Change direction #{gun_heading}"
+        #puts "Change direction #{gun_heading}"
       end
     else
       if gun_heading.to_i == @gun_turn_right_stop
         @gun_turn_direction = (-1 * @gun_turn_direction)
-        #puts "#{@is_master}|Max right Change direction #{gun_heading}"
+        #puts "Change direction #{gun_heading}"
       end
     end
 
     unless events['robot_scanned'].empty?
       #puts "#{@is_master}|#{events['robot_scanned'][0][0].to_i} < #{get_corner_to_corner_distance.to_i}"
       if events['robot_scanned'][0][0].to_i < get_corner_to_corner_distance.to_i
-        fire 2.5
+        #fire 3
         turn_gun (-1 * turn_amount * @gun_turn_direction)
-        @ticks_last_fired = 0
-        @has_fired = 1
-        @gun_heading_fired = gun_heading.to_i
       else
-        if @has_fired == 1
-          turn_gun (1 * turn_amount * @gun_turn_direction)
-          @ticks_last_fired = @ticks_last_fired + 1
-        else
-          turn_gun 30
-        end
+        turn_gun (1 * turn_amount * @gun_turn_direction)
       end
     else
-      if @has_fired == 1
-        turn_gun (1 * turn_amount * @gun_turn_direction)
-        @ticks_last_fired = @ticks_last_fired + 1
-      else
-        turn_gun 30
-      end
+      turn_gun (1 * turn_amount * @gun_turn_direction)
     end
+
+    #turn_gun (1 * @gun_turn_direction)
+
+    #turn_radar 5 if time == 0
+    #fire 3 unless events['robot_scanned'].empty?
+    #turn_gun 10
   end
 
   def get_corner_to_corner_distance
