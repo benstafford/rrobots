@@ -10,19 +10,19 @@ class VHGoodness
   end
 
   def tick events
-    #@p_x, @p_y = location_from_broadcasts events
-    #navigate
-    #if events['robot_scanned'].empty?
-    #  turn_gun(10)
-    #else
-    #  @e_x, @e_y = get_robot_scanned_location events['robot_scanned'][0][0]
-    #  if is_partner_scanned? @e_x, @e_y
-    #    converge_on @e_x, @e_y
-    #  end
-    #end
-    #broadcast_location
+    @p_x, @p_y = location_from_broadcasts events
+    navigate
+    if events['robot_scanned'].empty?
+      turn_gun(10)
+    else
+      @e_x, @e_y = get_robot_scanned_location events['robot_scanned'][0][0]
+      if is_partner_scanned? @e_x, @e_y
+        converge_on @e_x, @e_y
+      end
+    end
+    broadcast_location
 
-    converge_on (battlefield_width/2), (battlefield_height/2)
+    #converge_on (battlefield_width/2), (battlefield_height/2)
   end
 
   def broadcast_location
