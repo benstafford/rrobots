@@ -18,6 +18,8 @@ class LcfVersion01
 
     if time == 0
       send_message_to_pair "Master|?"
+      @dont_shoot_distance = get_corner_to_corner_distance
+      #puts "#{@is_master}|@dont_shoot_distance = #{@dont_shoot_distance}"
     end
 
     #slowmotion
@@ -56,6 +58,8 @@ class LcfVersion01
 
     def set_dont_shoot pair_x, pair_y
       #puts "set_dont_shoot #{pair_x}, #{pair_y}"
+      @dont_shoot_distance = distance_between_points x.to_i, y.to_i, pair_x.to_i, pair_y.to_i
+      #puts "#{@is_master}|@dont_shoot_distance = #{@dont_shoot_distance}"
     end
 
     def find_catty_corner pair_dest_x, pair_dest_y
@@ -246,6 +250,7 @@ class LcfVersion01
     if(x == arg_x) && (y == arg_y)
       #puts "speed #{speed}"
       unless speed == 0
+        #@dont_shoot_distance = get_corner_to_corner_distance
         stop
         say "Stopped"
         #puts "Current Location #{x}, #{y}"
@@ -286,10 +291,14 @@ class LcfVersion01
       end
     end
 
+    fire 0.1
     unless events['robot_scanned'].empty?
-      #puts "#{@is_master}|#{events['robot_scanned'][0][0].to_i} < #{get_corner_to_corner_distance.to_i}"
-      if events['robot_scanned'][0][0].to_i < get_corner_to_corner_distance.to_i
-        fire 2.5
+      #puts "#{@is_master}|#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i}"
+      #if events['robot_scanned'][0][0].to_i < @dont_shoot_distance.to_i
+      dsd_ff = 7
+      #puts "#{@is_master}|(#{@dont_shoot_distance.to_i + dsd_ff} < #{events['robot_scanned'][0][0].to_i}) || (#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i - dsd_ff})"
+      if ((@dont_shoot_distance.to_i + dsd_ff) < events['robot_scanned'][0][0].to_i) || (events['robot_scanned'][0][0].to_i < (@dont_shoot_distance.to_i - dsd_ff))
+        #fire 2.5
         turn_gun (-1 * turn_amount * @gun_turn_direction)
         @ticks_last_fired = 0
         @has_fired = 1
@@ -313,7 +322,14 @@ class LcfVersion01
   end
 
   def get_corner_to_corner_distance
-    Math.sqrt(((@battlefield_width - (@clipping_offset * 2))*((@battlefield_width - (@clipping_offset * 2)))) + ((@battlefield_height - (@clipping_offset * 2))*((@battlefield_height - (@clipping_offset * 2)))))
+    #Math.sqrt(((@battlefield_width - (@clipping_offset * 2))*((@battlefield_width - (@clipping_offset * 2)))) + ((@battlefield_height - (@clipping_offset * 2))*((@battlefield_height - (@clipping_offset * 2)))))
+    distance_between_points @clipping_offset, @clipping_offset, (@battlefield_width - @clipping_offset), ((@battlefield_height - @clipping_offset))
+  end
+
+  def distance_between_points x1, y1, x2, y2
+    temp_for_puts = Math.hypot(y2 - y1, x1 - x2)
+    #puts "#{@is_master}|#{temp_for_puts}"
+    temp_for_puts
   end
 
   def got_to_destination
