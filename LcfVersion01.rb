@@ -274,10 +274,23 @@ class LcfVersion01
 
   def fire_last_found
     turn_amount = 1
+    max_ticks_before_fast_turn = 31
+    fast_turn_amount = 4
+
     #puts "radar, gun heading #{radar_heading}, #{gun_heading}"
     #puts "gun_heading->#{gun_heading.to_i}|@gun_turn_left_stop->#{@gun_turn_left_stop}|@gun_turn_right_stop->#{@gun_turn_right_stop}|@gun_turn_direction->#{@gun_turn_direction}"
-
     set_gun_turn_stops
+    if (@ticks_last_fired == 0) && (@last_ticks_last_fired == 0)
+      fire_power = 3.0
+    elsif @ticks_last_fired == 0
+      fire_power = 0.1
+    elsif @ticks_last_fired >= max_ticks_before_fast_turn
+      fire_power = 0.1
+    else
+      fire_power = ((((max_ticks_before_fast_turn.to_f - 1)/10).to_f)/@ticks_last_fired.to_f).to_f
+      #fire_power = 0.1
+    end
+    #puts "#{@is_master}|#{fire_power} = ((((#{max_ticks_before_fast_turn.to_f} - 1)/10).to_f)/#{@ticks_last_fired.to_f}).to_f"
 
     if @gun_turn_direction > 0
       if gun_heading.to_i == @gun_turn_left_stop
@@ -291,7 +304,7 @@ class LcfVersion01
       end
     end
 
-    fire 0.1
+    fire fire_power
     unless events['robot_scanned'].empty?
       #puts "#{@is_master}|#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i}"
       #if events['robot_scanned'][0][0].to_i < @dont_shoot_distance.to_i
@@ -300,25 +313,30 @@ class LcfVersion01
       if ((@dont_shoot_distance.to_i + dsd_ff) < events['robot_scanned'][0][0].to_i) || (events['robot_scanned'][0][0].to_i < (@dont_shoot_distance.to_i - dsd_ff))
         #fire 2.5
         turn_gun (-1 * turn_amount * @gun_turn_direction)
-        @ticks_last_fired = 0
+        found_bot
         @has_fired = 1
         @gun_heading_fired = gun_heading.to_i
       else
-        if @has_fired == 1
+        if (@has_fired == 1) && (@ticks_last_fired < max_ticks_before_fast_turn)
           turn_gun (1 * turn_amount * @gun_turn_direction)
-          @ticks_last_fired = @ticks_last_fired + 1
         else
-          turn_gun 30
+          turn_gun fast_turn_amount
         end
+        @ticks_last_fired = @ticks_last_fired + 1
       end
     else
-      if @has_fired == 1
+      if (@has_fired == 1) && (@ticks_last_fired < max_ticks_before_fast_turn)
         turn_gun (1 * turn_amount * @gun_turn_direction)
-        @ticks_last_fired = @ticks_last_fired + 1
       else
-        turn_gun 30
+        turn_gun fast_turn_amount
       end
+      @ticks_last_fired = @ticks_last_fired + 1
     end
+  end
+
+  def found_bot
+    @last_ticks_last_fired = @ticks_last_fired
+    @ticks_last_fired = 0
   end
 
   def get_corner_to_corner_distance
