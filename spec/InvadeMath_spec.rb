@@ -19,6 +19,10 @@ describe 'InvaderMath' do
     result = @math.turn_toward(45,90)
     result.should == 45
   end
+  it 'should find shortest path between 5 and 355' do
+    result = @math.turn_toward(5,355)
+    result.should == -10
+  end
   it 'should rotate correctly from 180 by 90' do
     result = @math.rotated(180,90)
     result.should == 270
