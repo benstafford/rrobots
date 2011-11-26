@@ -11,6 +11,7 @@ class LcfVersion01
      @ticks_last_robot_scanned = 0
      @has_fired = 0
      @history_ticks_last_robot_scanned = []
+     @pair_is_alive = 1
    end
 
   def tick events
@@ -32,6 +33,15 @@ class LcfVersion01
 
       unless events['broadcasts'].empty?
         read_pairs_message events['broadcasts'][0][0]
+      else
+        if (@pair_is_alive == 1) && (time > 1)
+          #puts "#{@is_master}|#{time}|No pair noooooo!!!"
+          @pair_is_alive = 0
+          say "Nooooo!!!"
+          @is_master = 1
+          @dont_shoot_max_right = nil
+          @dont_shoot_max_left = nil
+        end
       end
     end
 
@@ -342,8 +352,10 @@ class LcfVersion01
       end
     end
 
-    if(@dont_shoot_max_right < gun_heading.to_f) && (gun_heading.to_f < @dont_shoot_max_left)
-      fire_power = 0
+    if (@dont_shoot_max_right != nil) && (@dont_shoot_max_left != nil)
+      if(@dont_shoot_max_right < gun_heading.to_f) && (gun_heading.to_f < @dont_shoot_max_left)
+        fire_power = 0
+      end
     end
 
     fire fire_power
