@@ -8,8 +8,9 @@ class LcfVersion01
      @y_destination = y
      @clipping_offset = 60
      @is_master = 0
-     @ticks_last_fired = 0
+     @ticks_last_robot_scanned = 0
      @has_fired = 0
+     @history_ticks_last_robot_scanned = []
    end
 
   def tick events
@@ -84,12 +85,13 @@ class LcfVersion01
       end
     end
 
-    if energy > 90
+    if energy > 50
       sniper_mode
     #elsif energy > 80
     #  aggressive_mode
     else
       sniper_mode
+      #sidewalker_mode
       #turn_radar 1 if time == 0
       #turn_gun 30 if time < 3
       #accelerate 1
@@ -157,21 +159,45 @@ class LcfVersion01
       @gun_turn_max_right_stop=(270-1)
       @gun_turn_left_stop=0
       @gun_turn_right_stop=(270-1)
+      @dont_shoot_max_left=316
+      @dont_shoot_max_right=314
     elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
       @gun_turn_max_left_stop=270
       @gun_turn_max_right_stop=(180-1)
       @gun_turn_left_stop=270
       @gun_turn_right_stop=(180-1)
+      @dont_shoot_max_left=226
+      @dont_shoot_max_right=224
     elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
       @gun_turn_max_left_stop=180
       @gun_turn_max_right_stop=(90-1)
       @gun_turn_left_stop=180
       @gun_turn_right_stop=(90-1)
+      @dont_shoot_max_left=136
+      @dont_shoot_max_right=134
     elsif(@x_destination == @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
       @gun_turn_max_left_stop=90
       @gun_turn_max_right_stop=359
       @gun_turn_left_stop=90
       @gun_turn_right_stop=359
+      @dont_shoot_max_left=46
+      @dont_shoot_max_right=44
+    end
+  end
+
+  def set_sidewalker_gun_max_turn_stops
+    if(@x_destination == @clipping_offset) && (@y_destination == @clipping_offset)
+      @gun_turn_max_left_stop=90
+      @gun_turn_max_right_stop=(270-1)
+    elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
+      @gun_turn_max_left_stop=0
+      @gun_turn_max_right_stop=(180-1)
+    elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
+      @gun_turn_max_left_stop=270
+      @gun_turn_max_right_stop=(90-1)
+    elsif(@x_destination == @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
+      @gun_turn_max_left_stop=180
+      @gun_turn_max_right_stop=359
     end
   end
 
@@ -188,7 +214,7 @@ class LcfVersion01
         using_max_right = @gun_turn_max_right_stop
       end
 
-      if @ticks_last_fired == 0
+      if @ticks_last_robot_scanned == 0
         if (@gun_heading_fired + 1) <= using_max_left
           @gun_turn_left_stop = @gun_heading_fired + 1
         else
@@ -201,52 +227,55 @@ class LcfVersion01
           @gun_turn_right_stop = @gun_turn_max_right_stop
         end
       else
-        if (@gun_heading_fired + (0.5 * @ticks_last_fired)) <= using_max_left
-          @gun_turn_left_stop = @gun_heading_fired + (0.5 * @ticks_last_fired)
+        if (@gun_heading_fired + (0.5 * @ticks_last_robot_scanned)) <= using_max_left
+          @gun_turn_left_stop = @gun_heading_fired + (0.5 * @ticks_last_robot_scanned)
         else
           @gun_turn_left_stop = @gun_turn_max_left_stop
         end
 
-        if (@gun_heading_fired - (0.5 * @ticks_last_fired)) >= using_max_right
-          @gun_turn_right_stop = @gun_heading_fired - (0.5 * @ticks_last_fired)
+        if (@gun_heading_fired - (0.5 * @ticks_last_robot_scanned)) >= using_max_right
+          @gun_turn_right_stop = @gun_heading_fired - (0.5 * @ticks_last_robot_scanned)
         else
           @gun_turn_right_stop = @gun_turn_max_right_stop
         end
       end
       if @is_master == 1
-        #puts "#{@is_master}|#{@ticks_last_fired}|#{@gun_turn_max_left_stop}|#{@gun_turn_left_stop}|#{@gun_heading_fired}|#{@gun_turn_right_stop}|#{@gun_turn_max_right_stop}"
+        #puts "#{@is_master}|#{@ticks_last_robot_scanned}|#{@gun_turn_max_left_stop}|#{@gun_turn_left_stop}|#{@gun_heading_fired}|#{@gun_turn_right_stop}|#{@gun_turn_max_right_stop}"
       end
     end
   end
 
-  #def go_to_next_corner
-  #  #upper_left = @clipping_offset, @clipping_offset
-  #  #upper_right = @battlefield_width - @clipping_offset, @clipping_offset
-  #  #lower_right = @battlefield_width - @clipping_offset, @battlefield_height - @clipping_offset
-  #  #lower_left = @clipping_offset, @battlefield_height - @clipping_offset
-  #  puts "got to next corner"
-  #
-  #  if(x == @clipping_offset) && (y == @clipping_offset)
-  #    @x_destination = @battlefield_width - @clipping_offset
-  #    @y_destination = @clipping_offset
-  #  elsif(x == @battlefield_width - @clipping_offset) && (y == @clipping_offset)
-  #    @x_destination = @battlefield_width - @clipping_offset
-  #    @y_destination = @battlefield_height - @clipping_offset
-  #  elsif(x == @battlefield_width - @clipping_offset) && (y == @battlefield_height - @clipping_offset)
-  #    @x_destination = @clipping_offset
-  #    @y_destination = @battlefield_height - @clipping_offset
-  #  elsif(x == @clipping_offset) && (y == @battlefield_height - @clipping_offset)
-  #    @x_destination = @clipping_offset
-  #    @y_destination = @clipping_offset
-  #  else
-  #    #do some default
-  #  end
-  #
-  #  send_message_to_pair "^|#{@x_destination},#{@y_destination}"
-  #  set_gun_max_turn_stops
-  #end
+  def go_to_next_corner
+    #upper_left = @clipping_offset, @clipping_offset
+    #upper_right = @battlefield_width - @clipping_offset, @clipping_offset
+    #lower_right = @battlefield_width - @clipping_offset, @battlefield_height - @clipping_offset
+    #lower_left = @clipping_offset, @battlefield_height - @clipping_offset
+    #puts "got to next corner"
+
+    puts "#{@is_master}|(#{x.to_i} == #{@x_destination}) && (#{y.to_i} == #{@x_destination})"
+    if(x.to_i == @x_destination) && (y.to_i == @x_destination)
+      if(x.to_i == @clipping_offset) && (y.to_i == @clipping_offset)
+        @x_destination = @battlefield_width - @clipping_offset
+        @y_destination = @clipping_offset
+      elsif(x.to_i == @battlefield_width - @clipping_offset) && (y.to_i == @clipping_offset)
+        @x_destination = @battlefield_width - @clipping_offset
+        @y_destination = @battlefield_height - @clipping_offset
+      elsif(x.to_i == @battlefield_width - @clipping_offset) && (y.to_i == @battlefield_height - @clipping_offset)
+        @x_destination = @clipping_offset
+        @y_destination = @battlefield_height - @clipping_offset
+      elsif(x.to_i == @clipping_offset) && (y.to_i == @battlefield_height - @clipping_offset)
+        @x_destination = @clipping_offset
+        @y_destination = @clipping_offset
+      else
+        #do some default
+      end
+      set_sidewalker_gun_max_turn_stops
+      accelerate 1
+    end
+  end
 
   def go_to_location arg_x, arg_y
+    #puts "#{@is_master}|speed #{speed}"
     if(x == arg_x) && (y == arg_y)
       #puts "speed #{speed}"
       unless speed == 0
@@ -274,23 +303,32 @@ class LcfVersion01
 
   def fire_last_found
     turn_amount = 1
-    max_ticks_before_fast_turn = 31
+    max_ticks_before_fast_turn = 51
     fast_turn_amount = 4
 
     #puts "radar, gun heading #{radar_heading}, #{gun_heading}"
     #puts "gun_heading->#{gun_heading.to_i}|@gun_turn_left_stop->#{@gun_turn_left_stop}|@gun_turn_right_stop->#{@gun_turn_right_stop}|@gun_turn_direction->#{@gun_turn_direction}"
     set_gun_turn_stops
-    if (@ticks_last_fired == 0) && (@last_ticks_last_fired == 0)
-      fire_power = 3.0
-    elsif @ticks_last_fired == 0
-      fire_power = 0.1
-    elsif @ticks_last_fired >= max_ticks_before_fast_turn
-      fire_power = 0.1
+    if @history_ticks_last_robot_scanned.size > 15
+      #puts "#{@history_ticks_last_robot_scanned[time-1]}|#{@history_ticks_last_robot_scanned[time-2]}|#{@history_ticks_last_robot_scanned[time-3]}|#{@history_ticks_last_robot_scanned[time-4]}"
+      #if (@history_ticks_last_robot_scanned[time-1] == 0) && (@history_ticks_last_robot_scanned[time-2] == 2) && (@history_ticks_last_robot_scanned[time-3] == 1) && (@history_ticks_last_robot_scanned[time-4] == 0)
+      #  fire_power = 3.0
+      if (@history_ticks_last_robot_scanned[time-1] == 2) && (@history_ticks_last_robot_scanned[time-2] == 1) && (@history_ticks_last_robot_scanned[time-3] == 0) && (@history_ticks_last_robot_scanned[time-4] == 2) && (@history_ticks_last_robot_scanned[time-5] == 1) && (@history_ticks_last_robot_scanned[time-6] == 0) && (@history_ticks_last_robot_scanned[time-7] == 2) && (@history_ticks_last_robot_scanned[time-8] == 1) && (@history_ticks_last_robot_scanned[time-9] == 0) && (@history_ticks_last_robot_scanned[time-10] == 2) && (@history_ticks_last_robot_scanned[time-11] == 1) && (@history_ticks_last_robot_scanned[time-12] == 0) && (@history_ticks_last_robot_scanned[time-13] == 2) && (@history_ticks_last_robot_scanned[time-14] == 1) && (@history_ticks_last_robot_scanned[time-15] == 0) && (@history_ticks_last_robot_scanned[time-16] == 2)
+        fire_power = 3.0
+      elsif (@history_ticks_last_robot_scanned[time-1] == 1) && (@history_ticks_last_robot_scanned[time-2] == 0) && (@history_ticks_last_robot_scanned[time-3] == 2) && (@history_ticks_last_robot_scanned[time-4] == 1) && (@history_ticks_last_robot_scanned[time-5] == 0) && (@history_ticks_last_robot_scanned[time-6] == 2) && (@history_ticks_last_robot_scanned[time-7] == 1) && (@history_ticks_last_robot_scanned[time-8] == 0) && (@history_ticks_last_robot_scanned[time-9] == 2) && (@history_ticks_last_robot_scanned[time-10] == 1) && (@history_ticks_last_robot_scanned[time-11] == 0) && (@history_ticks_last_robot_scanned[time-12] == 2) && (@history_ticks_last_robot_scanned[time-13] == 1) && (@history_ticks_last_robot_scanned[time-14] == 0) && (@history_ticks_last_robot_scanned[time-15] == 2) && (@history_ticks_last_robot_scanned[time-16] == 1)
+        fire_power = 3.0
+      else
+        fire_power = 0.1
+      end
+    #elsif @ticks_last_robot_scanned == 0
+    #  fire_power = 0.1
+    #elsif @ticks_last_robot_scanned >= max_ticks_before_fast_turn
+    #  fire_power = 0.1
     else
-      fire_power = ((((max_ticks_before_fast_turn.to_f - 1)/10).to_f)/@ticks_last_fired.to_f).to_f
-      #fire_power = 0.1
+      #fire_power = ((((max_ticks_before_fast_turn.to_f - 1)/10).to_f)/@ticks_last_robot_scanned.to_f).to_f
+      fire_power = 0.1
     end
-    #puts "#{@is_master}|#{fire_power} = ((((#{max_ticks_before_fast_turn.to_f} - 1)/10).to_f)/#{@ticks_last_fired.to_f}).to_f"
+    #puts "#{@is_master}|#{fire_power} = ((((#{max_ticks_before_fast_turn.to_f} - 1)/10).to_f)/#{@ticks_last_robot_scanned.to_f}).to_f"
 
     if @gun_turn_direction > 0
       if gun_heading.to_i == @gun_turn_left_stop
@@ -304,6 +342,10 @@ class LcfVersion01
       end
     end
 
+    if(@dont_shoot_max_right < gun_heading.to_f) && (gun_heading.to_f < @dont_shoot_max_left)
+      fire_power = 0
+    end
+
     fire fire_power
     unless events['robot_scanned'].empty?
       #puts "#{@is_master}|#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i}"
@@ -313,30 +355,36 @@ class LcfVersion01
       if ((@dont_shoot_distance.to_i + dsd_ff) < events['robot_scanned'][0][0].to_i) || (events['robot_scanned'][0][0].to_i < (@dont_shoot_distance.to_i - dsd_ff))
         #fire 2.5
         turn_gun (-1 * turn_amount * @gun_turn_direction)
-        found_bot
+        found_enemy_robot
         @has_fired = 1
         @gun_heading_fired = gun_heading.to_i
       else
-        if (@has_fired == 1) && (@ticks_last_fired < max_ticks_before_fast_turn)
+        if (@has_fired == 1) && (@ticks_last_robot_scanned < max_ticks_before_fast_turn)
           turn_gun (1 * turn_amount * @gun_turn_direction)
         else
           turn_gun fast_turn_amount
         end
-        @ticks_last_fired = @ticks_last_fired + 1
+        no_enemy_robot_found
       end
     else
-      if (@has_fired == 1) && (@ticks_last_fired < max_ticks_before_fast_turn)
+      if (@has_fired == 1) && (@ticks_last_robot_scanned < max_ticks_before_fast_turn)
         turn_gun (1 * turn_amount * @gun_turn_direction)
       else
         turn_gun fast_turn_amount
       end
-      @ticks_last_fired = @ticks_last_fired + 1
+      no_enemy_robot_found
     end
   end
 
-  def found_bot
-    @last_ticks_last_fired = @ticks_last_fired
-    @ticks_last_fired = 0
+  def found_enemy_robot
+    @ticks_last_robot_scanned = 0
+    @history_ticks_last_robot_scanned[time] = 0
+  end
+
+  def no_enemy_robot_found
+    @ticks_last_robot_scanned = @ticks_last_robot_scanned + 1
+    @history_ticks_last_robot_scanned[time] = @ticks_last_robot_scanned
+    #puts "#{@is_master}|#{@history_ticks_last_robot_scanned.inspect}"
   end
 
   def get_corner_to_corner_distance
@@ -354,6 +402,21 @@ class LcfVersion01
     #puts "Current Location #{x}, #{y}"
     #puts "Destination      #{@x_destination}, #{@y_destination}"
     go_to_location @x_destination, @y_destination
+  end
+
+  def sidewalker_mode
+    initialize_sidewalker_mode
+    fire_last_found
+    go_to_next_corner
+    got_to_destination
+  end
+
+  def initialize_sidewalker_mode
+    unless @initialize_sidewalker_mode
+      puts "initialize_sidewalker_mode"
+      go_to_next_corner
+      @initialize_sidewalker_mode = true
+    end
   end
 
   def aggressive_mode
