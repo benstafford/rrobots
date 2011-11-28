@@ -75,8 +75,6 @@ class PolarIce
   INITIAL_DESIRED_SPEED = nil
   INITIAL_DESIRED_MAXIMUM_SPEED = 8
 
-  GLOAT = ""
-
   X = 0
   Y = 1
 
@@ -144,19 +142,16 @@ class PolarIce
         event :scanned, :quadrant_scanned, :add_targets
       end
       state :quadrant_scanned do
+        on_entry :count_quadrants_scanned
         event :scan_incomplete, :quick_scan
         event :found_targets, :seek
         event :no_targets, :quick_scan, :start_quick_scan
-        on_entry :count_quadrants_scanned
       end
       state :seek do
-        event :scanned, :seek
         on_entry :start_seeking
+        event :scanned, :seek
       end
-      state :win do
-        event :scanned, :win
-        on_entry :start_gloating
-      end
+
       context bot
     end
     @stateMachine.scan
@@ -185,11 +180,6 @@ class PolarIce
     end
   end
 
-  def start_gloating
-    @quote = @gloat if @gloat != nil
-    restore_original_heading
-  end
-
   def restore_original_heading
     driver.desiredHeading = @originalHeading
     gunner.desiredHeading = @originalHeading
@@ -200,6 +190,8 @@ class PolarIce
     driver.desiredHeading = closest_target[0][T]
     gunner.desiredHeading = driver.desiredHeading
     radar.desiredHeading = driver.desiredHeading
+
+    @quote = "#{closest_target}"
   end
 
   def closest_target
@@ -218,7 +210,7 @@ class PolarIce
   def process_radar(robots_scanned)
     targets_scanned = Array.new
     robots_scanned.each do |target|
-      targets_scanned << [Vector[scan_midpoint, target[0]], scan_arc_length]
+      targets_scanned << [Vector[scan_midpoint, target[0]], scan_arc_length, time]
     end
     @stateMachine.scanned targets_scanned
   end
@@ -279,7 +271,6 @@ class PolarIce
     initialize_crew
     initialize_basic_operations
     initialize_mode
-    initialize_quotes
   end
 
   def initialize_crew
@@ -299,9 +290,6 @@ class PolarIce
     @mode = INITIAL_MODE
   end
 
-  def initialize_quotes
-    @gloat = GLOAT
-  end
 
   attr_accessor(:mode)
 
