@@ -160,7 +160,7 @@ Direction: #{radar_search_direction}\n\
     moving_away = false
     if @partner_position != nil && !@partner_dead && distance_to(@partner_position) < MIN_DISTANCE_FROM_PARTNER
       @desired_robot_heading = angle_to_point(@partner_position)
-      accelerate(-1)
+      accelerate_the_robot(-1)
       moving_away = true
     end
     moving_away
@@ -253,7 +253,7 @@ Direction: #{radar_search_direction}\n\
   end
 
   def attack target
-      @desired_gun_heading = angle_to_point(target) + Math.sin(time) * (3-@fire_power)
+      @desired_gun_heading = angle_to_point(target) + Math.sin(time) * 2
   end
 
   def distance_to(point)
