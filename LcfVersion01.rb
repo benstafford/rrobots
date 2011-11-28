@@ -48,7 +48,7 @@ class LcfVersion01
     def read_pairs_message raw_message
       raw_message_ray = raw_message.split("|")
       if raw_message_ray[0] == "@"
-        set_dont_shoot raw_message_ray[1].split(",")[0], raw_message_ray[1].split(",")[1]
+        set_dont_shoot_distance raw_message_ray[1].split(",")[0], raw_message_ray[1].split(",")[1]
       elsif raw_message_ray[0] == "^"
         #puts "#{@is_master}|#{raw_message}"
         find_catty_corner raw_message_ray[1].split(",")[0], raw_message_ray[1].split(",")[1]
@@ -67,8 +67,8 @@ class LcfVersion01
       end
     end
 
-    def set_dont_shoot pair_x, pair_y
-      #puts "set_dont_shoot #{pair_x}, #{pair_y}"
+    def set_dont_shoot_distance pair_x, pair_y
+      #puts "set_dont_shoot_distance #{pair_x}, #{pair_y}"
       @dont_shoot_distance = distance_between_points x.to_i, y.to_i, pair_x.to_i, pair_y.to_i
       #puts "#{@is_master}|@dont_shoot_distance = #{@dont_shoot_distance}"
     end
@@ -262,7 +262,7 @@ class LcfVersion01
     #lower_left = @clipping_offset, @battlefield_height - @clipping_offset
     #puts "got to next corner"
 
-    puts "#{@is_master}|(#{x.to_i} == #{@x_destination}) && (#{y.to_i} == #{@x_destination})"
+    #puts "#{@is_master}|(#{x.to_i} == #{@x_destination}) && (#{y.to_i} == #{@x_destination})"
     if(x.to_i == @x_destination) && (y.to_i == @x_destination)
       if(x.to_i == @clipping_offset) && (y.to_i == @clipping_offset)
         @x_destination = @battlefield_width - @clipping_offset
@@ -315,30 +315,41 @@ class LcfVersion01
     turn_amount = 1
     max_ticks_before_fast_turn = 51
     fast_turn_amount = 4
+    target_lock_patterns_to_match = 1
 
     #puts "radar, gun heading #{radar_heading}, #{gun_heading}"
     #puts "gun_heading->#{gun_heading.to_i}|@gun_turn_left_stop->#{@gun_turn_left_stop}|@gun_turn_right_stop->#{@gun_turn_right_stop}|@gun_turn_direction->#{@gun_turn_direction}"
     set_gun_turn_stops
-    if @history_ticks_last_robot_scanned.size > 15
-      #puts "#{@history_ticks_last_robot_scanned[time-1]}|#{@history_ticks_last_robot_scanned[time-2]}|#{@history_ticks_last_robot_scanned[time-3]}|#{@history_ticks_last_robot_scanned[time-4]}"
-      #if (@history_ticks_last_robot_scanned[time-1] == 0) && (@history_ticks_last_robot_scanned[time-2] == 2) && (@history_ticks_last_robot_scanned[time-3] == 1) && (@history_ticks_last_robot_scanned[time-4] == 0)
-      #  fire_power = 3.0
-      if (@history_ticks_last_robot_scanned[time-1] == 2) && (@history_ticks_last_robot_scanned[time-2] == 1) && (@history_ticks_last_robot_scanned[time-3] == 0) && (@history_ticks_last_robot_scanned[time-4] == 2) && (@history_ticks_last_robot_scanned[time-5] == 1) && (@history_ticks_last_robot_scanned[time-6] == 0) && (@history_ticks_last_robot_scanned[time-7] == 2) && (@history_ticks_last_robot_scanned[time-8] == 1) && (@history_ticks_last_robot_scanned[time-9] == 0) && (@history_ticks_last_robot_scanned[time-10] == 2) && (@history_ticks_last_robot_scanned[time-11] == 1) && (@history_ticks_last_robot_scanned[time-12] == 0) && (@history_ticks_last_robot_scanned[time-13] == 2) && (@history_ticks_last_robot_scanned[time-14] == 1) && (@history_ticks_last_robot_scanned[time-15] == 0) && (@history_ticks_last_robot_scanned[time-16] == 2)
-        fire_power = 3.0
-      elsif (@history_ticks_last_robot_scanned[time-1] == 1) && (@history_ticks_last_robot_scanned[time-2] == 0) && (@history_ticks_last_robot_scanned[time-3] == 2) && (@history_ticks_last_robot_scanned[time-4] == 1) && (@history_ticks_last_robot_scanned[time-5] == 0) && (@history_ticks_last_robot_scanned[time-6] == 2) && (@history_ticks_last_robot_scanned[time-7] == 1) && (@history_ticks_last_robot_scanned[time-8] == 0) && (@history_ticks_last_robot_scanned[time-9] == 2) && (@history_ticks_last_robot_scanned[time-10] == 1) && (@history_ticks_last_robot_scanned[time-11] == 0) && (@history_ticks_last_robot_scanned[time-12] == 2) && (@history_ticks_last_robot_scanned[time-13] == 1) && (@history_ticks_last_robot_scanned[time-14] == 0) && (@history_ticks_last_robot_scanned[time-15] == 2) && (@history_ticks_last_robot_scanned[time-16] == 1)
+    if @history_ticks_last_robot_scanned.size >= (target_lock_patterns_to_match * 3)
+      found = false
+      for i in (1..target_lock_patterns_to_match)
+        if (@history_ticks_last_robot_scanned[time-(i*3)-2] == 2) && (@history_ticks_last_robot_scanned[time-(i*3)-1] == 1) && (@history_ticks_last_robot_scanned[time-(i*3)] == 0)
+          found = true
+        else
+          found = false
+          break
+        end
+      end
+      if found
         fire_power = 3.0
       else
-        fire_power = 0.1
+        for i in (1..target_lock_patterns_to_match)
+          if (@history_ticks_last_robot_scanned[time-(i*3)-2] == 1) && (@history_ticks_last_robot_scanned[time-(i*3)-1] == 0) && (@history_ticks_last_robot_scanned[time-(i*3)] == 2)
+            found = true
+          else
+            found = false
+            break
+          end
+        end
+        if found
+          fire_power = 3.0
+        else
+          fire_power = 0.1
+        end
       end
-    #elsif @ticks_last_robot_scanned == 0
-    #  fire_power = 0.1
-    #elsif @ticks_last_robot_scanned >= max_ticks_before_fast_turn
-    #  fire_power = 0.1
     else
-      #fire_power = ((((max_ticks_before_fast_turn.to_f - 1)/10).to_f)/@ticks_last_robot_scanned.to_f).to_f
       fire_power = 0.1
     end
-    #puts "#{@is_master}|#{fire_power} = ((((#{max_ticks_before_fast_turn.to_f} - 1)/10).to_f)/#{@ticks_last_robot_scanned.to_f}).to_f"
 
     if @gun_turn_direction > 0
       if gun_heading.to_i == @gun_turn_left_stop

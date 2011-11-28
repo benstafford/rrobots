@@ -34,7 +34,7 @@ class CornerFireLCF
     def read_pairs_message raw_message
       raw_message_ray = raw_message.split("|")
       if raw_message_ray[0] == "@"
-        set_dont_shoot raw_message_ray[1].split(",")[0], raw_message_ray[1].split(",")[1]
+        set_dont_shoot_distance raw_message_ray[1].split(",")[0], raw_message_ray[1].split(",")[1]
       elsif raw_message_ray[0] == "^"
         #puts "#{@is_master}|#{raw_message}"
         find_catty_corner raw_message_ray[1].split(",")[0], raw_message_ray[1].split(",")[1]
@@ -53,8 +53,8 @@ class CornerFireLCF
       end
     end
 
-    def set_dont_shoot pair_x, pair_y
-      #puts "set_dont_shoot #{pair_x}, #{pair_y}"
+    def set_dont_shoot_distance pair_x, pair_y
+      #puts "set_dont_shoot_distance #{pair_x}, #{pair_y}"
     end
 
     def find_catty_corner pair_dest_x, pair_dest_y
