@@ -36,6 +36,11 @@ def scan_90_degrees
   @bot.radar.rotation.should == 50
 end
 
+def do_quick_scan
+  3.times { scan_90_degrees }
+  @bot.tick @events
+end
+
 describe 'PolarIce' do
   before(:each) do
     @bot = PolarIce.new
@@ -699,64 +704,49 @@ describe 'PolarIce' do
     end
   end
   describe 'It should scan for the targets' do
-    before(:each) do
-      @bot.mode = "scan"
-    end
-    it 'should have a scan mode' do
-      @bot.mode = "scan"
-    end
-
     describe 'It should start with a quick wide range search' do
       it 'should start by doing four 90 degree scans and stop' do
-        3.times {scan_90_degrees}
-        @bot.tick @events
+        do_quick_scan
         @bot.driver.desiredHeading.should == 0
         @bot.gunner.desiredHeading.should == 0
         @bot.radar.desiredHeading.should == 0
       end
       it 'should gloat if no one is there' do
         @bot.gloat = "That's what I'm talking about!"
-        3.times {scan_90_degrees}
-        @bot.targets.clear
-        @bot.tick nil
+        do_quick_scan
         @bot.quote.should == @bot.gloat
       end
       it 'should aim at the first quadrant if it only saw a target there' do
-        3.times {scan_90_degrees}
         @bot.targets << [Vector[45, 400], 90]
-        @bot.tick nil
+        do_quick_scan
         @bot.driver.desiredHeading.should == 45
         @bot.gunner.desiredHeading.should == 45
         @bot.radar.desiredHeading.should == 45
       end
       it 'should aim at the second quadrant if it only saw a target there' do
-        3.times {scan_90_degrees}
         @bot.targets << [Vector[135, 400], 90]
-        @bot.tick nil
+        do_quick_scan
         @bot.driver.desiredHeading.should == 135
         @bot.gunner.desiredHeading.should == 135
         @bot.radar.desiredHeading.should == 135
       end
       it 'should aim at the third quadrant if it only saw a target there' do
-        3.times {scan_90_degrees}
         @bot.targets << [Vector[225, 400], 90]
-        @bot.tick nil
+        do_quick_scan
         @bot.driver.desiredHeading.should == 225
         @bot.gunner.desiredHeading.should == 225
         @bot.radar.desiredHeading.should == 225
       end
       it 'should aim at the fourth quadrant if it only saw a target there' do
-        3.times {scan_90_degrees}
         @bot.targets << [Vector[315, 400], 90]
-        @bot.tick nil
+        do_quick_scan
         @bot.driver.desiredHeading.should == 315
         @bot.gunner.desiredHeading.should == 315
         @bot.radar.desiredHeading.should == 315
       end
       it 'should aim at the quadrant of the nearest target' do
-        3.times {scan_90_degrees}
         @bot.targets << [Vector[45, 400], 90] << [Vector[135, 300], 90] << [Vector[225, 200], 90] << [Vector[315, 100], 90]
-        @bot.tick nil
+        do_quick_scan
         @bot.driver.desiredHeading.should == 315
         @bot.gunner.desiredHeading.should == 315
         @bot.radar.desiredHeading.should == 315

@@ -201,7 +201,8 @@ class PolarIce
     gunner.desiredHeading = @originalHeading
     radar.desiredHeading = @originalHeading
   end
-  def stop_quick_scan
+
+  def start_seeking
     @quote = "I see #{targets.count} targets and YOU are closest!"
     driver.desiredHeading = closest_target[0][T]
     gunner.desiredHeading = driver.desiredHeading
