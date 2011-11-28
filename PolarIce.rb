@@ -75,7 +75,7 @@ class PolarIce
   INITIAL_DESIRED_SPEED = nil
   INITIAL_DESIRED_MAXIMUM_SPEED = 8
 
-  GLOAT = "That's what I'm talking about!"
+  GLOAT = ""
 
   X = 0
   Y = 1
@@ -90,7 +90,6 @@ class PolarIce
       process_intel
       process_radar(events['robot_scanned'])
     end
-    determine_actions
     fire_the_gun
     move_the_bot
     turn_the_gun
@@ -105,7 +104,6 @@ class PolarIce
     end
 
     @currentPosition = Vector[x,y]
-
     update_driver_state
     update_gunner_state
     update_radar_state
@@ -136,9 +134,6 @@ class PolarIce
     @lastHitTime = time
   end
 
-  def determine_actions
-  end
-
   def initialize_state_machine
     bot = self
     @stateMachine = Statemachine.build do
@@ -151,10 +146,11 @@ class PolarIce
       state :quadrant_scanned do
         event :scan_incomplete, :quick_scan
         event :found_targets, :seek
-        event :no_targets, :win
+        event :no_targets, :quick_scan, :start_quick_scan
         on_entry :count_quadrants_scanned
       end
       state :seek do
+        event :scanned, :seek
         on_entry :start_seeking
       end
       state :win do
@@ -167,7 +163,6 @@ class PolarIce
   end
 
   def start_quick_scan
-    print "start_quick_scan\n"
     @originalHeading = heading
     @quadrantsScanned = 0
     driver.rotation = 10
@@ -175,43 +170,41 @@ class PolarIce
     radar.rotation = 50
   end
 
-  def add_targets
-    printf "add_targets\n"
+  def add_targets targets_scanned
+    @targets += targets_scanned
   end
 
   def count_quadrants_scanned
-    print "count_quadrants_scanned: #{@quadrantsScanned} => "
     @quadrantsScanned += 1
     if @quadrantsScanned < 4
-      print "scan_incomplete\n"
       @stateMachine.scan_incomplete
-    elsif targets.empty?
-      print "no_targets\n"
+    elsif @targets.empty?
       @stateMachine.no_targets
     else
-      print "found_targets\n"
       @stateMachine.found_targets
     end
   end
 
   def start_gloating
-    print "start_gloating"
     @quote = @gloat if @gloat != nil
+    restore_original_heading
+  end
+
+  def restore_original_heading
     driver.desiredHeading = @originalHeading
     gunner.desiredHeading = @originalHeading
     radar.desiredHeading = @originalHeading
   end
 
   def start_seeking
-    @quote = "I see #{targets.count} targets and YOU are closest!"
     driver.desiredHeading = closest_target[0][T]
     gunner.desiredHeading = driver.desiredHeading
     radar.desiredHeading = driver.desiredHeading
   end
 
   def closest_target
-    closest = targets[0]
-    targets.each {|target| closest = target if target[0][R] < closest[0][R] }
+    closest = @targets[0]
+    @targets.each {|target| closest = target if target[0][R] < closest[0][R] }
     closest
   end
 
@@ -222,19 +215,20 @@ class PolarIce
   def process_intel
   end
 
+  def process_radar(robots_scanned)
+    targets_scanned = Array.new
+    robots_scanned.each do |target|
+      targets_scanned << [Vector[scan_midpoint, target[0]], scan_arc_length]
+    end
+    @stateMachine.scanned targets_scanned
+  end
+
   def scan_arc_length
     (radar_heading - @previousRadarHeading + 360) % 360
   end
 
   def scan_midpoint
     (@previousRadarHeading + scan_arc_length / 2) % 360
-  end
-
-  def process_radar(robots_scanned)
-    robots_scanned.each do |target|
-      targets << [Vector[scan_midpoint, target[0]], scan_arc_length]
-    end
-    @stateMachine.scanned
   end
 
   def move_the_bot

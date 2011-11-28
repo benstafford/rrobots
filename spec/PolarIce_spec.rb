@@ -705,16 +705,12 @@ describe 'PolarIce' do
   end
   describe 'It should scan for the targets' do
     describe 'It should start with a quick wide range search' do
-      it 'should start by doing four 90 degree scans and stop' do
+      it 'should start by doing four 90 degree scans' do
         do_quick_scan
-        @bot.driver.desiredHeading.should == 0
-        @bot.gunner.desiredHeading.should == 0
-        @bot.radar.desiredHeading.should == 0
       end
-      it 'should gloat if no one is there' do
-        @bot.gloat = "That's what I'm talking about!"
+      it 'should continue searching if nothing is found' do
         do_quick_scan
-        @bot.quote.should == @bot.gloat
+        do_quick_scan
       end
       it 'should aim at the first quadrant if it only saw a target there' do
         @bot.targets << [Vector[45, 400], 90]
