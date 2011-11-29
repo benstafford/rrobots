@@ -115,6 +115,7 @@ class NewInvader
   end
 
   def record_friend
+    @friend = nil
     message = get_broadcast()
     if !message.nil?
       @friend = InvaderPoint.new(message[0..2].to_i(16), message[3..5].to_i(16))
@@ -122,6 +123,7 @@ class NewInvader
   end
 
   def record_friend_edge
+    @friend_edge = nil
     message = get_broadcast()
     if !message.nil?
       @friend_edge = message[6..8].to_i
@@ -147,6 +149,10 @@ class NewInvader
       say "Found!"
       change_mode InvaderMode::FOUND_TARGET
     end
+    if not @found_enemy.nil? and @mode == InvaderMode::SEARCH_OPPOSITE_CORNER
+      say "Sneaking up on me, eh?!"
+    end
+
   end
 
 
@@ -157,6 +163,7 @@ class NewInvader
     attr_accessor :current_direction
     attr_accessor :pursuit_time
     attr_accessor :target_enemy
+    attr_accessor :math
 
     DISTANCE_PAST_SCAN = 5
     PURSUE_FRIEND_TARGET_TIME = 20
@@ -164,6 +171,7 @@ class NewInvader
     def initialize invader
       @robot = invader
       @current_direction = 1
+      @math = InvaderMath.new
     end
 
     def move
@@ -202,19 +210,11 @@ class NewInvader
       @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
       enemy_direction = @robot.math.degree_from_point_to_point(@robot.location, @target_enemy)
       radar_heading = @robot.opposite_edge
-      if @current_direction > 0
-        radar_heading = 360 if radar_heading == 0
-        if enemy_direction < radar_heading - 5
+      if @math.radar_heading_between?(radar_heading, @math.rotated(enemy_direction, 5), @math.rotated(enemy_direction, -5)) == false
           @robot.say "pursuing"
+          #puts "pursuing #{radar_heading} is not between #{@math.rotated(enemy_direction, -5)} and #{@math.rotated(enemy_direction, 5)}"
           @current_direction = 0 - @current_direction
           @robot.change_mode InvaderMode::SEARCHING
-        end
-      else
-        if enemy_direction > radar_heading + 5
-          @robot.say "pursuing"
-          @current_direction = 0 - @current_direction
-          @robot.change_mode InvaderMode::SEARCHING
-        end
       end
       if @current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
         @robot.change_mode InvaderMode::SEARCHING
@@ -319,9 +319,11 @@ class NewInvader
     attr_accessor :firepower
     attr_accessor :robot
     attr_accessor :target_enemy
+    attr_accessor :math
 
     def initialize invader
       @robot = invader
+      @math = InvaderMath.new
     end
 
     def fire
@@ -333,18 +335,19 @@ class NewInvader
           @firepower = 3 unless @robot.events['robot_scanned'].empty?
         when InvaderMode::PROVIDED_TARGET
           @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
-          point_gun @robot.math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + + Math.sin(@robot.time)
+          point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + + Math.sin(@robot.time)
           @firepower = power_based_on_distance
         when InvaderMode::FOUND_TARGET
           @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-          point_gun @robot.opposite_edge + Math.sin(@robot.time)
+          point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + + Math.sin(@robot.time)
+          #point_gun @robot.opposite_edge + Math.sin(@robot.time)
           @firepower = power_based_on_distance
         when InvaderMode::SEARCHING
           point_gun @robot.opposite_edge + Math.sin(@robot.time)
           @firepower = 0.1
         when InvaderMode::SEARCH_OPPOSITE_CORNER
-          desired_gun_heading = @robot.math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
-          point_gun desired_gun_heading + Math.sin(@robot.time)
+          desired_gun_heading = @math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
+          point_gun desired_gun_heading # + Math.sin(@robot.time)
           if @robot.gun_heading == desired_gun_heading
             @firepower = 3.0
           end
