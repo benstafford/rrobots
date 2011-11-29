@@ -315,40 +315,91 @@ class LcfVersion01
     turn_amount = 1
     max_ticks_before_fast_turn = 51
     fast_turn_amount = 4
-    target_lock_patterns_to_match = 1
+    target_lock_patterns_to_match = 4
+    fire_power = 0.1
+
+    if @has_fired == 1
+      if @distance_lasted_locked > 275
+        if @history_ticks_last_robot_scanned.last < 3
+          target_lock_patterns_to_match = (@distance_lasted_locked / (30 * 4)).to_i
+          #puts "#{@is_master}|#{@distance_lasted_locked}"
+          if target_lock_patterns_to_match < 1
+            #target_lock_patterns_to_match = 1
+          end
+          #puts "#{@is_master}|#{target_lock_patterns_to_match}"
+        end
+      else
+        fire_power = 3.0
+      end
+    end
 
     #puts "radar, gun heading #{radar_heading}, #{gun_heading}"
     #puts "gun_heading->#{gun_heading.to_i}|@gun_turn_left_stop->#{@gun_turn_left_stop}|@gun_turn_right_stop->#{@gun_turn_right_stop}|@gun_turn_direction->#{@gun_turn_direction}"
     set_gun_turn_stops
-    if @history_ticks_last_robot_scanned.size >= (target_lock_patterns_to_match * 3)
-      found = false
-      for i in (1..target_lock_patterns_to_match)
-        if (@history_ticks_last_robot_scanned[time-(i*3)-2] == 2) && (@history_ticks_last_robot_scanned[time-(i*3)-1] == 1) && (@history_ticks_last_robot_scanned[time-(i*3)] == 0)
-          found = true
-        else
-          found = false
-          break
-        end
-      end
-      if found
-        fire_power = 3.0
-      else
+    if fire_power != 3.0
+      if @history_ticks_last_robot_scanned.size >= (target_lock_patterns_to_match * 4)
+        #if @is_master ==1
+        #  puts @history_ticks_last_robot_scanned.inspect
+        #end
+
+        found = 0
         for i in (1..target_lock_patterns_to_match)
-          if (@history_ticks_last_robot_scanned[time-(i*3)-2] == 1) && (@history_ticks_last_robot_scanned[time-(i*3)-1] == 0) && (@history_ticks_last_robot_scanned[time-(i*3)] == 2)
-            found = true
+          #puts "#{@is_master}|(#{@history_ticks_last_robot_scanned[time-(i*3)-3]} == 0) && (#{@history_ticks_last_robot_scanned[time-(i*3)-2]} == 0) && (#{@history_ticks_last_robot_scanned[time-(i*3)-1]} == 1) && (#{@history_ticks_last_robot_scanned[time-(i*3)]} == 2)"
+          if (@history_ticks_last_robot_scanned[time-(i*3)-3] == 0) && (@history_ticks_last_robot_scanned[time-(i*3)-2] == 0) && (@history_ticks_last_robot_scanned[time-(i*3)-1] == 1) && (@history_ticks_last_robot_scanned[time-(i*3)] == 2)
+            found = 1
+            #puts "#{@is_master}|found first pattern"
           else
-            found = false
+            found = 0
             break
           end
         end
-        if found
+        if found == 1
           fire_power = 3.0
         else
-          fire_power = 0.1
+          for i in (1..target_lock_patterns_to_match)
+            if (@history_ticks_last_robot_scanned[time-(i*3)-3] == 0) && (@history_ticks_last_robot_scanned[time-(i*3)-2] == 1) && (@history_ticks_last_robot_scanned[time-(i*3)-1] == 2) && (@history_ticks_last_robot_scanned[time-(i*3)] == 0)
+              found = 1
+              #puts "#{@is_master}|found second pattern"
+            else
+              found = 0
+              break
+            end
+          end
+          if found == 1
+            fire_power = 3.0
+          else
+            for i in (1..target_lock_patterns_to_match)
+              if (@history_ticks_last_robot_scanned[time-(i*3)-3] == 1) && (@history_ticks_last_robot_scanned[time-(i*3)-2] == 2) && (@history_ticks_last_robot_scanned[time-(i*3)-1] == 0) && (@history_ticks_last_robot_scanned[time-(i*3)] == 0)
+                found = 1
+                #puts "#{@is_master}|found third pattern"
+              else
+                found = 0
+                break
+              end
+            end
+            if found == 1
+              fire_power = 3.0
+            else
+              for i in (1..target_lock_patterns_to_match)
+                if (@history_ticks_last_robot_scanned[time-(i*3)-3] == 2) && (@history_ticks_last_robot_scanned[time-(i*3)-2] == 0) && (@history_ticks_last_robot_scanned[time-(i*3)-1] == 0) && (@history_ticks_last_robot_scanned[time-(i*3)] == 1)
+                  found = 1
+                  #puts "#{@is_master}|found fourth pattern"
+                else
+                  found = 0
+                  break
+                end
+              end
+              if found == 1
+                fire_power = 3.0
+              else
+                fire_power = 0.1
+              end
+            end
+          end
         end
+      else
+        fire_power = 0.1
       end
-    else
-      fire_power = 0.1
     end
 
     if @gun_turn_direction > 0
@@ -373,7 +424,7 @@ class LcfVersion01
     unless events['robot_scanned'].empty?
       #puts "#{@is_master}|#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i}"
       #if events['robot_scanned'][0][0].to_i < @dont_shoot_distance.to_i
-      dsd_ff = 7
+      dsd_ff = 120
       #puts "#{@is_master}|(#{@dont_shoot_distance.to_i + dsd_ff} < #{events['robot_scanned'][0][0].to_i}) || (#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i - dsd_ff})"
       if ((@dont_shoot_distance.to_i + dsd_ff) < events['robot_scanned'][0][0].to_i) || (events['robot_scanned'][0][0].to_i < (@dont_shoot_distance.to_i - dsd_ff))
         #fire 2.5
@@ -381,6 +432,7 @@ class LcfVersion01
         found_enemy_robot
         @has_fired = 1
         @gun_heading_fired = gun_heading.to_i
+        @distance_lasted_locked = events['robot_scanned'][0][0].to_i
       else
         if (@has_fired == 1) && (@ticks_last_robot_scanned < max_ticks_before_fast_turn)
           turn_gun (1 * turn_amount * @gun_turn_direction)
