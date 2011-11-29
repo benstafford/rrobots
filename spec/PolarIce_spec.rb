@@ -36,8 +36,15 @@ def scan_90_degrees
   @bot.radar.rotation.should == 50
 end
 
+def scan_60_degrees
+  @bot.tick @events
+  @bot.driver.rotation.should == 0
+  @bot.gunner.rotation.should == 0
+  @bot.radar.rotation.should == 60
+end
+
 def do_quick_scan
-  3.times { scan_90_degrees }
+  5.times { scan_60_degrees }
   @bot.tick @events
 end
 
@@ -286,22 +293,22 @@ describe 'PolarIce' do
         it 'should not turn if it is at the desired heading' do
           test_rotation(@bot.driver, 90, 0)
         end
-        it 'should turn counter-clockwise immediately to the desired heading if within range' do
+        it 'should turn left immediately to the desired heading if within range' do
           test_rotation(@bot.driver, 8, -10)
         end
-        it 'should turn clockwise immediately to the desired heading if within range' do
+        it 'should turn right immediately to the desired heading if within range' do
           test_rotation(@bot.driver, 100, 10)
         end
-        it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+        it 'should turn left the maximum amount toward the desired heading if outside of range' do
           test_rotation(@bot.driver, 79, -10)
         end
-        it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+        it 'should turn right the maximum amount toward the desired heading if outside of range' do
           test_rotation(@bot.driver, 101, 10)
         end
-        it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+        it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
           test_rotation(@bot.driver, 359, -10)
         end
-        it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+        it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
           test_rotation(@bot.driver, -91, 10)
         end
       end
@@ -313,75 +320,75 @@ describe 'PolarIce' do
           it 'should not turn if it is at the desired heading' do
             test_rotation(@bot.gunner, @bot.driver.desiredHeading, 0)
           end
-          it 'should turn counter-clockwise immediately to the desired heading if within range' do
+          it 'should turn left immediately to the desired heading if within range' do
             test_rotation(@bot.gunner, @bot.driver.desiredHeading-30, -30)
           end
-          it 'should turn clockwise immediately to the desired heading if within range' do
+          it 'should turn right immediately to the desired heading if within range' do
             test_rotation(@bot.gunner, @bot.driver.desiredHeading+30, 30)
           end
-          it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+          it 'should turn left the maximum amount toward the desired heading if outside of range' do
             test_rotation(@bot.gunner, @bot.driver.desiredHeading-31, -30)
           end
-          it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+          it 'should turn right the maximum amount toward the desired heading if outside of range' do
             test_rotation(@bot.gunner, @bot.driver.desiredHeading+31, 30)
           end
-          it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+          it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
             test_rotation(@bot.gunner, @bot.driver.desiredHeading+181, -30)
           end
-          it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+          it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
             test_rotation(@bot.gunner, @bot.driver.desiredHeading-181, 30)
           end
         end
         describe 'It should adjust for any hull movement' do
-          describe 'It should adjust for counter-clockwise hull movement' do
+          describe 'It should adjust for left hull movement' do
             before (:each) do
               @bot.driver.desiredHeading = 100
             end
             it 'should not turn if it is at the desired heading' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
+            it 'should turn left immediately to the desired heading if within range' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading-30, -30)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
+            it 'should turn right immediately to the desired heading if within range' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading+30, 30)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading-31, -30)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading+31, 30)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading+181, -30)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading-181, 30)
             end
           end
-          describe 'It should adjust for clockwise hull movement' do
+          describe 'It should adjust for right hull movement' do
             before (:each) do
               @bot.driver.desiredHeading = 80
             end
             it 'should not turn if it is at the desired heading' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
+            it 'should turn left immediately to the desired heading if within range' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading-30, -30)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
+            it 'should turn right immediately to the desired heading if within range' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading+30, 30)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading-31, -30)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading+31, 30)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading+181, -30)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.gunner, @bot.driver.desiredHeading-181, 30)
             end
           end
@@ -396,27 +403,27 @@ describe 'PolarIce' do
           it 'should not turn if it is at the desired heading' do
             test_rotation(@bot.radar, @bot.gunner.desiredHeading, 0)
           end
-          it 'should turn counter-clockwise immediately to the desired heading if within range' do
+          it 'should turn left immediately to the desired heading if within range' do
             test_rotation(@bot.radar, @bot.gunner.desiredHeading-60, -60)
           end
-          it 'should turn clockwise immediately to the desired heading if within range' do
+          it 'should turn right immediately to the desired heading if within range' do
             test_rotation(@bot.radar, @bot.gunner.desiredHeading+60, 60)
           end
-          it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+          it 'should turn left the maximum amount toward the desired heading if outside of range' do
             test_rotation(@bot.radar, @bot.gunner.desiredHeading-61, -60)
           end
-          it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+          it 'should turn right the maximum amount toward the desired heading if outside of range' do
             test_rotation(@bot.radar, @bot.gunner.desiredHeading+61, 60)
           end
-          it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+          it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
             test_rotation(@bot.radar, @bot.gunner.desiredHeading+181, -60)
           end
-          it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+          it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
             test_rotation(@bot.radar, @bot.gunner.desiredHeading-181, 60)
           end
         end
         describe 'It should adjust for any hull movement' do
-          describe 'It should adjust for counter-clockwise hull movement' do
+          describe 'It should adjust for left hull movement' do
             before (:each) do
               @bot.driver.desiredHeading = 100
               @bot.gunner.desiredHeading = @bot.driver.desiredHeading
@@ -424,26 +431,26 @@ describe 'PolarIce' do
             it 'should not turn if it is at the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
+            it 'should turn left immediately to the desired heading if within range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-60, -60)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
+            it 'should turn right immediately to the desired heading if within range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+60, 60)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-61, -60)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+61, 60)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+181, -60)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-181, 60)
             end
           end
-          describe 'It should adjust for clockwise hull movement' do
+          describe 'It should adjust for right hull movement' do
             before (:each) do
               @bot.driver.desiredHeading = 80
               @bot.gunner.desiredHeading = @bot.driver.desiredHeading
@@ -451,28 +458,28 @@ describe 'PolarIce' do
             it 'should not turn if it is at the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
+            it 'should turn left immediately to the desired heading if within range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-60, -60)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
+            it 'should turn right immediately to the desired heading if within range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+60, 60)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-61, -60)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+61, 60)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+181, -60)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-181, 60)
             end
           end
         end
         describe 'It should adjust for any gun movement' do
-          describe 'It should adjust for counter-clockwise gun movement' do
+          describe 'It should adjust for left gun movement' do
             before (:each) do
               @bot.driver.desiredHeading = 90
               @bot.gunner.desiredHeading = @bot.driver.desiredHeading + 30
@@ -480,26 +487,26 @@ describe 'PolarIce' do
             it 'should not turn if it is at the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
+            it 'should turn left immediately to the desired heading if within range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-60, -60)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
+            it 'should turn right immediately to the desired heading if within range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+60, 60)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-61, -60)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+61, 60)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+181, -60)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-181, 60)
             end
           end
-          describe 'It should adjust for clockwise gun movement' do
+          describe 'It should adjust for right gun movement' do
             before (:each) do
               @bot.driver.desiredHeading = 90
               @bot.gunner.desiredHeading = @bot.driver.desiredHeading - 30
@@ -507,22 +514,22 @@ describe 'PolarIce' do
             it 'should not turn if it is at the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
+            it 'should turn left immediately to the desired heading if within range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-60, -60)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
+            it 'should turn right immediately to the desired heading if within range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+60, 60)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-61, -60)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+61, 60)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading+181, -60)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
               test_rotation(@bot.radar, @bot.gunner.desiredHeading-181, 60)
             end
           end
@@ -705,48 +712,65 @@ describe 'PolarIce' do
   end
   describe 'It should scan for the targets' do
     describe 'It should start with a quick wide range search' do
-      it 'should start by doing four 90 degree scans' do
+      it 'should start by doing six 60 degree scans' do
         do_quick_scan
       end
       it 'should continue searching if nothing is found' do
         do_quick_scan
         do_quick_scan
       end
-      it 'should aim at the first quadrant if it only saw a target there' do
-        @bot.commander.targets << [Vector[45, 400], 90, 0]
+      it 'should aim at the first sextant if it only saw a target there' do
+        @bot.commander.targets << [Vector[30, 400], 60, 0]
         do_quick_scan
-        @bot.driver.desiredHeading.should == 45
-        @bot.gunner.desiredHeading.should == 45
-        @bot.radar.desiredHeading.should == 45
+        @bot.driver.desiredHeading.should == 30
+        @bot.gunner.desiredHeading.should == 30
+        @bot.radar.desiredHeading.should == 30
       end
-      it 'should aim at the second quadrant if it only saw a target there' do
-        @bot.commander.targets << [Vector[135, 400], 90, 0]
+      it 'should aim at the second sextant if it only saw a target there' do
+        @bot.commander.targets << [Vector[90, 400], 60, 0]
         do_quick_scan
-        @bot.driver.desiredHeading.should == 135
-        @bot.gunner.desiredHeading.should == 135
-        @bot.radar.desiredHeading.should == 135
+        @bot.driver.desiredHeading.should == 90
+        @bot.gunner.desiredHeading.should == 90
+        @bot.radar.desiredHeading.should == 90
       end
-      it 'should aim at the third quadrant if it only saw a target there' do
-        @bot.commander.targets << [Vector[225, 400], 90, 0]
+      it 'should aim at the third sextant if it only saw a target there' do
+        @bot.commander.targets << [Vector[150, 400], 60, 0]
         do_quick_scan
-        @bot.driver.desiredHeading.should == 225
-        @bot.gunner.desiredHeading.should == 225
-        @bot.radar.desiredHeading.should == 225
+        @bot.driver.desiredHeading.should == 150
+        @bot.gunner.desiredHeading.should == 150
+        @bot.radar.desiredHeading.should == 150
       end
-      it 'should aim at the fourth quadrant if it only saw a target there' do
-        @bot.commander.targets << [Vector[315, 400], 90, 0]
+      it 'should aim at the fourth sextant if it only saw a target there' do
+        @bot.commander.targets << [Vector[210, 400], 60, 0]
         do_quick_scan
-        @bot.driver.desiredHeading.should == 315
-        @bot.gunner.desiredHeading.should == 315
-        @bot.radar.desiredHeading.should == 315
+        @bot.driver.desiredHeading.should == 210
+        @bot.gunner.desiredHeading.should == 210
+        @bot.radar.desiredHeading.should == 210
+      end
+      it 'should aim at the fifth sextant if it only saw a target there' do
+        @bot.commander.targets << [Vector[270, 400], 60, 0]
+        do_quick_scan
+        @bot.driver.desiredHeading.should == 270
+        @bot.gunner.desiredHeading.should == 270
+        @bot.radar.desiredHeading.should == 270
+      end
+      it 'should aim at the sixth sextant if it only saw a target there' do
+        @bot.commander.targets << [Vector[330, 400], 60, 0]
+        do_quick_scan
+        @bot.driver.desiredHeading.should == 330
+        @bot.gunner.desiredHeading.should == 330
+        @bot.radar.desiredHeading.should == 330
       end
       it 'should aim at the quadrant of the nearest target' do
-        @bot.commander.targets << [Vector[45, 400], 90, 0] << [Vector[135, 300], 90, 0] << [Vector[225, 200], 90, 0] << [Vector[315, 100], 90, 0]
+        @bot.commander.targets << [Vector[30, 600], 60, 0] << [Vector[90, 500], 60, 0] << [Vector[150, 400], 60, 0] << [Vector[210, 300], 60, 0] << [Vector[270, 200], 60, 0] << [Vector[330, 100], 60, 0]
         do_quick_scan
-        @bot.driver.desiredHeading.should == 315
-        @bot.gunner.desiredHeading.should == 315
-        @bot.radar.desiredHeading.should == 315
+        @bot.driver.desiredHeading.should == 330
+        @bot.gunner.desiredHeading.should == 330
+        @bot.radar.desiredHeading.should == 330
       end
     end
+  end
+  describe "It should fight stationary targets that don't shoot" do
+    
   end
 end

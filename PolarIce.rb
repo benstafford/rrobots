@@ -402,13 +402,17 @@ class PolarIce
       end
       @stateMachine.scan
     end
-    
+
     def start_quick_scan
       @originalHeading = polarIce.heading
       @quadrantsScanned = 0
-      polarIce.driver.rotation = 10
-      polarIce.gunner.rotation = 30
-      polarIce.radar.rotation = 50
+      setup_scan
+    end
+
+    def setup_scan
+      polarIce.driver.rotation = 0
+      polarIce.gunner.rotation = 0
+      polarIce.radar.rotation = 60
     end
 
     def add_targets targets_scanned
@@ -417,7 +421,7 @@ class PolarIce
 
     def count_quadrants_scanned
       @quadrantsScanned += 1
-      if @quadrantsScanned < 4
+      if @quadrantsScanned < 6
         @stateMachine.scan_incomplete
       elsif @targets.empty?
         @stateMachine.no_targets
