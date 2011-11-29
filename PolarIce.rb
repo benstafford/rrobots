@@ -28,7 +28,7 @@ class Vector
   R = 1
 
   def angle_to(position)
-    (Math.atan2(self[Y] - position[Y], position[X] - self[X]).to_deg % 360).trim(0)
+    (Math.atan2(self[Y] - position[Y], position[X] - self[X]).to_deg % 360).trim(3)
   end
 
   def distance_to(desiredTarget)
@@ -133,71 +133,7 @@ class PolarIce
   end
 
   def initialize_state_machine
-    bot = self
-    @stateMachine = Statemachine.build do
-      state :awaiting_orders do
-        event :scan, :quick_scan, :start_quick_scan
-      end
-      state :quick_scan do
-        event :scanned, :quadrant_scanned, :add_targets
-      end
-      state :quadrant_scanned do
-        on_entry :count_quadrants_scanned
-        event :scan_incomplete, :quick_scan
-        event :found_targets, :seek
-        event :no_targets, :quick_scan, :start_quick_scan
-      end
-      state :seek do
-        on_entry :start_seeking
-        event :scanned, :seek
-      end
-
-      context bot
-    end
-    @stateMachine.scan
-  end
-
-  def start_quick_scan
-    @originalHeading = heading
-    @quadrantsScanned = 0
-    driver.rotation = 10
-    gunner.rotation = 30
-    radar.rotation = 50
-  end
-
-  def add_targets targets_scanned
-    @targets += targets_scanned
-  end
-
-  def count_quadrants_scanned
-    @quadrantsScanned += 1
-    if @quadrantsScanned < 4
-      @stateMachine.scan_incomplete
-    elsif @targets.empty?
-      @stateMachine.no_targets
-    else
-      @stateMachine.found_targets
-    end
-  end
-
-  def restore_original_heading
-    driver.desiredHeading = @originalHeading
-    gunner.desiredHeading = @originalHeading
-    radar.desiredHeading = @originalHeading
-  end
-
-  def start_seeking
-    driver.desiredHeading = closest_target[0][T]
-    gunner.desiredHeading = driver.desiredHeading
-    radar.desiredHeading = driver.desiredHeading
-
-    @quote = "#{closest_target}"
-  end
-
-  def closest_target
-    closest = @targets[0]
-    @targets.each {|target| closest = target if target[0][R] < closest[0][R] }
-    closest
+    @commander.initialize_state_machine
   end
 
   def fire_the_gun
@@ -212,7 +148,7 @@ class PolarIce
     robots_scanned.each do |target|
       targets_scanned << [Vector[scan_midpoint, target[0]], scan_arc_length, time]
     end
-    @stateMachine.scanned targets_scanned
+    commander.scanned targets_scanned
   end
 
   def scan_arc_length
@@ -278,6 +214,7 @@ class PolarIce
     @loader = Loader.new
     @gunner = Gunner.new
     @radar = Radar.new
+    @commander = Commander.new(self)
   end
 
   def initialize_basic_operations
@@ -290,16 +227,15 @@ class PolarIce
     @mode = INITIAL_MODE
   end
 
-
   attr_accessor(:mode)
 
   attr_reader(:currentPosition)
-  attr_accessor(:targets)
 
   attr_accessor(:driver)
   attr_accessor(:gunner)
   attr_accessor(:loader)
   attr_accessor(:radar)
+  attr_accessor(:commander)
   
   attr_accessor(:broadcastMessage)
 
@@ -442,4 +378,85 @@ class PolarIce
     attr_accessor(:power)
   end
 
+  class Commander
+    def initialize_state_machine
+      commander = self
+      @stateMachine = Statemachine.build do
+        state :awaiting_orders do
+          event :scan, :quick_scan, :start_quick_scan
+        end
+        state :quick_scan do
+          event :scanned, :quadrant_scanned, :add_targets
+        end
+        state :quadrant_scanned do
+          on_entry :count_quadrants_scanned
+          event :scan_incomplete, :quick_scan
+          event :found_targets, :seek
+          event :no_targets, :quick_scan, :start_quick_scan
+        end
+        state :seek do
+          on_entry :start_seeking
+          event :scanned, :seek
+        end
+        context commander
+      end
+      @stateMachine.scan
+    end
+    
+    def start_quick_scan
+      @originalHeading = polarIce.heading
+      @quadrantsScanned = 0
+      polarIce.driver.rotation = 10
+      polarIce.gunner.rotation = 30
+      polarIce.radar.rotation = 50
+    end
+
+    def add_targets targets_scanned
+      @targets += targets_scanned
+    end
+
+    def count_quadrants_scanned
+      @quadrantsScanned += 1
+      if @quadrantsScanned < 4
+        @stateMachine.scan_incomplete
+      elsif @targets.empty?
+        @stateMachine.no_targets
+      else
+        @stateMachine.found_targets
+      end
+    end
+
+    def restore_original_heading
+      polarIce.driver.desiredHeading = @originalHeading
+      polarIce.gunner.desiredHeading = @originalHeading
+      polarIce.radar.desiredHeading = @originalHeading
+    end
+
+    def start_seeking
+      polarIce.driver.desiredHeading = closest_target[0][T]
+      polarIce.gunner.desiredHeading = polarIce.driver.desiredHeading
+      polarIce.radar.desiredHeading = polarIce.driver.desiredHeading
+
+      @quote = "#{closest_target}"
+    end
+
+    def closest_target
+      closest = @targets[0]
+      @targets.each {|target| closest = target if target[0][R] < closest[0][R] }
+      closest
+    end
+
+    def scanned(targets_scanned)
+      @stateMachine.scanned(targets_scanned)
+    end
+
+    def initialize(polarIce)
+      @targets = Array.new
+      @polarIce = polarIce
+    end
+
+    attr_accessor(:stateMachine)
+    attr_accessor(:polarIce)
+    attr_accessor(:targets)
+  end
 end

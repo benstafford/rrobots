@@ -694,13 +694,13 @@ describe 'PolarIce' do
       @bot.previousRadarHeading = 270
       @events['robot_scanned'] << [400]
       @bot.tick @events
-      @bot.targets.should == [[Vector[315, 400], 90, 0]]
+      @bot.commander.targets.should == [[Vector[315, 400], 90, 0]]
     end
     it 'should store polar vector and arc for each target' do
       @bot.previousRadarHeading = 270
       @events['robot_scanned'] << [400] << [300]
       @bot.tick @events
-      @bot.targets.should == [[Vector[315, 400], 90, 0], [Vector[315, 300], 90, 0]]
+      @bot.commander.targets.should == [[Vector[315, 400], 90, 0], [Vector[315, 300], 90, 0]]
     end
   end
   describe 'It should scan for the targets' do
@@ -713,35 +713,35 @@ describe 'PolarIce' do
         do_quick_scan
       end
       it 'should aim at the first quadrant if it only saw a target there' do
-        @bot.targets << [Vector[45, 400], 90, 0]
+        @bot.commander.targets << [Vector[45, 400], 90, 0]
         do_quick_scan
         @bot.driver.desiredHeading.should == 45
         @bot.gunner.desiredHeading.should == 45
         @bot.radar.desiredHeading.should == 45
       end
       it 'should aim at the second quadrant if it only saw a target there' do
-        @bot.targets << [Vector[135, 400], 90, 0]
+        @bot.commander.targets << [Vector[135, 400], 90, 0]
         do_quick_scan
         @bot.driver.desiredHeading.should == 135
         @bot.gunner.desiredHeading.should == 135
         @bot.radar.desiredHeading.should == 135
       end
       it 'should aim at the third quadrant if it only saw a target there' do
-        @bot.targets << [Vector[225, 400], 90, 0]
+        @bot.commander.targets << [Vector[225, 400], 90, 0]
         do_quick_scan
         @bot.driver.desiredHeading.should == 225
         @bot.gunner.desiredHeading.should == 225
         @bot.radar.desiredHeading.should == 225
       end
       it 'should aim at the fourth quadrant if it only saw a target there' do
-        @bot.targets << [Vector[315, 400], 90, 0]
+        @bot.commander.targets << [Vector[315, 400], 90, 0]
         do_quick_scan
         @bot.driver.desiredHeading.should == 315
         @bot.gunner.desiredHeading.should == 315
         @bot.radar.desiredHeading.should == 315
       end
       it 'should aim at the quadrant of the nearest target' do
-        @bot.targets << [Vector[45, 400], 90, 0] << [Vector[135, 300], 90, 0] << [Vector[225, 200], 90, 0] << [Vector[315, 100], 90, 0]
+        @bot.commander.targets << [Vector[45, 400], 90, 0] << [Vector[135, 300], 90, 0] << [Vector[225, 200], 90, 0] << [Vector[315, 100], 90, 0]
         do_quick_scan
         @bot.driver.desiredHeading.should == 315
         @bot.gunner.desiredHeading.should == 315
