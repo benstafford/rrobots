@@ -122,9 +122,14 @@ end
 
 for variable_element in range_start..range_end do
   @win_record = []
+  previous_seed = 0
   for trial in 1..100 do
-    print "Game #{trial}: "
     seed = Time.now.to_i + Process.pid
+    while (seed == previous_seed)
+      seed = Time.now.to_i + Process.pid
+    end
+    previous_seed = seed
+    print "Game #{trial}: [#{seed}]"
     battlefield = Battlefield.new xres*2, yres*2, timeout, seed
     c = 0
     @robots_loaded.each do |robot|
