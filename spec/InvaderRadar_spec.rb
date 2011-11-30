@@ -7,7 +7,7 @@ describe 'InvaderRadar' do
     @bot = NewInvader.new
     @bot.mode = InvaderMode::SEARCHING
     @bot.heading_of_edge = 90
-    @bot.move_engine.current_direction = -1
+    @bot.current_direction = -1
     @bot.stub!(:x).and_return(1540)
     @bot.stub!(:y).and_return(60)
     @radar = InvaderRadarEngine.new(@bot)
@@ -91,7 +91,7 @@ describe 'InvaderRadarEngineSearchOppositeCorner' do
     @bot = NewInvader.new
     @bot.mode = InvaderMode::SEARCH_OPPOSITE_CORNER
     @bot.heading_of_edge = 90
-    @bot.move_engine.current_direction = -1
+    @bot.current_direction = -1
     @bot.stub!(:x).and_return(1540)
     @bot.stub!(:y).and_return(60)
     @radar = InvaderRadarEngineSearchOppositeCorner.new(@bot)
@@ -168,7 +168,7 @@ describe 'InvaderRadarEngineProvidedTarget' do
     @bot = NewInvader.new
     @bot.mode = InvaderMode::PROVIDED_TARGET
     @bot.stub!(:y).and_return(60)
-    @bot.move_engine.target_enemy = InvaderPoint.new(600,600)
+    @bot.broadcast_enemy = InvaderPoint.new(600,600)
     @radar = InvaderRadarEngineProvidedTarget.new(@bot)
   end
 
