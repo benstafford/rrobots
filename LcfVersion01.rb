@@ -324,7 +324,7 @@ class LcfVersion01
           target_lock_patterns_to_match = (@distance_lasted_locked / (30 * 4)).to_i
           #puts "#{@is_master}|#{@distance_lasted_locked}"
           if target_lock_patterns_to_match < 1
-            #target_lock_patterns_to_match = 1
+            target_lock_patterns_to_match = 1
           end
           #puts "#{@is_master}|#{target_lock_patterns_to_match}"
         end
