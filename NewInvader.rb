@@ -19,7 +19,12 @@ class NewInvader
   def initialize
     @mode = InvaderMode::HEAD_TO_EDGE
     @move_engine = InvaderMovementEngine.new(self)
-    @fire_engine = InvaderFiringEngine.new(self)
+    @fire_engine = []
+    @fire_engine[InvaderMode::HEAD_TO_EDGE] = InvaderGunnerHeadToEdge.new(self)
+    @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderGunnerProvidedTarget.new(self)
+    @fire_engine[InvaderMode::FOUND_TARGET] = InvaderGunnerFoundTarget.new(self)
+    @fire_engine[InvaderMode::SEARCHING] = InvaderGunnerSearching.new(self)
+    @fire_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderGunnerShootOppositeCorner.new(self)
     @radar_engine = []
     @radar_engine[InvaderMode::HEAD_TO_EDGE] = InvaderRadarEngineHeadToEdge.new(self)
     @radar_engine[InvaderMode::PROVIDED_TARGET] = InvaderRadarEngineProvidedTarget.new(self)
@@ -39,7 +44,7 @@ class NewInvader
 
   def change_mode desired_mode
     @mode = desired_mode
-    @radar_engine[desired_mode].ready_for_metronome = false
+    radar_engine.ready_for_metronome = false
   end
 
   def opposite_edge
@@ -70,6 +75,13 @@ class NewInvader
   end
 
   private
+  def fire_engine
+    @fire_engine[@mode]
+  end
+
+  def radar_engine
+    @radar_engine[@mode]
+  end
 
   def send_broadcast
     message = x.to_i.to_s(16).rjust(3,' ')
@@ -96,14 +108,14 @@ class NewInvader
   end
 
   def fire_gun
-    @fire_engine.fire
-    turn_gun (0 - @move_engine.turn) + @fire_engine.turn_gun
-    fire @fire_engine.firepower unless @fire_engine.firepower == 0
+    fire_engine.fire
+    turn_gun (0 - @move_engine.turn) + fire_engine.turn_gun
+    fire fire_engine.firepower unless fire_engine.firepower == 0
   end
 
   def radar_sweep
-    @radar_engine[@mode].radar_sweep
-    turn_radar (0 - @move_engine.turn) + (0 - @fire_engine.turn_gun) + @radar_engine[@mode].turn_radar
+    radar_engine.radar_sweep
+    turn_radar (0 - @move_engine.turn) + (0 - fire_engine.turn_gun) + radar_engine.turn_radar
   end
 
   def get_broadcast
@@ -144,7 +156,7 @@ class NewInvader
   end
 
   def record_radar_detected
-    @found_enemy = @radar_engine[@mode].scan_radar(events['robot_scanned'])
+    @found_enemy = radar_engine.scan_radar(events['robot_scanned'])
     if not @found_enemy.nil? and @mode == InvaderMode::SEARCHING
       say "Found!"
       change_mode InvaderMode::FOUND_TARGET
@@ -216,18 +228,19 @@ class NewInvader
     def pursue_found_target
       turn_around if need_to_turn?
       @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-      enemy_direction = @robot.math.degree_from_point_to_point(@robot.location, @target_enemy)
+      enemy_direction = @math.degree_from_point_to_point(@robot.location, @target_enemy)
       radar_heading = @robot.opposite_edge
       if @math.radar_heading_between?(radar_heading, @math.rotated(enemy_direction, 5), @math.rotated(enemy_direction, -5)) == false
           @robot.say "pursuing"
-          #puts "pursuing #{radar_heading} is not between #{@math.rotated(enemy_direction, -5)} and #{@math.rotated(enemy_direction, 5)}"
           @current_direction = 0 - @current_direction
           @robot.change_mode InvaderMode::SEARCHING
       end
       if @current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
+        #@current_direction = -1
         @robot.change_mode InvaderMode::SEARCHING
       end
       if @current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
+        #@current_direction = 1
         @robot.change_mode InvaderMode::SEARCHING
       end
 
@@ -339,29 +352,8 @@ class InvaderFiringEngine
   def fire
     @turn_gun = 0
     @firepower = 0
-    case @robot.mode
-      when InvaderMode::HEAD_TO_EDGE
-        @turn_gun = 10
-        @firepower = 3 unless @robot.events['robot_scanned'].empty?
-      when InvaderMode::PROVIDED_TARGET
-        @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
-        point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + + Math.sin(@robot.time)
-        @firepower = power_based_on_distance
-      when InvaderMode::FOUND_TARGET
-        @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-        point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + + Math.sin(@robot.time)
-        #point_gun @robot.opposite_edge + Math.sin(@robot.time)
-        @firepower = power_based_on_distance
-      when InvaderMode::SEARCHING
-        point_gun @robot.opposite_edge + Math.sin(@robot.time)
-        @firepower = 0.1
-      when InvaderMode::SEARCH_OPPOSITE_CORNER
-        desired_gun_heading = @math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
-        point_gun desired_gun_heading # + Math.sin(@robot.time)
-        if @robot.gun_heading == desired_gun_heading
-          @firepower = 3.0
-        end
-    end
+    aim
+    shoot
     dont_fire_at_friend
   end
 
@@ -386,6 +378,64 @@ class InvaderFiringEngine
     if (@robot.gun_heading != direction)
       @turn_gun = @math.turn_toward(@robot.gun_heading, direction)
       @turn_gun = [[@turn_gun, 30].min,-30].max
+    end
+  end
+end
+
+class InvaderGunnerHeadToEdge <  InvaderFiringEngine
+  def aim
+    @turn_gun = 10
+  end
+
+  def shoot
+    @firepower = 3 unless @robot.events['robot_scanned'].empty?
+  end
+end
+
+class InvaderGunnerProvidedTarget < InvaderFiringEngine
+  def aim
+    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
+    point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + Math.sin(@robot.time)
+  end
+
+  def shoot
+    @firepower = power_based_on_distance
+  end
+end
+
+class InvaderGunnerFoundTarget < InvaderFiringEngine
+  def aim
+    @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
+    point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + Math.sin(@robot.time)
+  end
+
+  def shoot
+    @firepower = power_based_on_distance
+  end
+end
+
+class InvaderGunnerSearching < InvaderFiringEngine
+  def aim
+    point_gun @robot.opposite_edge + Math.sin(@robot.time)
+  end
+
+  def shoot
+    @firepower = 0.1
+  end
+end
+
+class InvaderGunnerShootOppositeCorner < InvaderFiringEngine
+  def aim
+    point_gun desired_gun_heading # + Math.sin(@robot.time)
+  end
+
+  def desired_gun_heading
+    @math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
+  end
+
+  def shoot
+    if @robot.gun_heading == desired_gun_heading
+      @firepower = 3.0
     end
   end
 end
