@@ -138,6 +138,10 @@ class Driver
   attr_accessor(:newPosition)
 end
 module DriverAccessor
+  def driverRotation
+    driver.rotation
+  end
+  
   def desiredDriverTarget
     driver.desiredTarget
   end
@@ -171,6 +175,9 @@ end
 class Gunner
   include Rotator
 
+  T = 0
+  R = 1
+
   MAXIMUM_ROTATION = 30
   INITIAL_ROTATION = 0
   INITIAL_DESIRED_HEADING = nil
@@ -178,6 +185,10 @@ class Gunner
 
   def tick
     rotator_tick
+  end
+
+  def target(target)
+    @desiredHeading = target[0][T]
   end
 
   def initialize
@@ -188,6 +199,10 @@ class Gunner
   end
 end
 module GunnerAccessor
+  def gunnerRotation
+    gunner.rotation
+  end
+  
   def desiredGunnerTarget= target
     gunner.desiredTarget = target
   end
@@ -205,12 +220,16 @@ end
 class Radar
   include Rotator
 
+  T = 0
+  R = 1
+
   MAXIMUM_ROTATION = 60
   INITIAL_ROTATION = 0
   INITIAL_DESIRED_HEADING = nil
   INITIAL_DESIRED_TARGET = nil
 
   def tick
+    @stateMachine.tick
     rotator_tick
   end
 
@@ -219,29 +238,50 @@ class Radar
     @stateMachine = Statemachine.build do
       state :awaiting_orders do
         event :scan, :quick_scan, :start_quick_scan
+        event :track, :rotate, :rotate_to_sector
         event :scanned, :awaiting_orders
+        event :tick, :awaiting_orders, :log_tick
       end
       state :quick_scan do
         event :scanned, :sector_scanned, :add_targets
+        event :tick, :quick_scan, :log_tick
       end
       state :sector_scanned do
         on_entry :count_sectors_scanned
         event :scan_incomplete, :quick_scan
         event :found_targets, :awaiting_orders, :quick_scan_successful
         event :no_targets, :awaiting_orders, :quick_scan_failed
-        event :scan, :quick_scan, :start_quick_scan
+        event :tick, :sector_scanned, :log_tick
+      end
+      state :rotate do
+        event :tick, :wait_for_rotation, :log_tick
+        event :scanned, :rotate
+      end
+      state :wait_for_rotation do
+        on_entry :check_desired_heading
+        event :arrived, :track, :start_track
+        event :rotating, :rotate
+      end
+      state :track do
       end
       context radar
     end
   end
 
+  def log_tick
+    print "radar.tick\n"
+  end
+  
   def scan
+    print "radar.scan\n"
     @stateMachine.scan
   end
 
   def start_quick_scan
+    print "radar.start_quick_scan\n"
     @originalHeading = polarIce.radar_heading
     @sectorsScanned = 0
+    @quick_scan_results = nil
     setup_scan
   end
 
@@ -250,10 +290,12 @@ class Radar
   end
 
   def add_targets targets_scanned
+    print "radar.add_targets: #{targets_scanned}\n"
     @targets += targets_scanned
   end
 
   def count_sectors_scanned
+    print "radar.count_sectors_scanned: #{@sectorsScanned}\n"
     @sectorsScanned += 1
     if @sectorsScanned < 6
       @stateMachine.scan_incomplete
@@ -273,11 +315,40 @@ class Radar
   end
 
   def quick_scan_failed
+    print "radar.quick_scan_failed\n"
     polarIce.quick_scan_failed
   end
 
   def quick_scan_successful(targets)
+    print "radar.quick_scan_successful #{targets}\n"
     polarIce.quick_scan_successful(targets)
+  end
+
+  def track(target)
+    print "radar.track #{target}\n"
+    @stateMachine.track(target)
+  end
+
+  def rotate_to_sector(target)
+    @currentTarget = target
+    @desiredHeading = @currentTarget[0][T] - @currentTarget[1] / 2
+  end
+
+  def check_desired_heading
+    print "radar.check_desired_heading #{@currentHeading} #{@desiredHeading} ==> "
+    if (@currentHeading == @desiredHeading)
+      print "arrived\n"
+      @desiredHeading = nil
+      @stateMachine.arrived
+    else
+      print "rotating\n"
+      @stateMachine.rotating
+    end
+  end
+  
+  def start_track
+    @rotation = @currentTarget[1] / 2
+    print "start track #{@rotation}\n"
   end
   
   def initialize(polarIce)
@@ -291,8 +362,13 @@ class Radar
   end
   attr_accessor(:polarIce)
   attr_accessor(:targets)
+  attr_accessor(:quick_scan_results)
 end
 module RadarAccessor
+  def radarRotation
+    radar.rotation
+  end
+  
   def desiredRadarTarget= target
     radar.desiredTarget = target
   end
@@ -346,14 +422,18 @@ class Commander
         event :scan, :quick_scan, :start_quick_scan
       end
       state :quick_scan do
-        event :quick_scan_successful, :seek, :add_targets
+        event :quick_scan_successful, :track, :add_targets
         event :quick_scan_failed, :quick_scan, :start_quick_scan
       end
-      state :seek do
-        on_entry :start_seeking
+      state :track do
+        on_entry :start_tracking
       end
       context commander
     end
+  end
+
+  def tick
+    check_scan_results
   end
 
   def scan
@@ -361,28 +441,44 @@ class Commander
   end
   
   def start_quick_scan
+    print "commander.start_quick_scan\n"
     @originalHeading = polarIce.heading
     @sectorsScanned = 0
+    @quick_scan_results = nil
     polarIce.start_quick_scan
   end
 
   def quick_scan_failed
-    @stateMachine.quick_scan_failed
+    print "commander.quick_scan_failed\n"
+    @quick_scan_results = []
   end
 
   def quick_scan_successful(targets)
-    @stateMachine.quick_scan_successful(targets)
+    print "commander.quick_scan_successful #{targets}\n"
+    @quick_scan_results = targets
+  end
+
+  def check_scan_results
+    if @quick_scan_results != nil
+      if @quick_scan_results.empty?
+        @stateMachine.quick_scan_failed
+      else
+        @stateMachine.quick_scan_successful(@quick_scan_results)
+      end
+      @quick_scan_results = nil
+    end
   end
 
   def add_targets targets_scanned
     @targets += targets_scanned
   end
 
-  def start_seeking
-    polarIce.radar.desiredHeading = closest_target[0][T]
-    polarIce.gunner.desiredHeading = polarIce.radar.desiredHeading
+  def start_tracking
+    target = closest_target
+    polarIce.target(target)
+    polarIce.track(target)
 
-    @quote = "#{closest_target}"
+    polarIce.quote = "#{target}"
   end
 
   def closest_target
@@ -420,6 +516,7 @@ class PolarIce
       process_radar(events['robot_scanned'])
     end
     fire_the_gun
+    commander.tick
     move_the_bot
     turn_the_gun
     turn_the_radar
@@ -518,6 +615,7 @@ class PolarIce
   end
 
   def perform_actions
+    print "perform_actions: \n  turn #{driver.rotation}\n  accelerate #{driver.acceleration}\n  turn_gun #{gunner.rotation}\n  fire #{loader.power}\n  turn_radar #{radar.rotation}\n"
     turn driver.rotation
     accelerate driver.acceleration
     turn_gun gunner.rotation
@@ -538,12 +636,20 @@ class PolarIce
     radar.scan
   end
 
+  def quick_scan_successful(targets)
+    commander.quick_scan_successful(targets)
+  end
+
   def quick_scan_failed
     commander.quick_scan_failed
   end
+  
+  def target(target)
+    gunner.target(target)
+  end
 
-  def quick_scan_successful(targets)
-    commander.quick_scan_successful(targets)
+  def track(target)
+    radar.track(target)
   end
 
   def initialize

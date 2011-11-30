@@ -29,18 +29,9 @@ def test_aim_at_target(rotator, desiredTarget, expectedHeading)
   rotator.desiredHeading.should == expectedHeading
 end
 
-def scan_90_degrees
-  @bot.tick @events
-  @bot.driver.rotation.should == 10
-  @bot.gunner.rotation.should == 30
-  @bot.radar.rotation.should == 50
-end
-
 def scan_60_degrees
   @bot.tick @events
-  @bot.driver.rotation.should == 0
-  @bot.gunner.rotation.should == 0
-  @bot.radar.rotation.should == 60
+  (@bot.radarRotation + @bot.gunnerRotation + @bot.driverRotation).should == 60
 end
 
 def do_quick_scan
@@ -699,60 +690,66 @@ describe 'PolarIce' do
         @bot.radar.targets << [Vector[30, 400], 60, 0]
         do_quick_scan
         @bot.desiredGunnerHeading.should == 30
-        @bot.desiredRadarHeading.should == 30
+        @bot.desiredRadarHeading.should == 0
       end
       it 'should aim at the second sextant if it only saw a target there' do
         @bot.radar.targets << [Vector[90, 400], 60, 0]
         do_quick_scan
         @bot.desiredGunnerHeading.should == 90
-        @bot.desiredRadarHeading.should == 90
+        @bot.desiredRadarHeading.should == 60
       end
       it 'should aim at the third sextant if it only saw a target there' do
         @bot.radar.targets << [Vector[150, 400], 60, 0]
         do_quick_scan
         @bot.desiredGunnerHeading.should == 150
-        @bot.desiredRadarHeading.should == 150
+        @bot.desiredRadarHeading.should == 120
       end
       it 'should aim at the fourth sextant if it only saw a target there' do
         @bot.radar.targets << [Vector[210, 400], 60, 0]
         do_quick_scan
         @bot.desiredGunnerHeading.should == 210
-        @bot.desiredRadarHeading.should == 210
+        @bot.desiredRadarHeading.should == 180
       end
       it 'should aim at the fifth sextant if it only saw a target there' do
         @bot.radar.targets << [Vector[270, 400], 60, 0]
         do_quick_scan
         @bot.desiredGunnerHeading.should == 270
-        @bot.desiredRadarHeading.should == 270
+        @bot.desiredRadarHeading.should == 240
       end
       it 'should aim at the sixth sextant if it only saw a target there' do
         @bot.radar.targets << [Vector[330, 400], 60, 0]
         do_quick_scan
         @bot.desiredGunnerHeading.should == 330
-        @bot.desiredRadarHeading.should == 330
+        @bot.desiredRadarHeading.should == 300
       end
       it 'should aim at the quadrant of the nearest target' do
         @bot.radar.targets << [Vector[30, 600], 60, 0] << [Vector[90, 500], 60, 0] << [Vector[150, 400], 60, 0] << [Vector[210, 300], 60, 0] << [Vector[270, 200], 60, 0] << [Vector[330, 100], 60, 0]
         do_quick_scan
         @bot.desiredGunnerHeading.should == 330
-        @bot.desiredRadarHeading.should == 330
+        @bot.desiredRadarHeading.should == 300
       end
     end
   end
   describe "It should fight stationary targets that don't shoot" do
-    it 'should turn to center of sextant after quick scan' do
+    it 'should turn to gun to the center and radar to the edge after quick scan' do
       @target = Vector[168,400]
       @bot.radar.targets << [Vector[150, 400], 60, 0]
       do_quick_scan
 
-      @bot.should_receive(:radar_heading).and_return(0)
-      @bot.should_receive(:turn_radar).with(60)
-      @bot.tick nil
-
-      @bot.should_receive(:gun_heading).and_return(150)
-      @bot.should_receive(:radar_heading).and_return(150)
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.tick nil
+      @bot.desiredGunnerHeading.should == 150
+      @bot.desiredRadarHeading.should == 120
     end
+
+    it 'should scan from the edge to the center' do
+      @target = Vector[168,400]
+      @bot.radar.targets << [Vector[150, 400], 60, 0]
+      do_quick_scan
+
+      @bot.should_receive(:radar_heading).and_return(120)
+      @bot.should_receive(:gun_heading).and_return(150)
+      @bot.should_receive(:turn_radar).with(30)
+      @bot.tick @events
+    end
+
   end
 end
