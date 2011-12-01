@@ -28,7 +28,8 @@ class LcfVersion01
     @has_scanned_enemy_robot = 0
     @history_ticks_last_robot_scanned = []
     @pair_is_alive = 1
-    @max_tlrs_for_tracking_lock = 15
+    @max_tlrs_for_tracking_lock = 7
+    @got_first_target = 0
     @@was_here = 2
     @@master_tlrs = 100
     @@slave_tlrs = 100
@@ -55,14 +56,24 @@ class LcfVersion01
    end
 
   def tick events
+    find_first_target
     determine_if_your_pair_is_alive
     set_dont_shoot
     slow_motion 0, 0.02
-    if @pair_is_alive == 1
-       say "Inconceivable!" if got_hit(events)
-    end
+    say "Inconceivable!" if got_hit(events)
     determine_mode
     set_location
+  end
+
+  def find_first_target
+    if (@got_first_target == 0) && (time.to_i > 15)
+      if (time.to_i < 31) && (events['robot_scanned'].empty?)
+        turn_gun 30
+      else
+        @got_first_target = 1
+        #puts "#{@is_master}|#{time}|found First Target"
+      end
+    end
   end
 
   def determine_if_your_pair_is_alive
@@ -78,7 +89,7 @@ class LcfVersion01
   def your_pair_is_no_more_deal_with_it
     if @pair_is_alive == 1
       @pair_is_alive = 0
-      @is_master = 1
+      #@is_master = 1
       @dont_shoot_max_right = nil
       @dont_shoot_max_left = nil
       @dont_shoot_distance = 0
@@ -141,7 +152,9 @@ class LcfVersion01
 
   def sniper_mode
     initialize_sniper_mode
-    fire_last_found
+    if @got_first_target == 1
+      fire_last_found
+    end
     got_to_destination
   end
 
@@ -195,29 +208,21 @@ class LcfVersion01
       @gun_turn_max_right_stop=(270-1)
       @gun_turn_left_stop=0
       @gun_turn_right_stop=(270-1)
-      #@dont_shoot_max_left=316
-      #@dont_shoot_max_right=314
     elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
       @gun_turn_max_left_stop=270
       @gun_turn_max_right_stop=(180-1)
       @gun_turn_left_stop=270
       @gun_turn_right_stop=(180-1)
-      #@dont_shoot_max_left=226
-      #@dont_shoot_max_right=224
     elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
       @gun_turn_max_left_stop=180
       @gun_turn_max_right_stop=(90-1)
       @gun_turn_left_stop=180
       @gun_turn_right_stop=(90-1)
-      #@dont_shoot_max_left=136
-      #@dont_shoot_max_right=134
     elsif(@x_destination == @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
       @gun_turn_max_left_stop=90
       @gun_turn_max_right_stop=359
       @gun_turn_left_stop=90
       @gun_turn_right_stop=359
-      #@dont_shoot_max_left=46
-      #@dont_shoot_max_right=44
     end
   end
 
@@ -304,6 +309,7 @@ class LcfVersion01
     else
       #puts "Current Location #{x}, #{y}"
       #puts "Trying to go to #{arg_x}, #{arg_y}"
+      #puts "#{@is_master}|#{time}|#{(get_angle_to_location arg_x, arg_y) - heading}"
       unless get_angle_to_location(arg_x,arg_y) == heading
         turn (get_angle_to_location arg_x, arg_y) - heading
       end
@@ -325,8 +331,8 @@ class LcfVersion01
     else
       max_ticks_before_fast_turn = 51
     end
-    fast_turn_amount = 4
-    target_lock_patterns_to_match = 4
+    fast_turn_amount = 1
+    target_lock_patterns_to_match = 7
     fire_power = 0.1
 
     if @has_scanned_enemy_robot == 1
@@ -454,7 +460,9 @@ class LcfVersion01
         return gun_heading.to_f
       end
     else
-      return fast_turn_amount
+      @gun_turn_left_stop = @gun_turn_max_left_stop
+      @gun_turn_right_stop = @gun_turn_max_right_stop
+      return fast_turn_amount * @gun_turn_direction
     end
   end
 
