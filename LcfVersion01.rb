@@ -42,9 +42,11 @@ class LcfVersion01
 
   def tick events
     determine_if_your_pair_is_alive
-    set_dont_shoot_distance
+    set_dont_shoot
     slow_motion 0, 0.02
-    say "Inconceivable!" if got_hit(events)
+    if @pair_is_alive == 1
+       say "Inconceivable!" if got_hit(events)
+    end
     determine_mode
     set_location
   end
@@ -52,24 +54,46 @@ class LcfVersion01
   def determine_if_your_pair_is_alive
     if @pair_is_alive == 1
       if @@was_here == @is_master
-        @pair_is_alive = 0
-        @is_master = 1
-        @dont_shoot_max_right = nil
-        @dont_shoot_max_left = nil
-        say "Nooooo!!!"
-        #puts "Nooooo!!!"
+        your_pair_is_no_more_deal_with_it
       else
         @@was_here = @is_master
       end
     end
   end
 
-  def set_dont_shoot_distance
-    if @is_master == 1
-      @dont_shoot_distance = distance_between_points x.to_i, y.to_i, @@slave_x_location, @@slave_y_location
-    else
-      @dont_shoot_distance = distance_between_points x.to_i, y.to_i, @@master_x_location, @@master_y_location
+  def your_pair_is_no_more_deal_with_it
+    if @pair_is_alive == 1
+      @pair_is_alive = 0
+      @is_master = 1
+      @dont_shoot_max_right = nil
+      @dont_shoot_max_left = nil
+      @dont_shoot_distance = 0
+      say "Nooooo!!!"
+      #puts "Nooooo!!!"
     end
+  end
+
+  def set_dont_shoot
+    if @pair_is_alive == 1
+      if @is_master == 1
+        @dont_shoot_distance = distance_between_points x.to_i, y.to_i, @@slave_x_location, @@slave_y_location
+        set_dont_shoot_max_left_right @@slave_x_location, @@slave_y_location
+      else
+        @dont_shoot_distance = distance_between_points x.to_i, y.to_i, @@master_x_location, @@master_y_location
+        set_dont_shoot_max_left_right @@master_x_location, @@master_y_location
+      end
+    end
+  end
+
+  def set_dont_shoot_max_left_right x_pair, y_pair
+    plus_minus_angle = get_angle_to_edge_of_bot_at_point x_pair, y_pair
+    angle_to_pair = get_angle_to_location x_pair, y_pair
+    @dont_shoot_max_left = angle_to_pair + plus_minus_angle
+    @dont_shoot_max_right = angle_to_pair - plus_minus_angle
+  end
+
+  def get_angle_to_edge_of_bot_at_point x_bot, y_bot
+    return Math.atan(@clipping_offset/(distance_between_points x.to_f, y.to_f, x_bot, y_bot)) / Math::PI * 180 % 360
   end
 
   def slow_motion enabled, seconds
@@ -156,29 +180,29 @@ class LcfVersion01
       @gun_turn_max_right_stop=(270-1)
       @gun_turn_left_stop=0
       @gun_turn_right_stop=(270-1)
-      @dont_shoot_max_left=316
-      @dont_shoot_max_right=314
+      #@dont_shoot_max_left=316
+      #@dont_shoot_max_right=314
     elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
       @gun_turn_max_left_stop=270
       @gun_turn_max_right_stop=(180-1)
       @gun_turn_left_stop=270
       @gun_turn_right_stop=(180-1)
-      @dont_shoot_max_left=226
-      @dont_shoot_max_right=224
+      #@dont_shoot_max_left=226
+      #@dont_shoot_max_right=224
     elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
       @gun_turn_max_left_stop=180
       @gun_turn_max_right_stop=(90-1)
       @gun_turn_left_stop=180
       @gun_turn_right_stop=(90-1)
-      @dont_shoot_max_left=136
-      @dont_shoot_max_right=134
+      #@dont_shoot_max_left=136
+      #@dont_shoot_max_right=134
     elsif(@x_destination == @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
       @gun_turn_max_left_stop=90
       @gun_turn_max_right_stop=359
       @gun_turn_left_stop=90
       @gun_turn_right_stop=359
-      @dont_shoot_max_left=46
-      @dont_shoot_max_right=44
+      #@dont_shoot_max_left=46
+      #@dont_shoot_max_right=44
     end
   end
 
@@ -260,6 +284,7 @@ class LcfVersion01
         stop
         say "Stopped"
         #puts "Current Location #{x}, #{y}"
+        #your_pair_is_no_more_deal_with_it
       end
     else
       #puts "Current Location #{x}, #{y}"
@@ -347,6 +372,7 @@ class LcfVersion01
 
     if (@dont_shoot_max_right != nil) && (@dont_shoot_max_left != nil)
       if(@dont_shoot_max_right < gun_heading.to_f) && (gun_heading.to_f < @dont_shoot_max_left)
+        #puts "#{@is_master}|Don'tShoot!!!'"
         fire_power = 0
       end
     end
@@ -355,10 +381,12 @@ class LcfVersion01
     unless events['robot_scanned'].empty?
       #puts "#{@is_master}|#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i}"
       #if events['robot_scanned'][0][0].to_i < @dont_shoot_distance.to_i
-      dsd_ff = 120
-      #puts "#{@is_master}|(#{@dont_shoot_distance.to_i + dsd_ff} < #{events['robot_scanned'][0][0].to_i}) || (#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i - dsd_ff})"
+      dsd_ff = 1
+      #puts "#{@is_master}|dif(#{(@dont_shoot_distance.to_i + dsd_ff)-events['robot_scanned'][0][0].to_i})(#{@dont_shoot_distance.to_i + dsd_ff} < #{events['robot_scanned'][0][0].to_i}) || (#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i - dsd_ff})dif(#{events['robot_scanned'][0][0].to_i - (@dont_shoot_distance.to_i - dsd_ff)})"
       if ((@dont_shoot_distance.to_i + dsd_ff) < events['robot_scanned'][0][0].to_i) || (events['robot_scanned'][0][0].to_i < (@dont_shoot_distance.to_i - dsd_ff))
-        #fire 2.5
+        #if @pair_is_alive == 1
+        #  puts "#{@is_master}|Got One!!!|#{@is_master}|dif(#{(@dont_shoot_distance.to_i + dsd_ff)-events['robot_scanned'][0][0].to_i})(#{@dont_shoot_distance.to_i + dsd_ff} < #{events['robot_scanned'][0][0].to_i}) || (#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i - dsd_ff})dif(#{events['robot_scanned'][0][0].to_i - (@dont_shoot_distance.to_i - dsd_ff)})"
+        #end
         turn_gun (-1 * turn_amount * @gun_turn_direction)
         found_enemy_robot
         @has_scanned_enemy_robot = 1
