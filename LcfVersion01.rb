@@ -28,9 +28,11 @@ class LcfVersion01
     @has_scanned_enemy_robot = 0
     @history_ticks_last_robot_scanned = []
     @pair_is_alive = 1
+    @max_tlrs_for_tracking_lock = 15
     @@was_here = 2
     @@master_tlrs = 100
     @@slave_tlrs = 100
+
 
     if @@number_classes_initialized % 2 == 1
       @is_master = 1
@@ -319,9 +321,9 @@ class LcfVersion01
   def fire_last_found
     turn_amount = 1
     if @pair_is_alive == 1
-      max_ticks_before_fast_turn = 30
+      max_ticks_before_fast_turn = 26
     else
-      max_ticks_before_fast_turn = 60
+      max_ticks_before_fast_turn = 51
     end
     fast_turn_amount = 4
     target_lock_patterns_to_match = 4
@@ -438,7 +440,7 @@ class LcfVersion01
       pairs_tlrs = @@master_tlrs
     end
 
-    if (@pair_is_alive == 1) && (pairs_tlrs < 3)
+    if (@pair_is_alive == 1) && (pairs_tlrs < @max_tlrs_for_tracking_lock)
       if @is_master == 1
         x_target = @@slave_x_target
         y_target = @@slave_y_target
@@ -495,7 +497,7 @@ class LcfVersion01
     end
     @history_ticks_last_robot_scanned[time] = @ticks_last_robot_scanned
     #puts "#{@is_master}|#{@history_ticks_last_robot_scanned.inspect}"
-    if (@has_scanned_enemy_robot == 1) && (@ticks_last_robot_scanned < 3)
+    if (@has_scanned_enemy_robot == 1) && (@ticks_last_robot_scanned < @max_tlrs_for_tracking_lock)
       set_target @distance_lasted_locked
     end
   end
