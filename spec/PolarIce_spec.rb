@@ -4,9 +4,71 @@ $LOAD_PATH.unshift File.join(File.dirname(__FILE__), '../')
 require 'PolarIce'
 require 'Matrix'
 
+def test_acceleration(desiredSpeed, expectedAcceleration)
+  @bot.stub!(:speed).and_return(0)
+  @bot.desiredDriverSpeed = desiredSpeed
+  @bot.should_receive(:accelerate).with(expectedAcceleration)
+  @bot.tick nil
+end
+
+def test_move_to_position(desiredTarget, expectedSpeed)
+  @bot.desiredDriverTarget = desiredTarget
+  @bot.tick nil
+  @bot.desiredDriverSpeed.should == expectedSpeed
+end
+
+def test_rotation(rotator, desiredHeading, expectedRotation)
+  rotator.desiredHeading = desiredHeading
+  @bot.tick nil
+  rotator.rotation.should == expectedRotation
+end
+
+def test_aim_at_target(rotator, desiredTarget, expectedHeading)
+  rotator.desiredTarget = desiredTarget
+  @bot.tick nil
+  rotator.desiredHeading.should == expectedHeading
+end
+
+def scan_60_degrees
+  @bot.tick @events
+  (@bot.radarRotation + @bot.gunnerRotation + @bot.driverRotation).should == 60
+end
+
+def do_quick_scan
+  5.times { scan_60_degrees }
+  @bot.tick @events
+end
+
 describe 'PolarIce' do
   before(:each) do
     @bot = PolarIce.new
+
+    @events = Hash.new{|h, k| h[k]=[]}
+
+    @bot.stub!(:accelerate)
+    @bot.stub!(:turn)
+    @bot.stub!(:turn_gun)
+    @bot.stub!(:turn_radar)
+    @bot.stub!(:fire)
+    @bot.stub!(:broadcast)
+    @bot.stub!(:say)
+
+    @bot.stub!(:x).and_return(800)
+    @bot.stub!(:y).and_return(800)
+    @bot.stub!(:speed).and_return(0)
+    @bot.stub!(:heading).and_return(0)
+    @bot.stub!(:gun_heading).and_return(0)
+    @bot.stub!(:radar_heading).and_return(0)
+    @bot.stub!(:time).and_return(0)
+
+    @bot.desiredDriverTarget = nil
+    @bot.desiredDriverHeading = nil
+    @bot.desiredDriverSpeed = nil
+    @bot.desiredGunnerTarget = nil
+    @bot.desiredGunnerHeading = nil
+    @bot.desiredRadarTarget = nil
+    @bot.desiredRadarHeading = nil
+    @bot.desiredDriverMaximumSpeed = 8
   end
 
   describe 'It should know its environment' do
@@ -75,19 +137,19 @@ describe 'PolarIce' do
   end
   describe 'It should initialize variables' do
     it 'should have a default acceleration rate' do
-      @bot.accelerationRate.should_not == nil
+      @bot.driver.acceleration.should_not == nil
     end
     it 'should have a default hull rotation' do
-      @bot.hullRotation.should_not == nil
+      @bot.driver.rotation.should_not == nil
     end
     it 'should have a default gun rotation' do
-      @bot.gunRotation.should_not == nil
+      @bot.gunner.rotation.should_not == nil
     end
     it 'should have a default radar rotation' do
-      @bot.radarRotation.should_not == nil
+      @bot.radar.rotation.should_not == nil
     end
     it 'should have a default fire power' do
-      @bot.firePower.should_not == nil
+      @bot.desiredLoaderPower.should_not == nil
     end
     it 'should have a default broadcast message' do
       @bot.broadcastMessage.should_not == nil
@@ -97,24 +159,13 @@ describe 'PolarIce' do
     end
   end
   describe 'It should perform actions on each tick' do
-    before(:each) do
-      @bot.stub!(:x).and_return(5)
-      @bot.stub!(:y).and_return(10)
-      @bot.stub!(:accelerate)
-      @bot.stub!(:turn)
-      @bot.stub!(:turn_gun)
-      @bot.stub!(:turn_radar)
-      @bot.stub!(:fire)
-      @bot.stub!(:broadcast)
-      @bot.stub!(:say)
-    end
     it 'should handle a nil tick' do
       @bot.tick nil
     end
     describe 'It should initialize variables on a tick' do
       it 'should store its position as a vector' do
         @bot.tick nil
-        @bot.currentPosition.should == Vector[5,10]
+        @bot.currentPosition.should == Vector[800,800]
       end
     end
     describe 'It should move its parts' do
@@ -149,27 +200,27 @@ describe 'PolarIce' do
     end
     describe 'It should move its parts desired amounts' do
       it 'should accelerate the desired amount' do
-        @bot.accelerationRate = 1
+        @bot.driver.acceleration = 1
         @bot.should_receive(:accelerate).with(1)
         @bot.perform_actions
       end
       it 'should rotate its hull the desired amount' do
-        @bot.hullRotation = 10
+        @bot.driver.rotation = 10
         @bot.should_receive(:turn).with(10)
         @bot.perform_actions
       end
       it 'should rotate its gun the desired amount' do
-        @bot.gunRotation = 15
+        @bot.gunner.rotation = 15
         @bot.should_receive(:turn_gun).with(15)
         @bot.perform_actions
       end
       it 'should rotate its radar the desired amount' do
-        @bot.radarRotation = 15
+        @bot.radar.rotation = 15
         @bot.should_receive(:turn_radar).with(15)
         @bot.perform_actions
       end
       it 'should fire the desired amount' do
-        @bot.firePower = 0.1
+        @bot.desiredLoaderPower = 0.1
         @bot.should_receive(:fire).with(0.1)
         @bot.perform_actions
       end
@@ -187,230 +238,125 @@ describe 'PolarIce' do
   end
   describe 'It should know information from the previous tick' do
     before(:each) do
-      @bot.stub!(:accelerate)
-      @bot.stub!(:turn)
-      @bot.stub!(:turn_gun)
-      @bot.stub!(:turn_radar)
-      @bot.stub!(:fire)
-      @bot.stub!(:broadcast)
-      @bot.stub!(:say)
-
-      @bot.stub!(:x).and_return(5)
-      @bot.stub!(:y).and_return(10)
-      @bot.stub!(:speed).and_return(0)
-      @bot.stub!(:heading).and_return(1)
-      @bot.stub!(:gun_heading).and_return(2)
       @bot.stub!(:radar_heading).and_return(3)
       @bot.tick nil
-
-      @bot.stub!(:x).and_return(6)
-      @bot.stub!(:y).and_return(11)
-      @bot.stub!(:speed).and_return(1)
-      @bot.stub!(:heading).and_return(2)
-      @bot.stub!(:gun_heading).and_return(3)
       @bot.stub!(:radar_heading).and_return(4)
-    end
-    it 'should know its previous position' do
-      @bot.previousPosition.should == Vector[5,10]
-    end
-    it 'should know its previous heading' do
-      @bot.previousHeading.should == 1
-    end
-    it 'should know its previous gun heading' do
-      @bot.previousGunHeading.should == 2
     end
     it 'should know its previous radar heading' do
       @bot.previousRadarHeading.should == 3
     end
-    it 'should know its previous speed' do
-      @bot.previousSpeed.should == 0
-    end
-
   end
   describe 'It should turn' do
     before(:each) do
-      @bot.stub!(:accelerate)
-      @bot.stub!(:turn)
-      @bot.stub!(:turn_gun)
-      @bot.stub!(:turn_radar)
-      @bot.stub!(:fire)
-      @bot.stub!(:broadcast)
-      @bot.stub!(:say)
-
       @bot.stub!(:x).and_return(800)
       @bot.stub!(:y).and_return(800)
       @bot.stub!(:speed).and_return(0)
       @bot.stub!(:heading).and_return(90)
       @bot.stub!(:gun_heading).and_return(90)
       @bot.stub!(:radar_heading).and_return(90)
-
-      @bot.desiredPosition = nil
     end
     describe 'towards headings' do
       describe 'It should turn its hull toward a desired heading' do
         it 'should not turn if it is at the desired heading' do
-          @bot.desiredHeading = 90
-          @bot.should_receive(:turn).with(0)
-          @bot.tick nil
+          test_rotation(@bot.driver, 90, 0)
         end
-        it 'should turn counter-clockwise immediately to the desired heading if within range' do
-          @bot.desiredHeading = 80
-          @bot.should_receive(:turn).with(-10)
-          @bot.tick nil
+        it 'should turn left immediately to the desired heading if within range' do
+          test_rotation(@bot.driver, 8, -10)
         end
-        it 'should turn clockwise immediately to the desired heading if within range' do
-          @bot.desiredHeading = 100
-          @bot.should_receive(:turn).with(10)
-          @bot.tick nil
+        it 'should turn right immediately to the desired heading if within range' do
+          test_rotation(@bot.driver, 100, 10)
         end
-        it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-          @bot.desiredHeading = 79
-          @bot.should_receive(:turn).with(-10)
-          @bot.tick nil
+        it 'should turn left the maximum amount toward the desired heading if outside of range' do
+          test_rotation(@bot.driver, 79, -10)
         end
-        it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-          @bot.desiredHeading = 101
-          @bot.should_receive(:turn).with(10)
-          @bot.tick nil
+        it 'should turn right the maximum amount toward the desired heading if outside of range' do
+          test_rotation(@bot.driver, 101, 10)
         end
-        it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-          @bot.desiredHeading = 359
-          @bot.should_receive(:turn).with(-10)
-          @bot.tick nil
+        it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+          test_rotation(@bot.driver, 359, -10)
         end
-        it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-          @bot.desiredHeading = -91
-          @bot.should_receive(:turn).with(10)
-          @bot.tick nil
+        it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+          test_rotation(@bot.driver, -91, 10)
         end
       end
       describe 'It should turn its gun toward a desired heading' do
         describe 'It should turn its gun just like the hull if the hull is not turning' do
           before (:each) do
-            @bot.desiredHeading = 90
-            @bot.desiredGunTarget = nil
-            @bot.desiredPosition = nil
+            @bot.desiredDriverHeading = 90
           end
           it 'should not turn if it is at the desired heading' do
-            @bot.desiredGunHeading = @bot.desiredHeading
-            @bot.should_receive(:turn_gun).with(0)
-            @bot.tick nil
+            test_rotation(@bot.gunner, @bot.desiredDriverHeading, 0)
           end
-          it 'should turn counter-clockwise immediately to the desired heading if within range' do
-            @bot.desiredGunHeading = @bot.desiredHeading-30
-            @bot.should_receive(:turn_gun).with(-30)
-            @bot.tick nil
+          it 'should turn left immediately to the desired heading if within range' do
+            test_rotation(@bot.gunner, @bot.desiredDriverHeading-30, -30)
           end
-          it 'should turn clockwise immediately to the desired heading if within range' do
-            @bot.desiredGunHeading = @bot.desiredHeading+30
-            @bot.should_receive(:turn_gun).with(30)
-            @bot.tick nil
+          it 'should turn right immediately to the desired heading if within range' do
+            test_rotation(@bot.gunner, @bot.desiredDriverHeading+30, 30)
           end
-          it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-            @bot.desiredGunHeading = @bot.desiredHeading-31
-            @bot.should_receive(:turn_gun).with(-30)
-            @bot.tick nil
+          it 'should turn left the maximum amount toward the desired heading if outside of range' do
+            test_rotation(@bot.gunner, @bot.desiredDriverHeading-31, -30)
           end
-          it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-            @bot.desiredGunHeading = @bot.desiredHeading+31
-            @bot.should_receive(:turn_gun).with(30)
-            @bot.tick nil
+          it 'should turn right the maximum amount toward the desired heading if outside of range' do
+            test_rotation(@bot.gunner, @bot.desiredDriverHeading+31, 30)
           end
-          it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-            @bot.desiredGunHeading = @bot.desiredHeading+181
-            @bot.should_receive(:turn_gun).with(-30)
-            @bot.tick nil
+          it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+            test_rotation(@bot.gunner, @bot.desiredDriverHeading+181, -30)
           end
-          it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-            @bot.desiredGunHeading = @bot.desiredHeading-181
-            @bot.should_receive(:turn_gun).with(30)
-            @bot.tick nil
+          it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+            test_rotation(@bot.gunner, @bot.desiredDriverHeading-181, 30)
           end
         end
         describe 'It should adjust for any hull movement' do
-          describe 'It should adjust for counter-clockwise hull movement' do
+          describe 'It should adjust for left hull movement' do
             before (:each) do
-              @bot.desiredHeading = 100
-              @bot.desiredGunTarget = nil
-              @bot.desiredPosition = nil
+              @bot.desiredDriverHeading = 100
             end
             it 'should not turn if it is at the desired heading' do
-              @bot.desiredGunHeading = @bot.desiredHeading
-              @bot.should_receive(:turn_gun).with(0)
-              @bot.tick nil
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
-              @bot.desiredGunHeading = @bot.desiredHeading-30
-              @bot.should_receive(:turn_gun).with(-30)
-              @bot.tick nil
+            it 'should turn left immediately to the desired heading if within range' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading-30, -30)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
-              @bot.desiredGunHeading = @bot.desiredHeading+30
-              @bot.should_receive(:turn_gun).with(30)
-              @bot.tick nil
+            it 'should turn right immediately to the desired heading if within range' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading+30, 30)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredGunHeading = @bot.desiredHeading-31
-              @bot.should_receive(:turn_gun).with(-30)
-              @bot.tick nil
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading-31, -30)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredGunHeading = @bot.desiredHeading+31
-              @bot.should_receive(:turn_gun).with(30)
-              @bot.tick nil
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading+31, 30)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredGunHeading = @bot.desiredHeading+181
-              @bot.should_receive(:turn_gun).with(-30)
-              @bot.tick nil
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading+181, -30)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredGunHeading = @bot.desiredHeading-181
-              @bot.should_receive(:turn_gun).with(30)
-              @bot.tick nil
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading-181, 30)
             end
           end
-          describe 'It should adjust for clockwise hull movement' do
+          describe 'It should adjust for right hull movement' do
             before (:each) do
-              @bot.desiredHeading = 80
-              @bot.desiredGunTarget = nil
-              @bot.desiredRadarTarget = nil
-              @bot.desiredPosition = nil
+              @bot.desiredDriverHeading = 80
             end
             it 'should not turn if it is at the desired heading' do
-              @bot.desiredGunHeading = @bot.desiredHeading
-              @bot.should_receive(:turn_gun).with(0)
-              @bot.tick nil
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
-              @bot.desiredGunHeading = @bot.desiredHeading-30
-              @bot.should_receive(:turn_gun).with(-30)
-              @bot.tick nil
+            it 'should turn left immediately to the desired heading if within range' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading-30, -30)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
-              @bot.desiredGunHeading = @bot.desiredHeading+30
-              @bot.should_receive(:turn_gun).with(30)
-              @bot.tick nil
+            it 'should turn right immediately to the desired heading if within range' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading+30, 30)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredGunHeading = @bot.desiredHeading-31
-              @bot.should_receive(:turn_gun).with(-30)
-              @bot.tick nil
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading-31, -30)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredGunHeading = @bot.desiredHeading+31
-              @bot.should_receive(:turn_gun).with(30)
-              @bot.tick nil
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading+31, 30)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredGunHeading = @bot.desiredHeading+181
-              @bot.should_receive(:turn_gun).with(-30)
-              @bot.tick nil
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading+181, -30)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredGunHeading = @bot.desiredHeading-181
-              @bot.should_receive(:turn_gun).with(30)
-              @bot.tick nil
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.gunner, @bot.desiredDriverHeading-181, 30)
             end
           end
         end
@@ -418,222 +364,140 @@ describe 'PolarIce' do
       describe 'It should turn its radar toward a desired heading' do
         describe 'It should turn just like the hull if the hull and gun are not turning' do
           before (:each) do
-            @bot.desiredHeading = 90
-            @bot.desiredGunHeading = @bot.desiredHeading
-            @bot.desiredGunTarget = nil
-            @bot.desiredRadarTarget = nil
-            @bot.desiredPosition = nil
+            @bot.desiredDriverHeading = 90
+            @bot.desiredGunnerHeading = @bot.desiredDriverHeading
           end
           it 'should not turn if it is at the desired heading' do
-            @bot.desiredRadarHeading = @bot.desiredHeading
-            @bot.should_receive(:turn_radar).with(0)
-            @bot.tick nil
+            test_rotation(@bot.radar, @bot.desiredGunnerHeading, 0)
           end
-          it 'should turn counter-clockwise immediately to the desired heading if within range' do
-            @bot.desiredRadarHeading = @bot.desiredHeading-60
-            @bot.should_receive(:turn_radar).with(-60)
-            @bot.tick nil
+          it 'should turn left immediately to the desired heading if within range' do
+            test_rotation(@bot.radar, @bot.desiredGunnerHeading-60, -60)
           end
-          it 'should turn clockwise immediately to the desired heading if within range' do
-            @bot.desiredRadarHeading = @bot.desiredHeading+60
-            @bot.should_receive(:turn_radar).with(60)
-            @bot.tick nil
+          it 'should turn right immediately to the desired heading if within range' do
+            test_rotation(@bot.radar, @bot.desiredGunnerHeading+60, 60)
           end
-          it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-            @bot.desiredRadarHeading = @bot.desiredHeading-61
-            @bot.should_receive(:turn_radar).with(-60)
-            @bot.tick nil
+          it 'should turn left the maximum amount toward the desired heading if outside of range' do
+            test_rotation(@bot.radar, @bot.desiredGunnerHeading-61, -60)
           end
-          it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-            @bot.desiredRadarHeading = @bot.desiredHeading+61
-            @bot.should_receive(:turn_radar).with(60)
-            @bot.tick nil
+          it 'should turn right the maximum amount toward the desired heading if outside of range' do
+            test_rotation(@bot.radar, @bot.desiredGunnerHeading+61, 60)
           end
-          it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-            @bot.desiredRadarHeading = @bot.desiredHeading+181
-            @bot.should_receive(:turn_radar).with(-60)
-            @bot.tick nil
+          it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+            test_rotation(@bot.radar, @bot.desiredGunnerHeading+181, -60)
           end
-          it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-            @bot.desiredRadarHeading = @bot.desiredHeading-181
-            @bot.should_receive(:turn_radar).with(60)
-            @bot.tick nil
+          it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+            test_rotation(@bot.radar, @bot.desiredGunnerHeading-181, 60)
           end
         end
         describe 'It should adjust for any hull movement' do
-          describe 'It should adjust for counter-clockwise hull movement' do
+          describe 'It should adjust for left hull movement' do
             before (:each) do
-              @bot.desiredHeading = 100
-              @bot.desiredGunHeading = @bot.desiredHeading
-              @bot.desiredGunTarget = nil
-              @bot.desiredRadarTarget = nil
-              @bot.desiredPosition = nil
+              @bot.desiredDriverHeading = 100
+              @bot.desiredGunnerHeading = @bot.desiredDriverHeading
             end
             it 'should not turn if it is at the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredHeading
-              @bot.should_receive(:turn_radar).with(0)
-              @bot.tick nil
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
-              @bot.desiredRadarHeading = @bot.desiredHeading-60
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn left immediately to the desired heading if within range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-60, -60)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
-              @bot.desiredRadarHeading = @bot.desiredHeading+60
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn right immediately to the desired heading if within range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+60, 60)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredRadarHeading = @bot.desiredHeading-61
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-61, -60)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredRadarHeading = @bot.desiredHeading+61
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+61, 60)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredHeading+181
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+181, -60)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredHeading-181
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-181, 60)
             end
           end
-          describe 'It should adjust for clockwise hull movement' do
+          describe 'It should adjust for right hull movement' do
             before (:each) do
-              @bot.desiredHeading = 80
-              @bot.desiredGunHeading = @bot.desiredHeading
-              @bot.desiredGunTarget = nil
-              @bot.desiredRadarTarget = nil
-              @bot.desiredPosition = nil
+              @bot.desiredDriverHeading = 80
+              @bot.desiredGunnerHeading = @bot.desiredDriverHeading
             end
             it 'should not turn if it is at the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredHeading
-              @bot.should_receive(:turn_radar).with(0)
-              @bot.tick nil
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
-              @bot.desiredRadarHeading = @bot.desiredHeading-60
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn left immediately to the desired heading if within range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-60, -60)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
-              @bot.desiredRadarHeading = @bot.desiredHeading+60
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn right immediately to the desired heading if within range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+60, 60)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredRadarHeading = @bot.desiredHeading-61
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-61, -60)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredRadarHeading = @bot.desiredHeading+61
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+61, 60)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredHeading+181
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+181, -60)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredHeading-181
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-181, 60)
             end
           end
         end
         describe 'It should adjust for any gun movement' do
-          describe 'It should adjust for counter-clockwise gun movement' do
+          describe 'It should adjust for left gun movement' do
             before (:each) do
-              @bot.desiredHeading = 90
-              @bot.desiredGunHeading = @bot.desiredHeading + 30
+              @bot.desiredDriverHeading = 90
+              @bot.desiredGunnerHeading = @bot.desiredDriverHeading + 30
             end
             it 'should not turn if it is at the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading
-              @bot.should_receive(:turn_radar).with(0)
-              @bot.tick nil
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading-60
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn left immediately to the desired heading if within range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-60, -60)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading+60
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn right immediately to the desired heading if within range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+60, 60)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading-61
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-61, -60)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading+61
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+61, 60)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading+181
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+181, -60)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading-181
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-181, 60)
             end
           end
-          describe 'It should adjust for clockwise gun movement' do
+          describe 'It should adjust for right gun movement' do
             before (:each) do
-              @bot.desiredHeading = 90
-              @bot.desiredGunHeading = @bot.desiredHeading - 30
-              @bot.desiredGunTarget = nil
-              @bot.desiredRadarTarget = nil
-              @bot.desiredPosition = nil
+              @bot.desiredDriverHeading = 90
+              @bot.desiredGunnerHeading = @bot.desiredDriverHeading - 30
             end
             it 'should not turn if it is at the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading
-              @bot.should_receive(:turn_radar).with(0)
-              @bot.tick nil
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading, 0)
             end
-            it 'should turn counter-clockwise immediately to the desired heading if within range' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading-60
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn left immediately to the desired heading if within range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-60, -60)
             end
-            it 'should turn clockwise immediately to the desired heading if within range' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading+60
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn right immediately to the desired heading if within range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+60, 60)
             end
-            it 'should turn counter-clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading-61
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn left the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-61, -60)
             end
-            it 'should turn clockwise the maximum amount toward the desired heading if outside of range' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading+61
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn right the maximum amount toward the desired heading if outside of range' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+61, 60)
             end
-            it 'should turn clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading+181
-              @bot.should_receive(:turn_radar).with(-60)
-              @bot.tick nil
+            it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading+181, -60)
             end
-            it 'should turn counter-clockwise the maximum amount if that is the shortest angular distance from the desired heading' do
-              @bot.desiredRadarHeading = @bot.desiredGunHeading-181
-              @bot.should_receive(:turn_radar).with(60)
-              @bot.tick nil
+            it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
+              test_rotation(@bot.radar, @bot.desiredGunnerHeading-181, 60)
             end
           end
         end
@@ -642,233 +506,250 @@ describe 'PolarIce' do
     describe 'towards targets' do
       describe 'It should aim its hull toward a desired position' do
         it 'should be able to aim east' do
-          @bot.desiredPosition = Vector[1600,800]
-          @bot.tick nil
-          @bot.desiredHeading.should == 0
+          test_aim_at_target(@bot.driver, Vector[1600,800], 0)
         end
         it 'should be able to aim northeast' do
-          @bot.desiredPosition = Vector[1600,0]
-          @bot.tick nil
-          @bot.desiredHeading.should == 45
+          test_aim_at_target(@bot.driver, Vector[1600,0], 45)
         end
         it 'should be able to aim north' do
-          @bot.desiredPosition = Vector[800,0]
-          @bot.tick nil
-          @bot.desiredHeading.should == 90
+          test_aim_at_target(@bot.driver, Vector[800,0], 90)
         end
         it 'should be able to aim northwest' do
-          @bot.desiredPosition = Vector[0,0]
-          @bot.tick nil
-          @bot.desiredHeading.should == 135
+          test_aim_at_target(@bot.driver, Vector[0,0], 135)
         end
         it 'should be able to aim west' do
-          @bot.desiredPosition = Vector[0,800]
-          @bot.tick nil
-          @bot.desiredHeading.should == 180
+          test_aim_at_target(@bot.driver, Vector[0,800], 180)
         end
         it 'should be able to aim southwest' do
-          @bot.desiredPosition = Vector[0,1600]
-          @bot.tick nil
-          @bot.desiredHeading.should == 225
+          test_aim_at_target(@bot.driver, Vector[0,1600], 225)
         end
         it 'should be able to aim south' do
-          @bot.desiredPosition = Vector[800,1600]
-          @bot.tick nil
-          @bot.desiredHeading.should == 270
+          test_aim_at_target(@bot.driver, Vector[800,1600], 270)
         end
         it 'should be able to aim southeast' do
-          @bot.desiredPosition = Vector[1600,1600]
-          @bot.tick nil
-          @bot.desiredHeading.should == 315
+          test_aim_at_target(@bot.driver, Vector[1600,1600], 315)
         end
       end
       describe 'It should aim its gun toward desired targets' do
         it 'should be able to aim east' do
-          @bot.desiredGunTarget = Vector[1600,800]
-          @bot.tick nil
-          @bot.desiredGunHeading.should == 0
+          test_aim_at_target(@bot.gunner, Vector[1600,800], 0)
         end
         it 'should be able to aim northeast' do
-          @bot.desiredGunTarget = Vector[1600,0]
-          @bot.tick nil
-          @bot.desiredGunHeading.should == 45
+          test_aim_at_target(@bot.gunner, Vector[1600,0], 45)
         end
         it 'should be able to aim north' do
-          @bot.desiredGunTarget = Vector[800,0]
-          @bot.tick nil
-          @bot.desiredGunHeading.should == 90
+          test_aim_at_target(@bot.gunner, Vector[800,0], 90)
         end
         it 'should be able to aim northwest' do
-          @bot.desiredGunTarget = Vector[0,0]
-          @bot.tick nil
-          @bot.desiredGunHeading.should == 135
+          test_aim_at_target(@bot.gunner, Vector[0,0], 135)
         end
         it 'should be able to aim west' do
-          @bot.desiredGunTarget = Vector[0,800]
-          @bot.tick nil
-          @bot.desiredGunHeading.should == 180
+          test_aim_at_target(@bot.gunner, Vector[0,800], 180)
         end
         it 'should be able to aim southwest' do
-          @bot.desiredGunTarget = Vector[0,1600]
-          @bot.tick nil
-          @bot.desiredGunHeading.should == 225
+          test_aim_at_target(@bot.gunner, Vector[0,1600], 225)
         end
         it 'should be able to aim south' do
-          @bot.desiredGunTarget = Vector[800,1600]
-          @bot.tick nil
-          @bot.desiredGunHeading.should == 270
+          test_aim_at_target(@bot.gunner, Vector[800,1600], 270)
         end
         it 'should be able to aim southeast' do
-          @bot.desiredGunTarget = Vector[1600,1600]
-          @bot.tick nil
-          @bot.desiredGunHeading.should == 315
+          test_aim_at_target(@bot.gunner, Vector[1600,1600], 315)
         end
       end
       describe 'It should aim its radar toward desired targets' do
         it 'should be able to aim east' do
-          @bot.desiredRadarTarget = Vector[1600,800]
-          @bot.tick nil
-          @bot.desiredRadarHeading.should == 0
+          test_aim_at_target(@bot.radar, Vector[1600,800], 0)
         end
         it 'should be able to aim northeast' do
-          @bot.desiredRadarTarget = Vector[1600,0]
-          @bot.tick nil
-          @bot.desiredRadarHeading.should == 45
+          test_aim_at_target(@bot.radar, Vector[1600,0], 45)
         end
         it 'should be able to aim north' do
-          @bot.desiredRadarTarget = Vector[800,0]
-          @bot.tick nil
-          @bot.desiredRadarHeading.should == 90
+          test_aim_at_target(@bot.radar, Vector[800,0], 90)
         end
         it 'should be able to aim northwest' do
-          @bot.desiredRadarTarget = Vector[0,0]
-          @bot.tick nil
-          @bot.desiredRadarHeading.should == 135
+          test_aim_at_target(@bot.radar, Vector[0,0], 135)
         end
         it 'should be able to aim west' do
-          @bot.desiredRadarTarget = Vector[0,800]
-          @bot.tick nil
-          @bot.desiredRadarHeading.should == 180
+          test_aim_at_target(@bot.radar, Vector[0,800], 180)
         end
         it 'should be able to aim southwest' do
-          @bot.desiredRadarTarget = Vector[0,1600]
-          @bot.tick nil
-          @bot.desiredRadarHeading.should == 225
+          test_aim_at_target(@bot.radar, Vector[0,1600], 225)
         end
         it 'should be able to aim south' do
-          @bot.desiredRadarTarget = Vector[800,1600]
-          @bot.tick nil
-          @bot.desiredRadarHeading.should == 270
+          test_aim_at_target(@bot.radar, Vector[800,1600], 270)
         end
         it 'should be able to aim southeast' do
-          @bot.desiredRadarTarget = Vector[1600,1600]
-          @bot.tick nil
-          @bot.desiredRadarHeading.should == 315
+          test_aim_at_target(@bot.radar, Vector[1600,1600], 315)
         end
       end
     end
   end
   describe 'It should move' do
     before(:each) do
-      @bot.stub!(:accelerate)
-      @bot.stub!(:turn)
-      @bot.stub!(:turn_gun)
-      @bot.stub!(:turn_radar)
-      @bot.stub!(:fire)
-      @bot.stub!(:broadcast)
-      @bot.stub!(:say)
-
       @bot.stub!(:x).and_return(800)
       @bot.stub!(:y).and_return(800)
-      @bot.stub!(:speed).and_return(0)
-      @bot.stub!(:heading).and_return(0)
-      @bot.stub!(:gun_heading).and_return(0)
-      @bot.stub!(:radar_heading).and_return(0)
-
-      @bot.desiredMaximumSpeed = 8
     end
     describe 'at a desired speed' do
       before(:each) do
-        @bot.desiredPosition = nil
+        @bot.desiredDriverTarget = nil
       end
       it 'should not accelerate if already at desired speed' do
-        @bot.stub!(:speed).and_return(0)
-        @bot.desiredSpeed = 0
-        @bot.should_receive(:accelerate).with(0)
-        @bot.tick nil
+        test_acceleration(0,0)
       end
       it 'should accelerate if moving slower than desired speed' do
-        @bot.stub!(:speed).and_return(0)
-        @bot.desiredSpeed = 8
-        @bot.should_receive(:accelerate).with(1)
-        @bot.tick nil
+        test_acceleration(8,1)
       end
       it 'should decelerate if moving faster than desired speed' do
-        @bot.stub!(:speed).and_return(0)
-        @bot.desiredSpeed = -8
-        @bot.should_receive(:accelerate).with(-1)
-        @bot.tick nil
+        test_acceleration(-8,-1)
       end
     end
     describe "to a desired position" do
       it 'should not move if at the desired position' do
-        @bot.desiredPosition = Vector[800,800]
-        @bot.should_receive(:accelerate).with(0)
-        @bot.tick nil
-        @bot.desiredSpeed.should == 0
+        test_move_to_position(Vector[800,800], 0)
       end
       it 'should accelerate to 1 if 1 <= distance < 4' do
-        @bot.desiredPosition = Vector[803,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 1
+        test_move_to_position(Vector[803,800], 1)
       end
       it 'should accelerate to 2 if 4 <= distance < 9' do
-        @bot.desiredPosition = Vector[808,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 2
+        test_move_to_position(Vector[808,800], 2)
       end
       it 'should accelerate to 3 if 9 <= distance < 16' do
-        @bot.desiredPosition = Vector[815,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 3
+        test_move_to_position(Vector[815,800], 3)
       end
       it 'should accelerate to 4 if 16 <= distance < 25' do
-        @bot.desiredPosition = Vector[824,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 4
+        test_move_to_position(Vector[824,800], 4)
       end
       it 'should accelerate to 5 if 25 < distance < 36' do
-        @bot.desiredPosition = Vector[835,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 5
+        test_move_to_position(Vector[835,800], 5)
       end
       it 'should accelerate to 6 if 36 < distance < 49' do
-        @bot.desiredPosition = Vector[848,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 6
+        test_move_to_position(Vector[848,800], 6)
       end
       it 'should accelerate to 7 if 49 < distance < 64' do
-        @bot.desiredPosition = Vector[863,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 7
+        test_move_to_position(Vector[863,800], 7)
       end
       it 'should accelerate to >= if 64' do
-        @bot.desiredPosition = Vector[864,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 8
+        test_move_to_position(Vector[864,800], 8)
       end
       it 'should clamp at 8' do
-        @bot.desiredPosition = Vector[1600,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == 8
+        test_move_to_position(Vector[1600,800], 8)
       end
       it 'should clamp at desired maximum speed' do
-        @bot.desiredMaximumSpeed = 4
-        @bot.desiredPosition = Vector[1600,800]
-        @bot.tick nil
-        @bot.desiredSpeed.should == @bot.desiredMaximumSpeed
+        @bot.desiredDriverMaximumSpeed = 4
+        test_move_to_position(Vector[1600,800], 4)
       end
     end
   end
-end
+  describe 'It should fire' do
+    it 'should fire at the desired power' do
+      @bot.desiredLoaderPower = 1
+      @bot.should_receive(:fire).with(1)
+      @bot.tick nil
+    end
+  end
+  describe 'It should know about being hit' do
+    it 'should know if it was never hit' do
+      @bot.tick nil
+      @bot.lastHitTime.should == nil
+    end
 
+    it 'should know when it was hit' do
+      events = Hash.new{|h, k| h[k]=[]}
+      events['got_hit'] << 1
+      @bot.tick events
+      @bot.lastHitTime.should == 0
+    end
+  end
+  describe 'It should handle radar scans' do
+    it 'should be ok with no scanned robots' do
+      @bot.tick @events
+    end
+    it 'should store polar vector and central angle for a target' do
+      @bot.previousRadarHeading = 270
+      @events['robot_scanned'] << [400]
+      @bot.tick @events
+      @bot.radar.targets.should == [[Vector[315, 400], 90, 0]]
+    end
+    it 'should store polar vector and central angle for each target' do
+      @bot.previousRadarHeading = 270
+      @events['robot_scanned'] << [400] << [300]
+      @bot.tick @events
+      @bot.radar.targets.should == [[Vector[315, 400], 90, 0], [Vector[315, 300], 90, 0]]
+    end
+  end
+  describe 'It should scan for the targets' do
+    describe 'It should start with a quick wide range search' do
+      it 'should start by doing six 60 degree scans' do
+        do_quick_scan
+      end
+      it 'should continue searching if nothing is found' do
+        do_quick_scan
+        do_quick_scan
+      end
+      it 'should aim at the first sextant if it only saw a target there' do
+        @bot.radar.targets << [Vector[30, 400], 60, 0]
+        do_quick_scan
+        @bot.desiredGunnerHeading.should == 30
+        @bot.desiredRadarHeading.should == 0
+      end
+      it 'should aim at the second sextant if it only saw a target there' do
+        @bot.radar.targets << [Vector[90, 400], 60, 0]
+        do_quick_scan
+        @bot.desiredGunnerHeading.should == 90
+        @bot.desiredRadarHeading.should == 60
+      end
+      it 'should aim at the third sextant if it only saw a target there' do
+        @bot.radar.targets << [Vector[150, 400], 60, 0]
+        do_quick_scan
+        @bot.desiredGunnerHeading.should == 150
+        @bot.desiredRadarHeading.should == 120
+      end
+      it 'should aim at the fourth sextant if it only saw a target there' do
+        @bot.radar.targets << [Vector[210, 400], 60, 0]
+        do_quick_scan
+        @bot.desiredGunnerHeading.should == 210
+        @bot.desiredRadarHeading.should == 180
+      end
+      it 'should aim at the fifth sextant if it only saw a target there' do
+        @bot.radar.targets << [Vector[270, 400], 60, 0]
+        do_quick_scan
+        @bot.desiredGunnerHeading.should == 270
+        @bot.desiredRadarHeading.should == 240
+      end
+      it 'should aim at the sixth sextant if it only saw a target there' do
+        @bot.radar.targets << [Vector[330, 400], 60, 0]
+        do_quick_scan
+        @bot.desiredGunnerHeading.should == 330
+        @bot.desiredRadarHeading.should == 300
+      end
+      it 'should aim at the quadrant of the nearest target' do
+        @bot.radar.targets << [Vector[30, 600], 60, 0] << [Vector[90, 500], 60, 0] << [Vector[150, 400], 60, 0] << [Vector[210, 300], 60, 0] << [Vector[270, 200], 60, 0] << [Vector[330, 100], 60, 0]
+        do_quick_scan
+        @bot.desiredGunnerHeading.should == 330
+        @bot.desiredRadarHeading.should == 300
+      end
+    end
+  end
+  describe "It should fight stationary targets that don't shoot" do
+    it 'should turn to gun to the center and radar to the edge after quick scan' do
+      @target = Vector[168,400]
+      @bot.radar.targets << [Vector[150, 400], 60, 0]
+      do_quick_scan
+
+      @bot.desiredGunnerHeading.should == 150
+      @bot.desiredRadarHeading.should == 120
+    end
+
+    it 'should scan from the edge to the center' do
+      @target = Vector[168,400]
+      @bot.radar.targets << [Vector[150, 400], 60, 0]
+      do_quick_scan
+
+      @bot.should_receive(:radar_heading).and_return(120)
+      @bot.should_receive(:gun_heading).and_return(150)
+      @bot.should_receive(:turn_radar).with(30)
+      @bot.tick @events
+    end
+
+  end
+end

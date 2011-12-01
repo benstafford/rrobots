@@ -319,7 +319,7 @@ class RobotRunner
         a = getAngleToOther(other)
         if !a.nil?
           if (@old_radar_heading <= a && a <= @new_radar_heading) || (@old_radar_heading >= a && a >= @new_radar_heading) ||
-            (@old_radar_heading <= a+360 && a+360 <= @new_radar_heading) || (@old_radar_heading >= a+360 && a+360 >= new_radar_heading) ||
+            (@old_radar_heading <= a+360 && a+360 <= @new_radar_heading) || (@old_radar_heading >= a+360 && a+360 >= @new_radar_heading) ||
             (@old_radar_heading <= a-360 && a-360 <= @new_radar_heading) || (@old_radar_heading >= a-360 && a-360 >= @new_radar_heading)
              @events['robot_scanned'] << [Math.hypot(@y - other.y, other.x - @x)]
           end
