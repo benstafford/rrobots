@@ -14,11 +14,16 @@ class NewInvader
   attr_accessor :broadcast_enemy
   attr_accessor :found_enemy
   attr_accessor :last_target_time
-
+  attr_accessor :current_direction
 
   def initialize
     @mode = InvaderMode::HEAD_TO_EDGE
-    @move_engine = InvaderMovementEngine.new(self)
+    @move_engine = []
+    @move_engine[InvaderMode::HEAD_TO_EDGE] = InvaderDriverHeadToEdge.new(self)
+    @move_engine[InvaderMode::PROVIDED_TARGET] = InvaderDriverProvidedTarget.new(self)
+    @move_engine[InvaderMode::FOUND_TARGET] = InvaderDriverPursueTarget.new(self)
+    @move_engine[InvaderMode::SEARCHING] = InvaderDriverSearching.new(self)
+    @move_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderDriverSearchCorner.new(self)
     @fire_engine = []
     @fire_engine[InvaderMode::HEAD_TO_EDGE] = InvaderGunnerHeadToEdge.new(self)
     @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderGunnerProvidedTarget.new(self)
@@ -29,7 +34,7 @@ class NewInvader
     @radar_engine[InvaderMode::HEAD_TO_EDGE] = InvaderRadarEngineHeadToEdge.new(self)
     @radar_engine[InvaderMode::PROVIDED_TARGET] = InvaderRadarEngineProvidedTarget.new(self)
     @radar_engine[InvaderMode::FOUND_TARGET] = InvaderRadarEngine.new(self)
-    @radar_engine[InvaderMode::SEARCHING] = InvaderRadarEngine.new(self)
+    @radar_engine[InvaderMode::SEARCHING] =  @radar_engine[InvaderMode::FOUND_TARGET]
     @radar_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderRadarEngineSearchOppositeCorner.new(self)
     @math = InvaderMath.new
   end
@@ -83,6 +88,10 @@ class NewInvader
     @radar_engine[@mode]
   end
 
+  def move_engine
+    @move_engine[@mode]
+  end
+
   def send_broadcast
     message = x.to_i.to_s(16).rjust(3,' ')
     message += y.to_i.to_s(16).rjust(3,' ')
@@ -102,20 +111,22 @@ class NewInvader
   end
 
   def move
-    @move_engine.move
-    accelerate @move_engine.accelerate
-    turn @move_engine.turn
+    move_engine.move
+    accelerate move_engine.accelerate
+    if move_engine.turn != 0
+      turn move_engine.turn
+    end
   end
 
   def fire_gun
     fire_engine.fire
-    turn_gun (0 - @move_engine.turn) + fire_engine.turn_gun
+    turn_gun (0 - move_engine.turn) + fire_engine.turn_gun
     fire fire_engine.firepower unless fire_engine.firepower == 0
   end
 
   def radar_sweep
     radar_engine.radar_sweep
-    turn_radar (0 - @move_engine.turn) + (0 - fire_engine.turn_gun) + radar_engine.turn_radar
+    turn_radar (0 - move_engine.turn) + (0 - fire_engine.turn_gun) + radar_engine.turn_radar
   end
 
   def get_broadcast
@@ -164,175 +175,201 @@ class NewInvader
     if not @found_enemy.nil? and @mode == InvaderMode::SEARCH_OPPOSITE_CORNER
       say "Sneaking up on me, eh?!"
     end
+  end
+end
 
+class InvaderMovementEngine
+  attr_accessor :accelerate
+  attr_accessor :turn
+  attr_accessor :robot
+  attr_accessor :pursuit_time
+  attr_accessor :target_enemy
+  attr_accessor :math
+
+  DISTANCE_PAST_SCAN = 5
+  PURSUE_FRIEND_TARGET_TIME = 20
+
+  def initialize invader
+    @robot = invader
+    @robot.current_direction = 1
+    @math = InvaderMath.new
+    @turn = 0
+    @accelerate = 0
   end
 
+  def move
+    @accelerate = 0
+    @turn = 0
+  end
 
-  class InvaderMovementEngine
-    attr_accessor :accelerate
-    attr_accessor :turn
-    attr_accessor :robot
-    attr_accessor :current_direction
-    attr_accessor :pursuit_time
-    attr_accessor :target_enemy
-    attr_accessor :math
-
-    DISTANCE_PAST_SCAN = 5
-    PURSUE_FRIEND_TARGET_TIME = 20
-
-    def initialize invader
-      @robot = invader
-      @current_direction = 1
-      @math = InvaderMath.new
+  private
+  def distance_to_initial_edge edge_heading, distance
+    if not @robot.friend_edge.nil?
+      return @robot.battlefield_width + 1 if @robot.friend_edge == edge_heading
+      return @robot.battlefield_width + 1 if @math.rotated(@robot.friend_edge, 180) == edge_heading
     end
+    distance
+  end
 
-    def move
-      @accelerate = 0
-      @turn = 0
-      case @robot.mode
-        when InvaderMode::HEAD_TO_EDGE
-          head_to_edge
-        when InvaderMode::PROVIDED_TARGET
-          #provided_target_mode
-          if not @robot.broadcast_enemy.nil?
-            @target_enemy = @robot.broadcast_enemy
-            @pursuit_time = @robot.time + PURSUE_FRIEND_TARGET_TIME
-          end
-          search_my_row
-          if @robot.time > @pursuit_time
-            @robot.change_mode InvaderMode::SEARCHING
-          end
-        when InvaderMode::FOUND_TARGET
-          pursue_found_target
-        when InvaderMode::SEARCHING
-          search_my_row
-        when InvaderMode::SEARCH_OPPOSITE_CORNER
-          @accelerate = 0 - @robot.speed
-      end
+  def need_to_turn?
+    bearing = right_of_edge
+    @robot.heading!=bearing
+  end
+
+  def turn_around
+    @turn = @math.turn_toward(@robot.heading, right_of_edge)
+    @turn = [[@turn, 10].min, -10].max
+  end
+
+  def left_of_edge
+    return @math.rotated(@robot.heading_of_edge, 90)
+  end
+
+  def right_of_edge
+    return @math.rotated(@robot.heading_of_edge, -90)
+  end
+
+end
+
+class InvaderDriverHeadToEdge < InvaderMovementEngine
+  def move
+    @accelerate = 0
+    @turn = 0
+    head_to_edge
+  end
+
+  def head_to_edge
+    @accelerate = 0
+    @turn = 0
+    select_closest_edge
+    if at_edge?
+      @robot.change_mode InvaderMode::SEARCHING
+    else
+      @accelerate = 1
+      @turn = @robot.math.turn_toward(@robot.heading, @robot.heading_of_edge)
+      @turn = [[@turn, 10].min, -10].max
     end
+  end
 
-    private
-    def search_my_row
-      turn_around if need_to_turn?
-      if @current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
-        @current_direction = -1
-        @robot.change_mode InvaderMode::SEARCH_OPPOSITE_CORNER
+  def select_closest_edge
+    if !@robot.heading_of_edge.nil? and !@robot.friend_edge.nil?
+      if @robot.heading_of_edge != @robot.friend_edge and @robot.heading_of_edge!= @robot.math.rotated(@robot.friend_edge, 180)
+        return
       end
-      if @current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
-        @current_direction = 1
-        @robot.change_mode InvaderMode::SEARCH_OPPOSITE_CORNER
+      if @robot.heading_of_edge < @robot.friend_edge
+        return
       end
-      @accelerate = @current_direction
-    end
-
-    def pursue_found_target
-      turn_around if need_to_turn?
-      @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-      enemy_direction = @math.degree_from_point_to_point(@robot.location, @target_enemy)
-      radar_heading = @robot.opposite_edge
-      if @math.radar_heading_between?(radar_heading, @math.rotated(enemy_direction, 5), @math.rotated(enemy_direction, -5)) == false
-          @robot.say "pursuing"
-          @current_direction = 0 - @current_direction
-          @robot.change_mode InvaderMode::SEARCHING
-      end
-      if @current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
-        #@current_direction = -1
-        @robot.change_mode InvaderMode::SEARCHING
-      end
-      if @current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
-        #@current_direction = 1
-        @robot.change_mode InvaderMode::SEARCHING
-      end
-
-      @accelerate = @current_direction
-    end
-
-    def provided_target_mode
-      turn_around if need_to_turn?
-      if not @robot.broadcast_enemy.nil?
-        @target_enemy = @robot.broadcast_enemy
-        direction = @robot.math.turn_toward(@robot.opposite_edge, @robot.math.degree_from_point_to_point(@robot.location_next_tick, @robot.broadcast_enemy))
-        if direction > 0
-          @robot.say "Coming, Buddy!"
-          @current_direction = 1
-        else
-          @robot.say "I'll Get Him!'"
-          @current_direction = -1
-        end
-        @pursuit_time = @robot.time + PURSUE_FRIEND_TARGET_TIME
-      end
-      if @robot.time > @pursuit_time
-        @robot.change_mode InvaderMode::SEARCHING
-      end
-      @accelerate = @current_direction
-    end
-
-    def select_closest_edge
-      if !@robot.heading_of_edge.nil? and !@robot.friend_edge.nil?
-        if @robot.heading_of_edge != @robot.friend_edge and @robot.heading_of_edge!= @robot.math.rotated(@robot.friend_edge, 180)
+      if !@robot.friend.nil?
+        if @robot.x < @robot.friend.x
           return
         end
-        if @robot.heading_of_edge < @robot.friend_edge
-          return
-        end
-        if !@robot.friend.nil?
-          if @robot.x < @robot.friend.x
-            return
-          end
-        end
       end
-
-      min_distance = @robot.battlefield_width
-      closest_edge = 0
-      for index in 0..3
-        angle = index * 90
-        edge_distance = distance_to_initial_edge(angle,@robot.distance_to_edge(angle))
-        if edge_distance < min_distance
-          closest_edge = angle
-          min_distance = edge_distance
-        end
-      end
-      @robot.heading_of_edge = closest_edge
     end
 
-    def distance_to_initial_edge edge_heading, distance
-      if not @robot.friend_edge.nil?
-        return @robot.battlefield_width + 1 if @robot.friend_edge == edge_heading
-        return @robot.battlefield_width + 1 if @robot.math.rotated(@robot.friend_edge, 180) == edge_heading
+    min_distance = @robot.battlefield_width
+    closest_edge = 0
+    for index in 0..3
+      angle = index * 90
+      edge_distance = distance_to_initial_edge(angle,@robot.distance_to_edge(angle))
+      if edge_distance < min_distance
+        closest_edge = angle
+        min_distance = edge_distance
       end
-      distance
     end
+    @robot.heading_of_edge = closest_edge
+  end
 
-    def head_to_edge
-      select_closest_edge
-      if at_edge?
+  def at_edge?
+    @robot.distance_to_edge(@robot.heading_of_edge) <= (@robot.size + 1)
+  end
+end
+
+class InvaderDriverPursueTarget < InvaderMovementEngine
+  def move
+    @accelerate = 0
+    @turn = 0
+    pursue_found_target
+  end
+
+  def pursue_found_target
+    turn_around if need_to_turn?
+    @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
+    enemy_direction = @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy)
+    radar_heading = @robot.opposite_edge
+    if @math.radar_heading_between?(radar_heading, @math.rotated(enemy_direction, 5), @math.rotated(enemy_direction, -5)) == false
+        @robot.say "pursuing"
+        @robot.current_direction = 0 - @robot.current_direction
         @robot.change_mode InvaderMode::SEARCHING
+    end
+    if @robot.current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
+      @robot.change_mode InvaderMode::SEARCHING
+    end
+    if @robot.current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
+      @robot.change_mode InvaderMode::SEARCHING
+    end
+
+    @accelerate = @robot.current_direction
+  end
+end
+
+class InvaderDriverSearchCorner < InvaderMovementEngine
+  def move
+    @accelerate = 0
+    @turn = 0
+    @accelerate = 0 - @robot.speed
+  end
+end
+
+class InvaderDriverSearching < InvaderMovementEngine
+  def move
+    @accelerate = 0
+    @turn = 0
+    turn_around if need_to_turn?
+    if @robot.current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
+      @robot.current_direction = -1
+      @robot.change_mode InvaderMode::SEARCH_OPPOSITE_CORNER
+    end
+    if @robot.current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
+      @robot.current_direction = 1
+      @robot.change_mode InvaderMode::SEARCH_OPPOSITE_CORNER
+    end
+    @accelerate = @robot.current_direction
+  end
+end
+
+class InvaderDriverProvidedTarget < InvaderDriverSearching
+  def move
+    @accelerate = 0
+    @turn = 0
+    #provided_target_mode
+    if not @robot.broadcast_enemy.nil?
+      @target_enemy = @robot.broadcast_enemy
+      @pursuit_time = @robot.time + PURSUE_FRIEND_TARGET_TIME
+    end
+    super
+    if @robot.time > @pursuit_time
+      @robot.change_mode InvaderMode::SEARCHING
+    end
+  end
+
+  def provided_target_mode
+    turn_around if need_to_turn?
+    if not @robot.broadcast_enemy.nil?
+      @target_enemy = @robot.broadcast_enemy
+      direction = @robot.math.turn_toward(@robot.opposite_edge, @robot.math.degree_from_point_to_point(@robot.location_next_tick, @robot.broadcast_enemy))
+      if direction > 0
+        @robot.say "Coming, Buddy!"
+        @robot.current_direction = 1
       else
-        @accelerate = 1
-        @turn = @robot.math.turn_toward(@robot.heading, @robot.heading_of_edge)
+        @robot.say "I'll Get Him!'"
+        @robot.current_direction = -1
       end
+      @pursuit_time = @robot.time + PURSUE_FRIEND_TARGET_TIME
     end
-
-    def need_to_turn?
-      @robot.heading!=right_of_edge
+    if @robot.time > @pursuit_time
+      @robot.change_mode InvaderMode::SEARCHING
     end
-
-    def turn_around
-      @turn = @robot.math.turn_toward(@robot.heading, right_of_edge)
-    end
-
-    def at_edge?
-      @robot.distance_to_edge(@robot.heading_of_edge) <= (@robot.size + 1)
-    end
-
-    def left_of_edge
-      return @robot.math.rotated(@robot.heading_of_edge, 90)
-    end
-
-    def right_of_edge
-      return @robot.math.rotated(@robot.heading_of_edge, -90)
-    end
-
+    @accelerate = @robot.current_direction
   end
 
 end
@@ -347,6 +384,8 @@ class InvaderFiringEngine
   def initialize invader
     @robot = invader
     @math = InvaderMath.new
+    @turn_gun = 0
+    @firepower = 0
   end
 
   def fire
@@ -430,7 +469,7 @@ class InvaderGunnerShootOppositeCorner < InvaderFiringEngine
   end
 
   def desired_gun_heading
-    @math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
+    @math.rotated(@robot.heading_of_edge, @robot.current_direction * -90)
   end
 
   def shoot
@@ -461,6 +500,7 @@ class InvaderRadarEngine
     @robot = invader
     @ready_for_metronome = true
     @math = InvaderMath.new
+    @turn_radar = 0
   end
 
   def radar_sweep
@@ -493,13 +533,13 @@ class InvaderRadarEngine
     desired_direction = @robot.opposite_edge
     if (@robot.radar_heading == desired_direction)
       @ready_for_metronome = true
-      desired_direction = lead_search_movement(@robot.radar_heading, @robot.move_engine.current_direction)
+      desired_direction = lead_search_movement(@robot.radar_heading, @robot.current_direction)
     end
     @turn_radar = @robot.math.turn_toward(@robot.radar_heading, desired_direction)
   end
 
   def locate_enemy scan
-    get_scan_loc(scan, @robot.move_engine.current_direction, @robot.opposite_edge, @robot.location)
+    get_scan_loc(scan, @robot.current_direction, @robot.opposite_edge, @robot.location)
   end
 
   def lead_search_movement(current_heading, direction)
@@ -511,7 +551,7 @@ class InvaderRadarEngine
   end
 
  def get_scan_loc distance, direction, edge, location
-   direction = @robot.move_engine.current_direction
+   direction = @robot.current_direction
    return @math.get_radar_point(edge + 5*direction, distance, location)
  end
 
@@ -537,27 +577,30 @@ end
 
 class InvaderRadarEngineSearchOppositeCorner < InvaderRadarEngine
   def locate_enemy scan
-    desired_direction = @math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
+    desired_direction = @math.rotated(@robot.heading_of_edge, @robot.current_direction * -90)
     get_corner_scan_location(desired_direction, scan.to_f, @robot.location)
   end
 
   def point_radar
-    desired_direction = @math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -90)
-    check_direction = @math.rotated(@robot.heading_of_edge, @robot.move_engine.current_direction * -91)
+    desired_direction = @math.rotated(@robot.heading_of_edge, @robot.current_direction * -90)
+    check_direction = @math.rotated(@robot.heading_of_edge, @robot.current_direction * -91)
     if (@robot.radar_heading == desired_direction)
       @ready_for_metronome = true
       desired_direction = check_direction
     end
     if (@robot.radar_heading == check_direction) and @robot.found_enemy.nil?
-      @robot.change_mode InvaderMode::SEARCHING
+      @robot.change_mode InvaderMode::HEAD_TO_EDGE
     end
     @turn_radar = @robot.math.turn_toward(@robot.radar_heading, desired_direction)
   end
 end
 
 class InvaderRadarEngineProvidedTarget < InvaderRadarEngine
+  attr_accessor :target_enemy
+
   def point_radar
-    last_known_location = @robot.move_engine.target_enemy
+    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
+    last_known_location = @target_enemy
     enemy_direction = @math.degree_from_point_to_point(@robot.location, last_known_location)
     left_side = @math.rotated(enemy_direction,5)
     right_side = @math.rotated(enemy_direction, -5)
@@ -581,7 +624,8 @@ class InvaderRadarEngineProvidedTarget < InvaderRadarEngine
   end
 
   def locate_enemy scan
-    desired_direction = @math.degree_from_point_to_point(@robot.location, @robot.move_engine.target_enemy)
+    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
+    desired_direction = @math.degree_from_point_to_point(@robot.location, @target_enemy)
     enemy = @math.get_radar_point(desired_direction, scan.to_f, @robot.location)
     return enemy
   end

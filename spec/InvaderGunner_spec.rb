@@ -22,7 +22,7 @@ describe 'InvaderGunner' do
     @gunner = InvaderGunnerShootOppositeCorner.new(@bot)
     @bot.mode = InvaderMode::SEARCH_OPPOSITE_CORNER
     @bot.heading_of_edge = 90
-    @bot.move_engine.current_direction = -1
+    @bot.current_direction = -1
     @bot.stub!(:gun_heading).and_return(210)
     @gunner.fire
     @gunner.turn_gun.should == -30
@@ -32,7 +32,7 @@ describe 'InvaderGunner' do
     @gunner = InvaderGunnerShootOppositeCorner.new(@bot)
     @bot.mode = InvaderMode::SEARCH_OPPOSITE_CORNER
     @bot.heading_of_edge = 90
-    @bot.move_engine.current_direction = -1
+    @bot.current_direction = -1
     @bot.stub!(:gun_heading).and_return(180)
     @gunner.fire
     @gunner.turn_gun.should == 0
@@ -43,7 +43,7 @@ describe 'InvaderGunner' do
     @gunner = InvaderGunnerFoundTarget.new(@bot)
     @bot.mode = InvaderMode::FOUND_TARGET
     @bot.found_enemy = InvaderPoint.new(600, 600)
-    @bot.move_engine.current_direction = -1
+    @bot.current_direction = -1
     @bot.stub!(:heading).and_return(0)
     @bot.stub!(:speed).and_return(-8)
     @bot.stub!(:time).and_return(0)
@@ -59,7 +59,7 @@ describe 'InvaderGunner' do
     @gunner = InvaderGunnerProvidedTarget.new(@bot)
     @bot.mode = InvaderMode::PROVIDED_TARGET
     @bot.broadcast_enemy = InvaderPoint.new(600, 600)
-    @bot.move_engine.current_direction = -1
+    @bot.current_direction = -1
     @bot.stub!(:heading).and_return(0)
     @bot.stub!(:speed).and_return(-8)
     @bot.stub!(:time).and_return(0)
