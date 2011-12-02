@@ -1,6 +1,6 @@
 require 'robot'
 
-class LazerBotLcf
+class LcfVersion02
   include Robot
   @@number_classes_initialized = 0
   @@was_here = 2
