@@ -258,14 +258,14 @@ class LazerBotLcf
 
   def find_first_target
     if (@got_first_target == 0)
-      if (events['robot_scanned'].empty?) #&& (time.to_i < 31)
+      if (events['robot_scanned'].empty?)
         tick_radar_turn @first_find_current_scan_angle * @radar_scan_direction
       else
         dsd_ff = 1
         if ((@dont_shoot_distance.to_f + dsd_ff) < events['robot_scanned'][0][0].to_f) || (events['robot_scanned'][0][0].to_f < (@dont_shoot_distance.to_f - dsd_ff))
+          set_target events['robot_scanned'][0][0].to_f
           if @first_find_current_scan_angle < 1
             @got_first_target = 1
-            set_target events['robot_scanned'][0][0].to_f
             @first_find_current_scan_angle = 60
           else
             @radar_scan_direction = -1 * @radar_scan_direction
