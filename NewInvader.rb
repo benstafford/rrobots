@@ -34,7 +34,7 @@ class NewInvader
     @radar_engine[InvaderMode::HEAD_TO_EDGE] = InvaderRadarEngineHeadToEdge.new(self)
     @radar_engine[InvaderMode::PROVIDED_TARGET] = InvaderRadarEngineProvidedTarget.new(self)
     @radar_engine[InvaderMode::FOUND_TARGET] = InvaderRadarEngine.new(self)
-    @radar_engine[InvaderMode::SEARCHING] =  @radar_engine[InvaderMode::FOUND_TARGET]
+    @radar_engine[InvaderMode::SEARCHING] =  InvaderRadarEngineSearching.new(self) #@radar_engine[InvaderMode::FOUND_TARGET]
     @radar_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderRadarEngineSearchOppositeCorner.new(self)
     @math = InvaderMath.new
   end
@@ -182,12 +182,11 @@ class InvaderMovementEngine
   attr_accessor :accelerate
   attr_accessor :turn
   attr_accessor :robot
-  attr_accessor :pursuit_time
-  attr_accessor :target_enemy
   attr_accessor :math
 
   DISTANCE_PAST_SCAN = 5
   PURSUE_FRIEND_TARGET_TIME = 20
+  HOVER_DISTANCE = 200
 
   def initialize invader
     @robot = invader
@@ -285,6 +284,8 @@ class InvaderDriverHeadToEdge < InvaderMovementEngine
 end
 
 class InvaderDriverPursueTarget < InvaderMovementEngine
+  attr_accessor :target_enemy
+
   def move
     @accelerate = 0
     @turn = 0
@@ -295,19 +296,19 @@ class InvaderDriverPursueTarget < InvaderMovementEngine
     turn_around if need_to_turn?
     @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
     enemy_direction = @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy)
-    radar_heading = @robot.opposite_edge
-    if @math.radar_heading_between?(radar_heading, @math.rotated(enemy_direction, 5), @math.rotated(enemy_direction, -5)) == false
-        @robot.say "pursuing"
-        @robot.current_direction = 0 - @robot.current_direction
-        @robot.change_mode InvaderMode::SEARCHING
-    end
-    if @robot.current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
-      @robot.change_mode InvaderMode::SEARCHING
-    end
-    if @robot.current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
-      @robot.change_mode InvaderMode::SEARCHING
+    turn_direction = @math.turn_toward(@robot.opposite_edge, enemy_direction)
+    if turn_direction > 0
+      @robot.current_direction = 1
+    else
+      @robot.current_direction = -1
     end
 
+    distance = @math.distance_between_objects(@robot.location_next_tick, @target_enemy)
+    if distance < HOVER_DISTANCE
+      @robot.current_direction = 0 - @robot.current_direction
+    end
+
+    @robot.change_mode InvaderMode::SEARCHING
     @accelerate = @robot.current_direction
   end
 end
@@ -338,6 +339,9 @@ class InvaderDriverSearching < InvaderMovementEngine
 end
 
 class InvaderDriverProvidedTarget < InvaderDriverSearching
+  attr_accessor :pursuit_time
+  attr_accessor :target_enemy
+
   def move
     @accelerate = 0
     @turn = 0
@@ -519,7 +523,7 @@ class InvaderRadarEngine
       scan_list.sort!
       scan_list.each do |scan|
         enemy = locate_enemy(scan)
-        if enemy?(enemy, @robot.friend)
+        if !enemy.nil? and enemy?(enemy, @robot.friend)
           return enemy
         end
       end
@@ -566,6 +570,96 @@ class InvaderRadarEngine
       true
     end
   end
+end
+
+class InvaderRadarEngineSearching < InvaderRadarEngine
+  attr_accessor :radar_direction
+  attr_accessor :radar_size
+
+  def initialize invader
+    @radar_direction = 1
+    @radar_size = 60
+    super(invader)
+  end
+
+  def corner
+    @math.rotated(@robot.heading_of_edge, -90 * @radar_direction)
+  end
+
+  def point_radar
+    if (@ready_for_metronome == false) && @robot.radar_heading != corner
+      @turn_radar = @math.turn_toward(@robot.radar_heading, corner)
+      return
+    end
+    #puts "current radar_direction = #{@radar_direction}, heading = #{@robot.radar_heading}, corner = #{corner}"
+    if @robot.radar_heading == corner
+      @ready_for_metronome = true
+      back_to_gun = @math.turn_toward(@robot.radar_heading, @robot.opposite_edge)
+      if (back_to_gun > 0)
+        @radar_direction = 1
+      else
+        @radar_direction = -1
+      end
+    end
+
+    @turn_radar = @radar_size * @radar_direction
+    new_radar_direction = @math.rotated(@robot.radar_heading, @turn_radar)
+    if @radar_direction < 0
+      if @math.radar_heading_between?(new_radar_direction, corner, @math.rotated(corner, 180))
+        @turn_radar = @math.turn_toward(@robot.radar_heading, corner)
+      end
+    else
+      if @math.radar_heading_between?(new_radar_direction, @math.rotated(corner, 180), corner)
+        @turn_radar = @math.turn_toward(@robot.radar_heading, corner)
+      end
+    end
+    #puts "turning #{@turn_radar}, new radar_direction = #{@radar_direction}"
+  end
+
+  def locate_enemy scan
+    if @ready_for_metronome == false
+      return nil
+    end
+    if @radar_size < 4
+      radar = @math.rotated(@robot.radar_heading, 0 - @radar_size/2)
+      enemy = @math.get_radar_point(radar, scan, @robot.location )
+      @ready_for_metronome = false
+      @radar_size = 60
+      return enemy
+    end
+
+    if enemy_not_in_section_at_distance? scan
+      @radar_size = @radar_size/2
+      @radar_direction = 0 - @radar_direction
+    end
+    return nil
+  end
+
+  def enemy_not_in_section_at_distance? distance
+    if @robot.friend.nil?
+      return true
+    end
+    friend_distance = @math.distance_between_objects(@robot.location, @robot.friend)
+    if (friend_distance - distance).abs < SAFE_DISTANCE
+      return false
+    end
+    end_radar = @robot.radar_heading
+    begin_radar = @math.rotated(@robot.radar_heading, 0 - @radar_size)
+
+    min_angle = [end_radar, begin_radar].min
+    max_angle = [end_radar, begin_radar].max
+    left_angle = max_angle
+    right_angle = min_angle
+    if max_angle > 270 and min_angle < 90
+      left_angle = min_angle
+      right_angle = max_angle
+    end
+    if @math.radar_heading_between? @math.degree_from_point_to_point(@robot.location, @robot.friend),left_angle, right_angle
+      return false
+    end
+    return true
+  end
+
 end
 
 class InvaderRadarEngineHeadToEdge < InvaderRadarEngine
