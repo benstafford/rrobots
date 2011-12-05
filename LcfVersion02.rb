@@ -322,8 +322,7 @@ class LcfVersion02
           set_target events['robot_scanned'][0][0].to_f, (@current_scan_angle/2 * @radar_scan_direction * -1) + radar_heading.to_f
           #puts "#{@is_master}|First Target(#{@x_target},#{@y_target})|dist = #{events['robot_scanned'][0][0].to_f}, (#{@current_scan_angle}/2 * #{@radar_scan_direction} * -1) + #{radar_heading.to_f} = #{(@current_scan_angle/2 * @radar_scan_direction * -1) + radar_heading.to_f}" if @is_master == 1
           #puts "#{@is_master}|Targeted|#{time}" if @is_master == 1
-          @current_scan_angle = 0
-          @last_scan_angle = 0
+          @current_scan_angle = @last_scan_angle
           @radar_scan_direction = @radar_scan_direction * -1
         else
           #puts "#{@is_master}|something|#{@current_scan_angle} * #{@radar_scan_direction}" if @is_master == 1
@@ -345,6 +344,25 @@ class LcfVersion02
     unless get_angle_to_location(@x_target,@y_target).to_i == gun_heading.to_i
       #puts "#{@is_master}|turn_gun #{(get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f}|to(#{@x_target},#{@y_target})"
       tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f
+    end
+  end
+
+  def predictive_aim_at_target
+    if (@x_last_target == -1) && (@y_last_target == -1) && (@time_last_target == 0)
+      x_target = @x_target
+      y_target = @y_target
+    else
+      #can the 2 point be the same bot
+      puts "#{@is_master}|if #{(distance_between_points @x_last_target, @y_last_target, @x_target, @y_target)/(@time_target - @time_last_target)} < 9"
+      if (distance_between_points @x_last_target, @y_last_target, @x_target, @y_target)/(@time_target - @time_last_target) < 9
+      else
+        x_target = @x_target
+        y_target = @y_target
+      end
+    end
+
+    unless get_angle_to_location(x_target,y_target).to_i == gun_heading.to_i
+      tick_gun_turn (get_angle_to_location x_target, y_target).to_f - gun_heading.to_f
     end
   end
 

@@ -241,8 +241,7 @@ class LazerBotLcf
       if ((@dont_shoot_distance.to_f + dsd_ff) < events['robot_scanned'][0][0].to_f) || (events['robot_scanned'][0][0].to_f < (@dont_shoot_distance.to_f - dsd_ff))
         if @current_scan_angle < (get_angle_to_edge_of_bot_from_distance events['robot_scanned'][0][0].to_f)
           set_target events['robot_scanned'][0][0].to_f, (@current_scan_angle/2 * @radar_scan_direction * -1) + radar_heading.to_f
-          @current_scan_angle = 0
-          @last_scan_angle = 0
+          @current_scan_angle = @last_scan_angle
           @radar_scan_direction = @radar_scan_direction * -1
         else
           @radar_scan_direction = -1 * @radar_scan_direction
