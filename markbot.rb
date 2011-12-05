@@ -367,11 +367,11 @@ Direction: #{radar_search_direction}\n\
   def distance_between_point_and_line point, line_start, line_end
     point_to_line = point - line_start
     line = line_end - line_start
-    distance = cross_product(point_to_line, line).abs / magnitude(line)
+    cross_product(point_to_line, line).abs / magnitude(line)
   end
 
   def angle_to_point point
-    a = Math.atan2(@y - point[Y], point[X] - @x) / Math::PI * 180 % 360
+    Math.atan2(@y - point[Y], point[X] - @x) / Math::PI * 180 % 360
   end
 
   def cross_product v1, v2

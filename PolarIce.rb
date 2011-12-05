@@ -18,6 +18,10 @@ class Numeric
       self.round.to_f
     end
   end
+  
+  def normalize_angle
+    (self + 360) % 360
+  end
 end
 
 class Vector
@@ -28,7 +32,7 @@ class Vector
   R = 1
 
   def angle_to(position)
-    (Math.atan2(self[Y] - position[Y], position[X] - self[X]).to_deg % 360).trim(3)
+    (Math.atan2(self[Y] - position[Y], position[X] - self[X]).to_deg.normalize_angle).trim(3)
   end
 
   def distance_to(desiredTarget)
@@ -38,6 +42,46 @@ class Vector
   def to_cartesian
     Vector[(self[R] * Math.cos(self[T] * Math::PI/180)).trim(3), (-self[R] * Math.sin(self[T] * Math::PI/180)).trim(3)]
   end
+end
+
+class Sighting
+  def initialize(start_angle, end_angle, distance, time)
+    @start_angle = start_angle.normalize_angle
+    @end_angle = end_angle.normalize_angle
+    @distance = distance
+    @time = time
+  end
+
+  def highest_angle
+    [@start_angle, @end_angle].max
+  end
+
+  def lowest_angle
+    [@start_angle, @end_angle].min
+  end
+
+  def central_angle
+    arc1 = (360 + highest_angle - lowest_angle).normalize_angle
+    arc2 = 360 - arc1
+    [arc1, arc2].min
+  end
+
+  def ==(other)
+    (other.start_angle == self.start_angle) && (other.end_angle == self.end_angle) && (other.distance == self.distance) && (other.time == self.time)
+  end
+
+  def bisector
+    if (highest_angle - lowest_angle) > 180
+      (lowest_angle - central_angle / 2).normalize_angle
+    else
+      (lowest_angle + central_angle / 2).normalize_angle
+    end
+  end
+  
+  attr_accessor(:start_angle)
+  attr_accessor(:end_angle)
+  attr_accessor(:distance)
+  attr_accessor(:time)
 end
 
 module Rotator
@@ -188,7 +232,7 @@ class Gunner
   end
 
   def target(target)
-    @desiredHeading = target[0][T]
+    @desiredHeading = target.bisector
   end
 
   def initialize
@@ -263,22 +307,28 @@ class Radar
         event :rotating, :rotate
       end
       state :track do
+        event :scanned, :narrow_scan
+        event :tick, :track
+      end
+      state :narrow_scan do
+        on_entry :check_track_scan
+        event :target_locked, :awaiting_orders
+        event :target_not_locked, :track
+        event :tick, :narrow_scan
+        event :scanned, :narrow_scan
       end
       context radar
     end
   end
 
   def log_tick
-    print "radar.tick\n"
   end
   
   def scan
-    print "radar.scan\n"
     @stateMachine.scan
   end
 
   def start_quick_scan
-    print "radar.start_quick_scan\n"
     @originalHeading = polarIce.radar_heading
     @sectorsScanned = 0
     @quick_scan_results = nil
@@ -290,14 +340,12 @@ class Radar
   end
 
   def add_targets targets_scanned
-    print "radar.add_targets: #{targets_scanned}\n"
-    @targets += targets_scanned
+    @targets += targets_scanned if !targets_scanned.empty?
   end
 
   def count_sectors_scanned
-    print "radar.count_sectors_scanned: #{@sectorsScanned}\n"
     @sectorsScanned += 1
-    if @sectorsScanned < 6
+    if @sectorsScanned <= 7
       @stateMachine.scan_incomplete
     elsif @targets.empty?
       @stateMachine.no_targets
@@ -315,42 +363,91 @@ class Radar
   end
 
   def quick_scan_failed
-    print "radar.quick_scan_failed\n"
     polarIce.quick_scan_failed
   end
 
   def quick_scan_successful(targets)
-    print "radar.quick_scan_successful #{targets}\n"
     polarIce.quick_scan_successful(targets)
   end
 
   def track(target)
-    print "radar.track #{target}\n"
+    #print "radar.track #{target.inspect}\n"
     @stateMachine.track(target)
   end
 
   def rotate_to_sector(target)
     @currentTarget = target
-    @desiredHeading = @currentTarget[0][T] - @currentTarget[1] / 2
+    @desiredHeading = @currentTarget.start_angle
   end
 
   def check_desired_heading
-    print "radar.check_desired_heading #{@currentHeading} #{@desiredHeading} ==> "
     if (@currentHeading == @desiredHeading)
-      print "arrived\n"
       @desiredHeading = nil
       @stateMachine.arrived
     else
-      print "rotating\n"
       @stateMachine.rotating
     end
   end
-  
+
   def start_track
-    @rotation = @currentTarget[1] / 2
-    print "start track #{@rotation}\n"
+    @desiredHeading = @currentTarget.bisector
+  end
+
+  def check_track_scan(targets)
+    #print "radar.check_track_scan #{targets}\n"
+    if (targets != nil) && ((targets.empty?) || (closest_target(targets).distance != @currentTarget.distance))
+      target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, polarIce.time))
+    elsif closest_target(targets).distance == @currentTarget.distance
+      target_found(closest_target(targets))
+    end
+  end
+
+  def target_not_found(target)
+    if (target.start_angle == @currentTarget.end_angle)
+      end_angle = @currentTarget.start_angle
+    else
+      end_angle = @currentTarget.end_angle
+    end
+
+    @currentTarget = Sighting.new(target.end_angle, end_angle, @currentTarget.distance, target.time)
+
+    polarIce.target(@currentTarget)
+    @desiredHeading = @currentTarget.bisector
+
+    #print "radar.not_found.currentTarget = #{@currentTarget.inspect}\n"
+    #print "radar.not_found.desiredHeading = #{@desiredHeading}\n"
+
+    @stateMachine.target_not_locked
+  end
+
+  def target_found(target)
+    #print "radar.target_found new #{target.inspect}\n"
+
+    @currentTarget = target
+    polarIce.target(@currentTarget)
+    @desiredHeading = @currentTarget.bisector
+
+    #print "radar.found.currentTarget = #{@currentTarget.inspect}\n"
+    #print "radar.found.desiredHeading = #{@desiredHeading}\n"
+    check_target_locked
+  end
+
+  def check_target_locked
+    if (@currentTarget.central_angle == 1)
+      @quote = "You are at #{currentPosition + Vector[@currentTarget.start_angle, @currentTarget.distance].to_cartesian}"
+      @stateMachine.target_locked
+    else
+      @stateMachine.target_not_locked
+    end
   end
   
+  def closest_target(targets)
+    closest = targets[0]
+    targets.each {|target| closest = target if target.distance < closest.distance }
+    #print "closest_target #{closest.inspect}\n"
+    closest
+  end
+
   def initialize(polarIce)
     @maximumRotation = MAXIMUM_ROTATION
     @rotation = INITIAL_ROTATION
@@ -389,7 +486,7 @@ class Loader
   MINIMUM_FIRE_POWER = 0.0
   MAXIMUM_FIRE_POWER = 3.0
 
-  INITIAL_FIRE_POWER = 0.1
+  INITIAL_FIRE_POWER = 1.0
 
   def initialize
     @power = INITIAL_FIRE_POWER
@@ -441,7 +538,6 @@ class Commander
   end
   
   def start_quick_scan
-    print "commander.start_quick_scan\n"
     @originalHeading = polarIce.heading
     @sectorsScanned = 0
     @quick_scan_results = nil
@@ -449,12 +545,10 @@ class Commander
   end
 
   def quick_scan_failed
-    print "commander.quick_scan_failed\n"
     @quick_scan_results = []
   end
 
   def quick_scan_successful(targets)
-    print "commander.quick_scan_successful #{targets}\n"
     @quick_scan_results = targets
   end
 
@@ -477,13 +571,11 @@ class Commander
     target = closest_target
     polarIce.target(target)
     polarIce.track(target)
-
-    polarIce.quote = "#{target}"
   end
 
   def closest_target
     closest = @targets[0]
-    @targets.each {|target| closest = target if target[0][R] < closest[0][R] }
+    @targets.each {|target| closest = target if target.distance < closest.distance }
     closest
   end
 
@@ -525,17 +617,21 @@ class PolarIce
   end
 
   def update_state
+    @currentPosition = Vector[x,y]
+
     if !@initialized
       initialize_first_tick
     end
 
-    @currentPosition = Vector[x,y]
     update_driver_state
     update_gunner_state
     update_radar_state
   end
 
   def initialize_first_tick
+    #print "Position = #{@currentPosition}\n"
+    #print "Heading = #{radar_heading}\n"
+    @quote = "#{@currentPosition}\n#{radar_heading}"
     @initialized = true
     initialize_state_machine
   end
@@ -573,18 +669,12 @@ class PolarIce
 
   def process_radar(robots_scanned)
     targets_scanned = Array.new
-    robots_scanned.each do |target|
-      targets_scanned << [Vector[scan_midpoint, target[0]], scan_angle, time]
+    if (robots_scanned != nil)
+      robots_scanned.each do |target|
+        targets_scanned << Sighting.new(@previousRadarHeading, radar_heading, target[0], time)
+      end
     end
     radar.scanned targets_scanned
-  end
-
-  def scan_angle
-    (radar.currentHeading - @previousRadarHeading + 360) % 360
-  end
-
-  def scan_midpoint
-    (@previousRadarHeading + scan_angle / 2) % 360
   end
 
   def move_the_bot
@@ -615,7 +705,7 @@ class PolarIce
   end
 
   def perform_actions
-    print "perform_actions: \n  turn #{driver.rotation}\n  accelerate #{driver.acceleration}\n  turn_gun #{gunner.rotation}\n  fire #{loader.power}\n  turn_radar #{radar.rotation}\n"
+#    #print "perform_actions: \n  turn #{driver.rotation}\n  accelerate #{driver.acceleration}\n  turn_gun #{gunner.rotation}\n  fire #{loader.power}\n  turn_radar #{radar.rotation}\n"
     turn driver.rotation
     accelerate driver.acceleration
     turn_gun gunner.rotation
@@ -645,11 +735,16 @@ class PolarIce
   end
   
   def target(target)
+    #print "polarIce.target #{target.inspect}\n"
     gunner.target(target)
   end
 
   def track(target)
     radar.track(target)
+  end
+
+  def update_target(target)
+    gunner.target(target)
   end
 
   def initialize
