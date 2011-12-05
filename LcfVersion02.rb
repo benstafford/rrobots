@@ -134,7 +134,7 @@ class LcfVersion02
   end
 
   def get_angle_to_edge_of_bot_at_point x_bot, y_bot
-    return Math.atan(size/(distance_between_points x.to_f, y.to_f, x_bot, y_bot)) / Math::PI * 180 % 360
+    return Math.atan(@clipping_offset/(distance_between_points x.to_f, y.to_f, x_bot, y_bot)) / Math::PI * 180 % 360
   end
 
   def slow_motion enabled, seconds
@@ -335,7 +335,7 @@ class LcfVersion02
   end
 
   def get_angle_to_edge_of_bot_from_distance distance_from_bot
-    return Math.atan(size/distance_from_bot) / Math::PI * 180 % 360
+    return Math.atan(@clipping_offset/distance_from_bot) / Math::PI * 180 % 360
   end
 
   def aim_at_target
