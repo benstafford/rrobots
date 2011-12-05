@@ -360,10 +360,6 @@ class LcfVersion02
   end
 
   def go_to_location arg_x, arg_y
-    if (@last_x_location == x) && (@last_y_location == y)
-      accelerate -1
-    end
-
     #puts "#{@is_master}|speed #{speed}"
     if(x == arg_x) && (y == arg_y)
       #puts "speed #{speed}"
