@@ -16,24 +16,36 @@ class LcfVersion02
   @@slave_y_location = -1.0
   @@master_x_target = -1.0
   @@master_y_target = -1.0
+  @@master_time_target = 0
+  @@master_x_last_target = -1.0
+  @@master_y_last_target = -1.0
+  @@master_time_last_target = 0
   @@slave_x_target = -1.0
   @@slave_y_target = -1.0
+  @@slave_time_target = 0
+  @@slave_x_last_target = -1.0
+  @@slave_y_last_target = -1.0
+  @@slave_time_last_target = 0
 
   def initialize
     @@number_classes_initialized = @@number_classes_initialized + 1
     @x_destination = -1.0
     @y_destination = -1.0
+    @x_last_target = -1.0
+    @y_last_target = -1.0
+    @time_last_target = 0
     @x_target = -1.0
     @y_target = -1.0
+    @time_target = 0
     @clipping_offset = 60
     @ticks_last_robot_scanned = 0
     @has_scanned_enemy_robot = 0
     @history_ticks_last_robot_scanned = []
     @pair_is_alive = 1
     @max_tlrs_for_tracking_lock = 7
-    @got_first_target = 0
     @radar_scan_direction = 1
-    @first_find_current_scan_angle = 60
+    @current_scan_angle = 60
+    @last_scan_angle = 60
     @@was_here = 2
     @@master_tlrs = 100
     @@slave_tlrs = 100
@@ -47,6 +59,10 @@ class LcfVersion02
       @@master_y_destination = -1.0
       @@master_x_target = -1.0
       @@master_y_target = -1.0
+      @@master_time_target = 0
+      @@master_x_last_target = -1.0
+      @@master_y_last_target = -1.0
+      @@master_time_last_target = 0
     else
       @is_master = 0
       @@slave_x_location = x.to_f
@@ -55,6 +71,10 @@ class LcfVersion02
       @@slave_y_destination = -1.0
       @@slave_x_target = -1.0
       @@slave_y_target = -1.0
+      @@slave_time_target = 0
+      @@slave_x_last_target = -1.0
+      @@slave_y_last_target = -1.0
+      @@slave_time_last_target = 0
     end
     #puts "#{@is_master}"
    end
@@ -65,7 +85,7 @@ class LcfVersion02
     @tick_radar_turn = 0
     determine_if_your_pair_is_alive
     set_dont_shoot
-    slow_motion 0, 0.02
+    slow_motion 0, 1.00
     say "Inconceivable!" if got_hit(events)
     determine_mode
     set_location
@@ -85,7 +105,7 @@ class LcfVersion02
   def your_pair_is_no_more_deal_with_it
     if @pair_is_alive == 1
       @pair_is_alive = 0
-      #@is_master = 1
+      @is_master = 1
       @dont_shoot_max_right = nil
       @dont_shoot_max_left = nil
       @dont_shoot_distance = 0
@@ -161,6 +181,7 @@ class LcfVersion02
   end
 
   def tick_radar_turn angle
+    #puts "#{@is_master}|tick_radar_turn #{angle}" if @is_master == 1
     @tick_radar_turn = angle
   end
 
@@ -280,44 +301,50 @@ class LcfVersion02
   end
 
   def scan_for_next_target
-    find_first_target
-
+    find_target
   end
 
-  def find_first_target
-    if (@got_first_target == 0)
-      if (events['robot_scanned'].empty?) #&& (time.to_i < 31)
-        #puts "#{@is_master}|found nothing|#{@first_find_current_scan_angle} * #{@radar_scan_direction}"
-        tick_radar_turn @first_find_current_scan_angle * @radar_scan_direction
+  def find_target
+    if (events['robot_scanned'].empty?)
+      #puts "#{@is_master}|nothing|#{@current_scan_angle} * #{@radar_scan_direction}|@last_scan_angle=#{@last_scan_angle} @current_scan_angle=#{@current_scan_angle}" if @is_master == 1
+      if @last_scan_angle == @current_scan_angle
+        @current_scan_angle = 60
+        @last_scan_angle = 60
       else
-        dsd_ff = 1
-        #puts "#{@is_master}|dif(#{(@dont_shoot_distance.to_i + dsd_ff)-events['robot_scanned'][0][0].to_i})(#{@dont_shoot_distance.to_i + dsd_ff} < #{events['robot_scanned'][0][0].to_i}) || (#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i - dsd_ff})dif(#{events['robot_scanned'][0][0].to_i - (@dont_shoot_distance.to_i - dsd_ff)})"
-        if ((@dont_shoot_distance.to_f + dsd_ff) < events['robot_scanned'][0][0].to_f) || (events['robot_scanned'][0][0].to_f < (@dont_shoot_distance.to_f - dsd_ff))
-          if @first_find_current_scan_angle < 1
-            @got_first_target = 1
-            set_target events['robot_scanned'][0][0].to_f
-            #puts "#{@is_master}|#{time}|found First Target(#{@x_target},#{@y_target})"
-            @first_find_current_scan_angle = 60
-          else
-            #puts "#{@is_master}|found something|#{@first_find_current_scan_angle} * #{@radar_scan_direction}"
-            @radar_scan_direction = -1 * @radar_scan_direction
-            @first_find_current_scan_angle = (@first_find_current_scan_angle.to_f / 2.0).to_f
-          end
+        @last_scan_angle = @current_scan_angle
+      end
+    else
+      dsd_ff = 1
+      #puts "#{@is_master}|dif(#{(@dont_shoot_distance.to_i + dsd_ff)-events['robot_scanned'][0][0].to_i})(#{@dont_shoot_distance.to_i + dsd_ff} < #{events['robot_scanned'][0][0].to_i}) || (#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i - dsd_ff})dif(#{events['robot_scanned'][0][0].to_i - (@dont_shoot_distance.to_i - dsd_ff)})" if @is_master == 1
+      if ((@dont_shoot_distance.to_f + dsd_ff) < events['robot_scanned'][0][0].to_f) || (events['robot_scanned'][0][0].to_f < (@dont_shoot_distance.to_f - dsd_ff))
+        #puts "if #{@current_scan_angle} < #{(get_angle_to_edge_of_bot_from_distance events['robot_scanned'][0][0].to_f) * 2}" if @is_master == 1
+        if @current_scan_angle < (get_angle_to_edge_of_bot_from_distance events['robot_scanned'][0][0].to_f)
+          set_target events['robot_scanned'][0][0].to_f, (@current_scan_angle/2 * @radar_scan_direction * -1) + radar_heading.to_f
+          #puts "#{@is_master}|First Target(#{@x_target},#{@y_target})|dist = #{events['robot_scanned'][0][0].to_f}, (#{@current_scan_angle}/2 * #{@radar_scan_direction} * -1) + #{radar_heading.to_f} = #{(@current_scan_angle/2 * @radar_scan_direction * -1) + radar_heading.to_f}" if @is_master == 1
+          #puts "#{@is_master}|Targeted|#{time}" if @is_master == 1
+          @current_scan_angle = 0
+          @last_scan_angle = 0
+          @radar_scan_direction = @radar_scan_direction * -1
+        else
+          #puts "#{@is_master}|something|#{@current_scan_angle} * #{@radar_scan_direction}" if @is_master == 1
+          @radar_scan_direction = -1 * @radar_scan_direction
+          @current_scan_angle = (@current_scan_angle.to_f / 2.0).to_f
         end
       end
     end
+    tick_radar_turn @current_scan_angle * @radar_scan_direction
+  end
+
+  def get_angle_to_edge_of_bot_from_distance distance_from_bot
+    return Math.atan(@clipping_offset/distance_from_bot) / Math::PI * 180 % 360
   end
 
   def aim_at_target
     #puts "if (#{@x_target} != -1) && (#{@y_target} != -1)"
-    if @got_first_target == 1 #(@x_target != -1) && (@y_target != -1)
-      #puts "#{@is_master}|unless #{get_angle_to_location(@x_target,@y_target).to_i} == #{gun_heading.to_i}"
-      unless get_angle_to_location(@x_target,@y_target).to_i == gun_heading.to_i
-        #puts "#{@is_master}|turn_gun #{(get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f}|to(#{@x_target},#{@y_target})"
-        tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f
-      else
-        @got_first_target = 0
-      end
+    #puts "#{@is_master}|unless #{get_angle_to_location(@x_target,@y_target).to_i} == #{gun_heading.to_i}"
+    unless get_angle_to_location(@x_target,@y_target).to_i == gun_heading.to_i
+      #puts "#{@is_master}|turn_gun #{(get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f}|to(#{@x_target},#{@y_target})"
+      tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f
     end
   end
 
@@ -333,11 +360,14 @@ class LcfVersion02
   end
 
   def go_to_location arg_x, arg_y
+    if (@last_x_location == x) && (@last_y_location == y)
+      accelerate -1
+    end
+
     #puts "#{@is_master}|speed #{speed}"
     if(x == arg_x) && (y == arg_y)
       #puts "speed #{speed}"
       unless speed == 0
-        #@dont_shoot_distance = get_corner_to_corner_distance
         stop
         say "Stopped"
         #puts "Current Location #{x}, #{y}"
@@ -352,6 +382,8 @@ class LcfVersion02
       end
       accelerate 1
     end
+    @last_x_location = x
+    @last_y_location = y
   end
 
   def angle_to_pairs_target fast_turn_amount
@@ -395,18 +427,30 @@ class LcfVersion02
     @distance_lasted_locked = events['robot_scanned'][0][0].to_i
   end
 
-  def set_target distance_to_target
-    radi_angle = radar_heading.to_f * Math::PI / 180
+  def set_target distance_to_target, radar_heading_arg = radar_heading.to_f
+    radi_angle = radar_heading_arg * Math::PI / 180
     #puts "#{@is_master}|#{gun_heading.to_f}|#{radi_angle}|#{distance_to_target}"
+    @x_last_target = @x_target
+    @y_last_target = @y_target
+    @time_last_target = @time_target
     @x_target = x.to_f + (Math.cos(radi_angle) * distance_to_target)
     @y_target = y.to_f - (Math.sin(radi_angle) * distance_to_target)
+    @time_target = time
     #puts "#{@is_master}|#{@x_target},#{@y_target}"
     if @is_master == 1
+      @@master_x_last_target = @@master_x_target
+      @@master_y_last_target = @@master_y_target
+      @@master_time_last_target = @@master_time_target
       @@master_x_target = @x_target
       @@master_y_target = @y_target
+      @@master_time_target = time
     else
+      @@slave_x_last_target = @@slave_x_target
+      @@slave_y_last_target = @@slave_y_target
+      @@slave_time_last_target = @@slave_time_target
       @@slave_x_target = @x_target
       @@slave_y_target = @y_target
+      @@slave_time_target = time
     end
   end
 

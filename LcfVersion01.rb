@@ -29,7 +29,7 @@ class LcfVersion01
     @history_ticks_last_robot_scanned = []
     @pair_is_alive = 1
     @max_tlrs_for_tracking_lock = 7
-    @got_first_target = 0
+    @finished_search = 0
     @@was_here = 2
     @@master_tlrs = 100
     @@slave_tlrs = 100
@@ -56,7 +56,7 @@ class LcfVersion01
    end
 
   def tick events
-    find_first_target
+    find_target
     determine_if_your_pair_is_alive
     set_dont_shoot
     slow_motion 0, 0.02
@@ -65,12 +65,12 @@ class LcfVersion01
     set_location
   end
 
-  def find_first_target
-    if (@got_first_target == 0) && (time.to_i > 15)
+  def find_target
+    if (@finished_search == 0) && (time.to_i > 15)
       if (time.to_i < 31) && (events['robot_scanned'].empty?)
         turn_gun 30
       else
-        @got_first_target = 1
+        @finished_search = 1
         #puts "#{@is_master}|#{time}|found First Target"
       end
     end
@@ -152,7 +152,7 @@ class LcfVersion01
 
   def sniper_mode
     initialize_sniper_mode
-    if @got_first_target == 1
+    if @finished_search == 1
       fire_last_found
     end
     got_to_destination

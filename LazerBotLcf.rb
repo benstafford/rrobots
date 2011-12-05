@@ -26,9 +26,8 @@ class LazerBotLcf
     @clipping_offset = 60
     @ticks_last_robot_scanned = 0
     @pair_is_alive = 1
-    @got_first_target = 0
     @radar_scan_direction = 1
-    @first_find_current_scan_angle = 60
+    @current_scan_angle = 60
     @times_scanned_half = 0
     @@was_here = 2
 
@@ -96,8 +95,7 @@ class LazerBotLcf
   end
 
   def distance_between_points x1, y1, x2, y2
-    temp_for_puts = Math.hypot(y2 - y1, x1 - x2)
-    temp_for_puts
+    Math.hypot(y2 - y1, x1 - x2)
   end
 
   def set_dont_shoot_max_left_right x_pair, y_pair
@@ -180,7 +178,6 @@ class LazerBotLcf
       @y_destination = 0 + @clipping_offset
     end
     set_destination
-    set_gun_max_turn_stops
   end
 
   def set_destination
@@ -190,30 +187,6 @@ class LazerBotLcf
     else
       @@slave_x_destination = @x_destination
       @@slave_y_destination = @y_destination
-    end
-  end
-
-  def set_gun_max_turn_stops
-    if(@x_destination == @clipping_offset) && (@y_destination == @clipping_offset)
-      @gun_turn_max_left_stop=0
-      @gun_turn_max_right_stop=(270-1)
-      @gun_turn_left_stop=0
-      @gun_turn_right_stop=(270-1)
-    elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
-      @gun_turn_max_left_stop=270
-      @gun_turn_max_right_stop=(180-1)
-      @gun_turn_left_stop=270
-      @gun_turn_right_stop=(180-1)
-    elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
-      @gun_turn_max_left_stop=180
-      @gun_turn_max_right_stop=(90-1)
-      @gun_turn_left_stop=180
-      @gun_turn_right_stop=(90-1)
-    elsif(@x_destination == @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
-      @gun_turn_max_left_stop=90
-      @gun_turn_max_right_stop=359
-      @gun_turn_left_stop=90
-      @gun_turn_right_stop=359
     end
   end
 
@@ -239,7 +212,6 @@ class LazerBotLcf
       @y_destination = @clipping_offset
     end
     set_destination
-    set_gun_max_turn_stops
   end
 
   def fire_fire
@@ -253,31 +225,40 @@ class LazerBotLcf
   end
 
   def scan_for_next_target
-    find_first_target
+    find_target
   end
 
-  def find_first_target
-    if (@got_first_target == 0)
-      if (events['robot_scanned'].empty?)
-        tick_radar_turn @first_find_current_scan_angle * @radar_scan_direction
+  def find_target
+    if (events['robot_scanned'].empty?)
+      if @last_scan_angle == @current_scan_angle
+        @current_scan_angle = 60
+        @last_scan_angle = 60
       else
-        dsd_ff = 1
-        if ((@dont_shoot_distance.to_f + dsd_ff) < events['robot_scanned'][0][0].to_f) || (events['robot_scanned'][0][0].to_f < (@dont_shoot_distance.to_f - dsd_ff))
-          set_target events['robot_scanned'][0][0].to_f
-          if @first_find_current_scan_angle < 1
-            @got_first_target = 1
-            @first_find_current_scan_angle = 60
-          else
-            @radar_scan_direction = -1 * @radar_scan_direction
-            @first_find_current_scan_angle = (@first_find_current_scan_angle.to_f / 2.0).to_f
-          end
+        @last_scan_angle = @current_scan_angle
+      end
+    else
+      dsd_ff = 1
+      if ((@dont_shoot_distance.to_f + dsd_ff) < events['robot_scanned'][0][0].to_f) || (events['robot_scanned'][0][0].to_f < (@dont_shoot_distance.to_f - dsd_ff))
+        if @current_scan_angle < (get_angle_to_edge_of_bot_from_distance events['robot_scanned'][0][0].to_f)
+          set_target events['robot_scanned'][0][0].to_f, (@current_scan_angle/2 * @radar_scan_direction * -1) + radar_heading.to_f
+          @current_scan_angle = 0
+          @last_scan_angle = 0
+          @radar_scan_direction = @radar_scan_direction * -1
+        else
+          @radar_scan_direction = -1 * @radar_scan_direction
+          @current_scan_angle = (@current_scan_angle.to_f / 2.0).to_f
         end
       end
     end
+    tick_radar_turn @current_scan_angle * @radar_scan_direction
   end
 
-  def set_target distance_to_target
-    radi_angle = radar_heading.to_f * Math::PI / 180
+  def get_angle_to_edge_of_bot_from_distance distance_from_bot
+    return Math.atan(@clipping_offset/distance_from_bot) / Math::PI * 180 % 360
+  end
+
+  def set_target distance_to_target, radar_heading_arg = radar_heading.to_f
+    radi_angle = radar_heading_arg * Math::PI / 180
     @x_target = x.to_f + (Math.cos(radi_angle) * distance_to_target)
     @y_target = y.to_f - (Math.sin(radi_angle) * distance_to_target)
     if @is_master == 1
@@ -290,12 +271,8 @@ class LazerBotLcf
   end
 
   def aim_at_target
-    if @got_first_target == 1
-      unless get_angle_to_location(@x_target,@y_target).to_i == gun_heading.to_i
-        tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f
-      else
-        @got_first_target = 0
-      end
+    unless get_angle_to_location(@x_target,@y_target).to_i == gun_heading.to_i
+      tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f
     end
   end
 
