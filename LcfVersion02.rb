@@ -26,6 +26,7 @@ class LcfVersion02
   @@slave_x_last_target = -1.0
   @@slave_y_last_target = -1.0
   @@slave_time_last_target = 0
+  @@go_to_next_corner = 0
 
   def initialize
     @@number_classes_initialized = @@number_classes_initialized + 1
@@ -37,7 +38,7 @@ class LcfVersion02
     @x_target = -1.0
     @y_target = -1.0
     @time_target = 0
-    @clipping_offset = 60
+    @clipping_offset = 121
     @ticks_last_robot_scanned = 0
     @has_scanned_enemy_robot = 0
     @history_ticks_last_robot_scanned = []
@@ -49,7 +50,7 @@ class LcfVersion02
     @@was_here = 2
     @@master_tlrs = 100
     @@slave_tlrs = 100
-
+    @@go_to_next_corner = 0
 
     if @@number_classes_initialized % 2 == 1
       @is_master = 1
@@ -134,7 +135,7 @@ class LcfVersion02
   end
 
   def get_angle_to_edge_of_bot_at_point x_bot, y_bot
-    return Math.atan(@clipping_offset/(distance_between_points x.to_f, y.to_f, x_bot, y_bot)) / Math::PI * 180 % 360
+    return Math.atan(size.to_f/(distance_between_points x.to_f, y.to_f, x_bot, y_bot)) / Math::PI * 180 % 360
   end
 
   def slow_motion enabled, seconds
@@ -144,6 +145,7 @@ class LcfVersion02
   end
 
   def got_hit events
+    #puts "#{@is_master}|time = #{time}|#{events["got_hit"]}" if events.has_key? "got_hit"
     return events.has_key? "got_hit"
   end
 
@@ -167,12 +169,19 @@ class LcfVersion02
   end
 
   def resolve_all_turns
+    @tick_bot_turn -= 360 if @tick_bot_turn > 180
+    @tick_bot_turn += 360 if @tick_bot_turn < -180
     turn @tick_bot_turn
+    @tick_gun_turn -= 360 if @tick_gun_turn > 180
+    @tick_gun_turn += 360 if @tick_gun_turn < -180
     turn_gun @tick_gun_turn - @tick_bot_turn
+    @tick_radar_turn -= 360 if @tick_radar_turn > 180
+    @tick_radar_turn += 360 if @tick_radar_turn < -180
     turn_radar @tick_radar_turn - @tick_gun_turn - @tick_bot_turn
   end
 
   def tick_bot_turn angle
+    #puts "#{@is_master}|tick_bot_turn #{angle}" if @is_master == 1
     @tick_bot_turn = angle
   end
 
@@ -193,6 +202,8 @@ class LcfVersion02
     fire_fire
     scan_for_next_target
     aim_at_target
+    #aim_at_masters_target
+    move_if_hit
     got_to_destination
   end
 
@@ -225,9 +236,7 @@ class LcfVersion02
     else
       @y_destination = 0 + @clipping_offset
     end
-
     set_destination
-    set_gun_max_turn_stops
   end
 
   def set_destination
@@ -238,29 +247,9 @@ class LcfVersion02
       @@slave_x_destination = @x_destination
       @@slave_y_destination = @y_destination
     end
-  end
-
-  def set_gun_max_turn_stops
-    if(@x_destination == @clipping_offset) && (@y_destination == @clipping_offset)
-      @gun_turn_max_left_stop=0
-      @gun_turn_max_right_stop=(270-1)
-      @gun_turn_left_stop=0
-      @gun_turn_right_stop=(270-1)
-    elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
-      @gun_turn_max_left_stop=270
-      @gun_turn_max_right_stop=(180-1)
-      @gun_turn_left_stop=270
-      @gun_turn_right_stop=(180-1)
-    elsif(@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
-      @gun_turn_max_left_stop=180
-      @gun_turn_max_right_stop=(90-1)
-      @gun_turn_left_stop=180
-      @gun_turn_right_stop=(90-1)
-    elsif(@x_destination == @clipping_offset) && (@y_destination == @battlefield_height - @clipping_offset)
-      @gun_turn_max_left_stop=90
-      @gun_turn_max_right_stop=359
-      @gun_turn_left_stop=90
-      @gun_turn_right_stop=359
+    #puts "currLoc(#{x},#{y})|dest(#{@x_destination},#{@y_destination})|get_angle_to_location#{get_angle_to_location @x_destination, @y_destination}|heading#{heading}" if @is_master == 1
+    if (@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
+      @start_logging = 1
     end
   end
 
@@ -286,7 +275,6 @@ class LcfVersion02
       @y_destination = @clipping_offset
     end
     set_destination
-    set_gun_max_turn_stops
   end
 
   def fire_fire
@@ -314,7 +302,7 @@ class LcfVersion02
         @last_scan_angle = @current_scan_angle
       end
     else
-      dsd_ff = 1
+      dsd_ff = 2
       #puts "#{@is_master}|dif(#{(@dont_shoot_distance.to_i + dsd_ff)-events['robot_scanned'][0][0].to_i})(#{@dont_shoot_distance.to_i + dsd_ff} < #{events['robot_scanned'][0][0].to_i}) || (#{events['robot_scanned'][0][0].to_i} < #{@dont_shoot_distance.to_i - dsd_ff})dif(#{events['robot_scanned'][0][0].to_i - (@dont_shoot_distance.to_i - dsd_ff)})" if @is_master == 1
       if ((@dont_shoot_distance.to_f + dsd_ff) < events['robot_scanned'][0][0].to_f) || (events['robot_scanned'][0][0].to_f < (@dont_shoot_distance.to_f - dsd_ff))
         #puts "if #{@current_scan_angle} < #{(get_angle_to_edge_of_bot_from_distance events['robot_scanned'][0][0].to_f) * 2}" if @is_master == 1
@@ -335,15 +323,23 @@ class LcfVersion02
   end
 
   def get_angle_to_edge_of_bot_from_distance distance_from_bot
-    return Math.atan(@clipping_offset/distance_from_bot) / Math::PI * 180 % 360
+    return Math.atan(size.to_i/distance_from_bot) / Math::PI * 180 % 360
   end
 
   def aim_at_target
     #puts "if (#{@x_target} != -1) && (#{@y_target} != -1)"
     #puts "#{@is_master}|unless #{get_angle_to_location(@x_target,@y_target).to_i} == #{gun_heading.to_i}"
-    unless get_angle_to_location(@x_target,@y_target).to_i == gun_heading.to_i
+    unless get_angle_to_location(@x_target, @y_target).to_i == gun_heading.to_i
       #puts "#{@is_master}|turn_gun #{(get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f}|to(#{@x_target},#{@y_target})"
       tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - gun_heading.to_f
+    end
+  end
+
+  def aim_at_masters_target
+    if (@@master_x_target != -1) && (@@master_y_target != -1)
+        unless get_angle_to_location(@@master_x_target, @@master_y_target).to_i == gun_heading.to_i
+        tick_gun_turn (get_angle_to_location @@master_x_target, @@master_y_target).to_f - gun_heading.to_f
+      end
     end
   end
 
@@ -353,51 +349,72 @@ class LcfVersion02
       y_target = @y_target
     else
       #can the 2 point be the same bot
-      puts "#{@is_master}|if #{(distance_between_points @x_last_target, @y_last_target, @x_target, @y_target)/(@time_target - @time_last_target)} < 9"
-      if (distance_between_points @x_last_target, @y_last_target, @x_target, @y_target)/(@time_target - @time_last_target) < 9
-      else
-        x_target = @x_target
-        y_target = @y_target
+      if speed.to_i == 0
+        puts "#{@is_master}|if #{(distance_between_points @x_last_target, @y_last_target, @x_target, @y_target)/(@time_target - @time_last_target)} < 30"
+        if ((distance_between_points @x_last_target.to_f, @y_last_target.to_f, @x_target.to_f, @y_target.to_f).to_f/(@time_target - @time_last_target).to_f).to_f < 30
+          #puts "#{@is_master}|Doing predictive shoot!!!|Same" if @is_master == 1
+
+        else
+          x_target = @x_target
+          y_target = @y_target
+        end
       end
     end
 
     unless get_angle_to_location(x_target,y_target).to_i == gun_heading.to_i
-      tick_gun_turn (get_angle_to_location x_target, y_target).to_f - gun_heading.to_f
+      tick_gun_turn (get_angle_to_location x_target.to_f, y_target.to_f).to_f - gun_heading.to_f
     end
   end
 
   def get_angle_to_location arg_x, arg_y
-    #puts "arg_x->#{arg_x}|arg_y->#{arg_y}|x->#{x}|y->#{y}"
-    angle = Math.atan2(y - arg_y, arg_x - x) / Math::PI * 180 % 360
-    #puts "Angle to location #{arg_x},#{arg_y} == #{angle}"
+    unless (x == arg_x) && (y == arg_y)
+      #puts "arg_x->#{arg_x}|arg_y->#{arg_y}|x->#{x}|y->#{y}" if @is_master == 1
+      angle = Math.atan2(y - arg_y, arg_x - x) / Math::PI * 180 % 360
+      #puts "Angle to location #{arg_x},#{arg_y} == #{angle}" if !@start_logging.nil?
+    else
+      puts "Error|Trying to get an angle to the same point|arg_x->#{arg_x}|arg_y->#{arg_y}|x->#{x}|y->#{y}"
+    end
     return angle
   end
 
-  def got_to_destination
-    go_to_location @x_destination, @y_destination
+  def move_if_hit
+    if @@go_to_next_corner == 1
+      go_to_next_corner
+      @@go_to_next_corner = 0
+    else
+      if (got_hit(events)) && speed.to_i == 0
+        #if @clipping_offset == 121
+        #  @clipping_offset = @clipping_offset * 2
+        #else
+        #  @clipping_offset = @clipping_offset / 2
+        #end
+        #go_to_nearest_corner
+        go_to_next_corner
+      end
+    end
+
   end
 
-  def go_to_location arg_x, arg_y
-    #puts "#{@is_master}|speed #{speed}"
-    if(x == arg_x) && (y == arg_y)
-      #puts "speed #{speed}"
-      unless speed == 0
-        stop
-        say "Stopped"
-        #puts "Current Location #{x}, #{y}"
-        #your_pair_is_no_more_deal_with_it
-      end
-    else
-      #puts "Current Location #{x}, #{y}"
-      #puts "Trying to go to #{arg_x}, #{arg_y}"
-      #puts "#{@is_master}|#{time}|#{(get_angle_to_location arg_x, arg_y) - heading}"
-      unless get_angle_to_location(arg_x,arg_y) == heading
-        tick_bot_turn (get_angle_to_location arg_x, arg_y) - heading
-      end
-      accelerate 1
-    end
+  def got_to_destination
+    turn_to_location @x_destination, @y_destination
+    move
     @last_x_location = x
     @last_y_location = y
+  end
+
+  def turn_to_location arg_x, arg_y
+    #puts "Current Location #{x}, #{y}" if @is_master == 1
+    #puts "Trying to go to #{arg_x}, #{arg_y}" if @is_master == 1
+    #puts "#{@is_master}|#{time}|#{(get_angle_to_location arg_x, arg_y) - heading}"
+    unless get_angle_to_location(arg_x, arg_y) == heading.to_i
+      #puts "before tick_bot_turn|currLoc(#{x},#{y})|dest(#{@x_destination},#{@y_destination})|get_angle_to_location#{get_angle_to_location @x_destination, @y_destination}|heading#{heading}" if @is_master == 1
+      tick_bot_turn (get_angle_to_location arg_x, arg_y) - heading.to_f
+    end
+  end
+
+  def move
+    #puts "#{@is_master}|accelerate #{(Math.sqrt(distance_between_points x.to_f, y.to_f, @x_destination, @y_destination).to_i)}" if @is_master == 1
+    accelerate (Math.sqrt(distance_between_points x.to_f, y.to_f, @x_destination, @y_destination).to_i) - speed.to_i if (speed)
   end
 
   def angle_to_pairs_target fast_turn_amount
@@ -514,19 +531,20 @@ class LcfVersion02
     #lower_right = @battlefield_width - @clipping_offset, @battlefield_height - @clipping_offset
     #lower_left = @clipping_offset, @battlefield_height - @clipping_offset
     #puts "got to next corner"
+    @@go_to_next_corner = 1
 
     #puts "#{@is_master}|(#{x.to_i} == #{@x_destination}) && (#{y.to_i} == #{@x_destination})"
-    if(x.to_i == @x_destination) && (y.to_i == @x_destination)
-      if(x.to_i == @clipping_offset) && (y.to_i == @clipping_offset)
+    #if(x.to_i == @x_destination) && (y.to_i == @y_destination)
+      if(@x_destination == @clipping_offset) && (@y_destination == @clipping_offset)
         @x_destination = @battlefield_width - @clipping_offset
         @y_destination = @clipping_offset
-      elsif(x.to_i == @battlefield_width - @clipping_offset) && (y.to_i == @clipping_offset)
+      elsif(@x_destination == (@battlefield_width - @clipping_offset)) && (@y_destination == @clipping_offset)
         @x_destination = @battlefield_width - @clipping_offset
         @y_destination = @battlefield_height - @clipping_offset
-      elsif(x.to_i == @battlefield_width - @clipping_offset) && (y.to_i == @battlefield_height - @clipping_offset)
+      elsif(@x_destination == (@battlefield_width - @clipping_offset)) && (@y_destination == (@battlefield_height - @clipping_offset))
         @x_destination = @clipping_offset
         @y_destination = @battlefield_height - @clipping_offset
-      elsif(x.to_i == @clipping_offset) && (y.to_i == @battlefield_height - @clipping_offset)
+      elsif(@x_destination == @clipping_offset) && (@y_destination == (@battlefield_height - @clipping_offset))
         @x_destination = @clipping_offset
         @y_destination = @clipping_offset
       else
@@ -534,8 +552,7 @@ class LcfVersion02
       end
       set_destination
       set_sidewalker_gun_max_turn_stops
-      accelerate 1
-    end
+    #end
   end
 
   def set_sidewalker_gun_max_turn_stops
