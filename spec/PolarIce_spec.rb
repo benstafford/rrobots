@@ -34,9 +34,34 @@ def scan_60_degrees
   (@bot.radarRotation + @bot.gunnerRotation + @bot.driverRotation).should == 60
 end
 
-def do_quick_scan
+def do_quick_scan(targets = nil)
   6.times { scan_60_degrees }
+  if (targets != nil)
+    if (targets.class == Array)
+      @bot.radar.targets += targets
+    else
+      @bot.radar.targets << targets
+    end
+  end
   @bot.tick @events
+end
+
+def expect_first_scan(radarHeading, gunHeading, turn, robotScanned=nil)
+  @events['robot_scanned'].clear
+  @events['robot_scanned'] << robotScanned if robotScanned != nil
+  @bot.stub!(:radar_heading).and_return(radarHeading)
+  @bot.stub!(:gun_heading).and_return(gunHeading)
+  @bot.tick @events
+  (@bot.driverRotation + @bot.gunnerRotation + @bot.radarRotation).should == turn
+end
+
+def expect_scan(heading, turn, robotScanned=nil)
+  @events['robot_scanned'].clear
+  @events['robot_scanned'] << robotScanned if robotScanned != nil
+  @bot.stub!(:radar_heading).and_return(heading)
+  @bot.stub!(:gun_heading).and_return(heading)
+  @bot.tick @events
+  (@bot.driverRotation + @bot.gunnerRotation + @bot.radarRotation).should == turn
 end
 
 describe 'PolarIce' do
@@ -60,6 +85,9 @@ describe 'PolarIce' do
     @bot.stub!(:gun_heading).and_return(0)
     @bot.stub!(:radar_heading).and_return(0)
     @bot.stub!(:time).and_return(0)
+    @bot.stub!(:size).and_return(60)
+
+    @position = Vector[800,800]
 
     @bot.desiredDriverTarget = nil
     @bot.desiredDriverHeading = nil
@@ -254,6 +282,7 @@ describe 'PolarIce' do
       @bot.stub!(:heading).and_return(90)
       @bot.stub!(:gun_heading).and_return(90)
       @bot.stub!(:radar_heading).and_return(90)
+      @bot.base_test
     end
     describe 'towards headings' do
       describe 'It should turn its hull toward a desired heading' do
@@ -669,7 +698,7 @@ describe 'PolarIce' do
       @bot.stub!(:radar_heading).and_return(360)
       @events['robot_scanned'] << [400] << [300]
       @bot.tick @events
-      @bot.radar.targets.should == [Sighting.new(270, 360, 400, 0), Sighting.new(270, 360, 300, 0)]
+      @bot.radar.targets.should == [Sighting.new(270, 360, 400, 1, @position, 0), Sighting.new(270, 360, 300, 1, @position, 0)]
     end
   end
   describe 'It should scan for the targets' do
@@ -682,89 +711,53 @@ describe 'PolarIce' do
         do_quick_scan
       end
       it 'should aim at the first sextant if it only saw a target there' do
-        @bot.radar.targets << Sighting.new(0, 60, 400, 0)
-        do_quick_scan
+        do_quick_scan(Sighting.new(0, 60, 400, 1, @position, 0))
+        print "#{@bot.radar.targets}\n"
         @bot.desiredGunnerHeading.should == 30
         @bot.desiredRadarHeading.should == 0
       end
       it 'should aim at the second sextant if it only saw a target there' do
-        @bot.radar.targets << Sighting.new(60, 120, 400, 0)
-        do_quick_scan
+        do_quick_scan(Sighting.new(60, 120, 400, 1, @position, 0))
         @bot.desiredGunnerHeading.should == 90
         @bot.desiredRadarHeading.should == 60
       end
       it 'should aim at the third sextant if it only saw a target there' do
-        @bot.radar.targets << Sighting.new(120, 180, 400, 0)
-        do_quick_scan
+        do_quick_scan(Sighting.new(120, 180, 400, 1, @position, 0))
         @bot.desiredGunnerHeading.should == 150
         @bot.desiredRadarHeading.should == 120
       end
       it 'should aim at the fourth sextant if it only saw a target there' do
-        @bot.radar.targets << Sighting.new(180, 240, 400, 0)
-        do_quick_scan
+        do_quick_scan(Sighting.new(180, 240, 400, 1, @position, 0))
         @bot.desiredGunnerHeading.should == 210
         @bot.desiredRadarHeading.should == 180
       end
       it 'should aim at the fifth sextant if it only saw a target there' do
-        @bot.radar.targets << Sighting.new(240, 300, 400, 0)
-        do_quick_scan
+        do_quick_scan(Sighting.new(240, 300, 400, 1, @position, 0))
         @bot.desiredGunnerHeading.should == 270
         @bot.desiredRadarHeading.should == 240
       end
       it 'should aim at the sixth sextant if it only saw a target there' do
-        @bot.radar.targets << Sighting.new(300, 360, 400, 0)
-        do_quick_scan
+        do_quick_scan(Sighting.new(300, 360, 400, 1, @position, 0))
         @bot.desiredGunnerHeading.should == 330
         @bot.desiredRadarHeading.should == 300
       end
       it 'should aim at the quadrant of the nearest target' do
-        @bot.radar.targets << Sighting.new(0, 60, 600, 0) << Sighting.new(60, 120, 500, 0) << Sighting.new(120, 180, 400, 0) << Sighting.new(180, 240, 300, 0) << Sighting.new(240, 300, 200, 0) << Sighting.new(300, 360, 100, 0)
-        do_quick_scan
+        targets = Array.new
+        targets << Sighting.new(0, 60, 600, 1, @position, 0) << Sighting.new(60, 120, 500, 1, @position, 0) << Sighting.new(120, 180, 400, 1, @position, 0) << Sighting.new(180, 240, 300, 1, @position, 0) << Sighting.new(240, 300, 200, 1, @position, 0) << Sighting.new(300, 360, 100, 1, @position, 0)
+        do_quick_scan(targets)
         @bot.desiredGunnerHeading.should == 330
         @bot.desiredRadarHeading.should == 300
       end
     end
   end
   describe "It should fight stationary targets that don't shoot" do
-    it 'should turn to gun to the center and radar to the edge after quick scan' do
-      @target = Vector[168,400]
-      @bot.radar.targets << Sighting.new(120, 180, 400, 0)
-      do_quick_scan
-
-      @bot.desiredGunnerHeading.should == 150
-      @bot.desiredRadarHeading.should == 120
-    end
-
     it 'should do a binary search' do
       @target = Vector[168,400]
-      @bot.radar.targets << Sighting.new(120, 180, 400, 0)
-      do_quick_scan
 
-      @bot.stub!(:radar_heading).and_return(120)
-      @bot.stub!(:gun_heading).and_return(150)
-      @bot.should_receive(:turn_radar).with(30)
-      @bot.tick @events
-
-      @events['robot_scanned'] << [500]
-      @bot.stub!(:radar_heading).and_return(150)
-      @bot.stub!(:gun_heading).and_return(150)
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.should_receive(:turn_gun).with(15)
-      @bot.tick @events
-
-      @events['robot_scanned'] << [800] << [600]
-      @bot.stub!(:radar_heading).and_return(165)
-      @bot.stub!(:gun_heading).and_return(165)
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.should_receive(:turn_gun).with(7)
-      @bot.tick @events
-
-      @events['robot_scanned'] << [400]
-      @bot.stub!(:radar_heading).and_return(172)
-      @bot.stub!(:gun_heading).and_return(172)
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.should_receive(:turn_gun).with(-4)
-      @bot.tick @events
+      do_quick_scan(Sighting.new(120, 180, 400, 1, @position, 0))
+      expect_first_scan(120, 150, 30)
+      expect_scan(150, 15)
+      expect_scan(165, 7)
     end
     it 'should work for position Vector[1435,65] and target Vector[342,531] with radar_heading = 105' do
       target = Vector[342,531]
@@ -776,47 +769,13 @@ describe 'PolarIce' do
       @bot.stub!(:x).and_return(position[0])
       @bot.stub!(:y).and_return(position[1])
       @bot.stub!(:radar_heading).and_return(105)
-      @bot.radar.targets << Sighting.new(165, 225, 1188, 0)
-      do_quick_scan
+      do_quick_scan(Sighting.new(165, 225, 1188, 1, position, 0))
 
-      @bot.stub!(:radar_heading).and_return(165)
-      @bot.stub!(:gun_heading).and_return(195)
-      @bot.should_receive(:turn_radar).with(30)
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(195)
-      @bot.stub!(:gun_heading).and_return(195)
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.should_receive(:turn_gun).with(15)
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(210)
-      @bot.stub!(:gun_heading).and_return(210)
-      @events['robot_scanned'] << [1188]
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.should_receive(:turn_gun).with(-8)
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(202)
-      @bot.stub!(:gun_heading).and_return(202)
-      @events['robot_scanned'] << [1188]
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.should_receive(:turn_gun).with(4)
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(206)
-      @bot.stub!(:gun_heading).and_return(206)
-      @events['robot_scanned'] << [1188]
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.should_receive(:turn_gun).with(-2)
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(204)
-      @bot.stub!(:gun_heading).and_return(204)
-      @events['robot_scanned'].clear
-      @bot.should_receive(:turn_radar).with(0)
-      @bot.should_receive(:turn_gun).with(-1)
-      @bot.tick @events
+      expect_first_scan(165, 195, 30)
+      expect_scan(195, 15)
+      expect_scan(210, -8, [1188])
+      expect_scan(202, 4, [1188])
+      expect_scan(206, -2, [1188])
     end
     it 'should work for position Vector[416,610] and target Vector[968,1540] with radar_heading = 97' do
       position = Vector[416,610]
@@ -828,106 +787,117 @@ describe 'PolarIce' do
       @bot.stub!(:x).and_return(position[0])
       @bot.stub!(:y).and_return(position[1])
       @bot.stub!(:radar_heading).and_return(97)
-      @bot.radar.targets << Sighting.new(97, 157, 1081, 0)
-      do_quick_scan
+      do_quick_scan(Sighting.new(97, 157, 1081, 1, position, 0))
 
-      @bot.stub!(:radar_heading).and_return(97)
-      @bot.stub!(:gun_heading).and_return(127)
-      @bot.should_receive(:turn_radar).with(30)
-      @bot.tick @events
+      expect_first_scan(97, 127, 30)
+      expect_scan(127, -15, [1081])
+      expect_scan(112, 7, [1081])
+      expect_scan(119, 4)
+      expect_scan(123, -2, [1081])
+    end
+    describe 'It should maintain lock until the target is not seen' do
+      before(:each) do
+        position = Vector[416,610]
+        target = Vector[968,1540]
+        angle = Math.atan2(position[1] - target[1], target[0] - position[0]).to_deg.normalize_angle
+        distance = Math.hypot(target[0] - position[0], target[1] - position[1])
+        print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
 
-      @bot.stub!(:radar_heading).and_return(127)
-      @bot.stub!(:gun_heading).and_return(127)
-      @bot.should_receive(:turn_gun).with(-15)
-      @bot.should_receive(:turn_radar).with(0)
-      @events['robot_scanned'] << [1081]
-      @bot.tick @events
+        @bot.stub!(:x).and_return(position[0])
+        @bot.stub!(:y).and_return(position[1])
+        @bot.stub!(:radar_heading).and_return(97)
+        do_quick_scan(Sighting.new(97, 157, 1081, 1, position, 0))
 
-      @bot.stub!(:radar_heading).and_return(112)
-      @bot.stub!(:gun_heading).and_return(112)
-      @bot.should_receive(:turn_gun).with(7)
-      @bot.should_receive(:turn_radar).with(0)
-      @events['robot_scanned'] << [1081]
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(119)
-      @bot.stub!(:gun_heading).and_return(119)
-      @bot.should_receive(:turn_gun).with(4)
-      @bot.should_receive(:turn_radar).with(0)
-      @events['robot_scanned'].clear
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(123)
-      @bot.stub!(:gun_heading).and_return(123)
-      @bot.should_receive(:turn_gun).with(-2)
-      @bot.should_receive(:turn_radar).with(0)
-      @events['robot_scanned'] << [1081]
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(121)
-      @bot.stub!(:gun_heading).and_return(121)
-      @bot.should_receive(:turn_gun).with(1)
-      @bot.should_receive(:turn_radar).with(0)
-      @events['robot_scanned'] << [1081]
-      @bot.tick @events
-
-      @bot.stub!(:radar_heading).and_return(122)
-      @bot.stub!(:gun_heading).and_return(122)
-      @bot.should_receive(:turn_gun).with(-1)
-      @bot.should_receive(:turn_radar).with(0)
-      @events['robot_scanned'] << [1081]
-      @bot.tick @events
-
-
+        expect_first_scan(97, 127, 30)
+        expect_scan(127, -15, [1081])
+        expect_scan(112, 7, [1081])
+        expect_scan(119, 4)
+        expect_scan(123, -2, [1081])
+      end
+      it 'should look the other direction if target is seen' do
+        expect_scan(121, 2, [1081])
+      end
     end
   end
 end
 
 describe 'Sighting' do
   it 'should have its members' do
-    sighting = Sighting.new(1, 2, 3, 4)
+    sighting = Sighting.new(1, 2, 3, 1, @position, 4)
     sighting.start_angle.should == 1
     sighting.end_angle.should == 2
     sighting.distance.should == 3
     sighting.time.should == 4
+    sighting.direction.should == 1
   end
-
   it 'should make all angles between 0 and 360' do
-    sighting = Sighting.new(-10, -180, 0, 0)
+    sighting = Sighting.new(-10, -180, 0, 1, @position, 0)
     sighting.start_angle.should == 350
     sighting.end_angle.should == 180
   end
-
   describe 'It should calculate needed values' do
     describe 'It should calculate arc length' do
       it 'should calculate arc length' do
-        sighting = Sighting.new(90,270,100,0)
+        sighting = Sighting.new(90, 270, 100, 1, @position, 0)
         sighting.central_angle.should == 180
       end
       it 'should be positive' do
-        sighting = Sighting.new(270,90,100,0)
+        sighting = Sighting.new(270, 90, 100, -1, @position, 0)
         sighting.central_angle.should == 180
       end
       it 'should handle passing 0' do
-        sighting = Sighting.new(350, 10, 100, 0)
+        sighting = Sighting.new(350, 10, 100, 1, @position, 0)
         sighting.central_angle.should == 20
       end
     end
     describe 'It should calculate the bisector' do
       it 'should calculate the bisector normal case' do
-        sighting = Sighting.new(90,270,100,0)
+        sighting = Sighting.new(90, 270, 100, 1, @position, 0)
         sighting.bisector.should == 180
       end
 
       it 'should calculate the bisector when it crosses 0' do
-        sighting = Sighting.new(300, 360, 100, 0)
+        sighting = Sighting.new(300, 360, 100, 1, @position, 0)
         sighting.bisector.should == 330
       end
 
       it 'should calculate the bisector when the start and end are swapped' do
-        sighting = Sighting.new(210, 202, 100, 0)
+        sighting = Sighting.new(210, 202, 100, -1, @position, 0)
         sighting.bisector.should == 206
       end
+    end
+  end
+  describe 'It should broaden the scan' do
+    it 'should subtract from the start_angle if necessary' do
+      sighting = Sighting.new(10, 12, 100, 1, @position, 0)
+      sighting.broaden(1)
+      sighting.start_angle.should == 9
+    end
+    it 'should add to the start_angle if necessary' do
+      sighting = Sighting.new(12, 10, 100, -1, @position, 0)
+      sighting.broaden(1)
+      sighting.start_angle.should == 13
+    end
+
+    it 'should work for 254, 257' do
+      sighting = Sighting.new(254, 257, 100, 1, @position, 0)
+      sighting.broaden(1)
+      sighting.start_angle.should == 253
+    end
+    it 'should work for 257, 254' do
+      sighting = Sighting.new(257, 254, 100, -1, @position, 0)
+      sighting.broaden(1)
+      sighting.start_angle.should == 258
+    end
+    it 'should work for 355,15' do
+      sighting = Sighting.new(355, 15, 100,1,  @position, 0)
+      sighting.broaden(10)
+      sighting.start_angle.should == 345
+    end
+    it 'should work for 15,355' do
+      sighting = Sighting.new(15, 355, 100, -1, @position, 0)
+      sighting.broaden(10)
+      sighting.start_angle.should == 25
     end
   end
 end
