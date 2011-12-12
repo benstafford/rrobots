@@ -29,13 +29,17 @@ def test_aim_at_target(rotator, desiredTarget, expectedHeading)
   rotator.desiredHeading.should == expectedHeading
 end
 
+def total_rotation
+  (@bot.radarRotation + @bot.gunnerRotation + @bot.driverRotation)
+end
+
 def scan_60_degrees
   @bot.tick @events
-  (@bot.radarRotation + @bot.gunnerRotation + @bot.driverRotation).should == 60
+  total_rotation.should == 60
 end
 
 def do_quick_scan(targets = nil)
-  6.times { scan_60_degrees }
+  5.times { scan_60_degrees }
   if (targets != nil)
     if (targets.class == Array)
       @bot.radar.targets += targets
@@ -43,6 +47,7 @@ def do_quick_scan(targets = nil)
       @bot.radar.targets << targets
     end
   end
+#  scan_60_degrees
   @bot.tick @events
 end
 
@@ -713,8 +718,8 @@ describe 'PolarIce' do
       it 'should aim at the first sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(0, 60, 400, 1, @position, 0))
         print "#{@bot.radar.targets}\n"
-        @bot.desiredGunnerHeading.should == 30
-        @bot.desiredRadarHeading.should == 0
+        
+        total_rotation.should == 0
       end
       it 'should aim at the second sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(60, 120, 400, 1, @position, 0))
@@ -795,6 +800,12 @@ describe 'PolarIce' do
       expect_scan(119, 4)
       expect_scan(123, -2, [1081])
     end
+    it 'should not attack its partner' do
+      target = Vector[1600,800]
+      @events['broadcasts'] << ["P" + target.encode, "east"]
+      do_quick_scan(Sighting.new(0, 60, 800, 1, @position, 0))
+      do_quick_scan(Sighting.new(0, 60, 800, 1, @position, 0))
+    end
     describe 'It should maintain lock until the target is not seen' do
       before(:each) do
         position = Vector[416,610]
@@ -817,6 +828,25 @@ describe 'PolarIce' do
       it 'should look the other direction if target is seen' do
         expect_scan(121, 2, [1081])
       end
+    end
+  end
+  describe 'It should communicate with its partner' do
+    it 'should send its position for 0,0' do
+      @bot.stub!(:x).and_return(0)
+      @bot.stub(:y).and_return(0)
+      @bot.should_receive(:broadcast).with("P0,0")
+      @bot.tick @events
+    end
+    it 'should send its position for 123.45, 123.45 in base 36 as 9ix,9ix' do
+      @bot.stub!(:x).and_return(123.45)
+      @bot.stub(:y).and_return(123.45)
+      @bot.should_receive(:broadcast).with("P9ix,9ix")
+      @bot.tick @events
+    end
+    it 'should receive its partners position P9ix,9ix as 123.45,123.45' do
+      @events['broadcasts'] << ["P9ix,9ix", "east"]
+      @bot.tick @events
+      @bot.currentPartnerPosition.should == Vector[123.45,123.45]
     end
   end
 end
