@@ -192,6 +192,9 @@ describe 'PolarIce' do
     end
   end
   describe 'It should perform actions on each tick' do
+    before(:each) do
+      @bot.base_test
+    end
     it 'should handle a nil tick' do
       @bot.tick nil
     end
@@ -620,6 +623,7 @@ describe 'PolarIce' do
   end
   describe 'It should move' do
     before(:each) do
+      @bot.base_test
       @bot.stub!(:x).and_return(800)
       @bot.stub!(:y).and_return(800)
     end

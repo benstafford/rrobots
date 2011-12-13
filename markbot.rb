@@ -20,7 +20,7 @@ class MarkBot
   MIN_PARTNER_SAFETY_DISTANCE = 300
 
   MIN_DISTANCE_FROM_PARTNER = 500
-  MIN_DISTANCE_FROM_WALL = 200
+  MIN_DISTANCE_FROM_WALL = 60
 
   DESIRED_DISTANCE_FROM_TARGET = 800
 
@@ -131,7 +131,9 @@ Direction: #{radar_search_direction}\n\
     near_wall ||= battlefield_height - @my_position[Y] < MIN_DISTANCE_FROM_WALL
 
     if near_wall
-      move_toward(@center_position)
+#      move_toward(@center_position)
+      @desired_robot_heading = angle_to_point(@center_position)
+      accelerate_the_robot(1)
     end
     near_wall
   end
