@@ -1,8 +1,10 @@
 require 'robot'
+require 'LCF/destination_setter'
+require 'LCF/dont_move_setter'
+require 'LCF/go_to_next_corner_setter'
 
 class LcfVersion02
   include Robot
-  require "LCF/destination_setter.rb"
 
   @@number_classes_initialized = 0
   @@was_here = 2
@@ -27,6 +29,7 @@ class LcfVersion02
   @@slave_y_last_target = -1.0
   @@slave_time_last_target = 0
   @@go_to_next_corner = 0
+  @@current_destination_setter = 0
 
   def initialize
     @@number_classes_initialized = @@number_classes_initialized + 1
@@ -46,6 +49,10 @@ class LcfVersion02
     @last_scan_angle = 60
     @@was_here = 2
     @@go_to_next_corner = 0
+    @@current_destination_setter = 0
+    @destination_setters = []
+    @destination_setters[0] = DontMoveSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+    @destination_setters[1] = GoToNextCornerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
 
     if @@number_classes_initialized % 2 == 1
       @is_master = 1
@@ -73,7 +80,7 @@ class LcfVersion02
       @@slave_time_last_target = 0
     end
     #puts "#{@is_master}"
-   end
+  end
 
   def tick events
     @tick_bot_turn = 0
@@ -83,7 +90,7 @@ class LcfVersion02
     set_dont_shoot
     slow_motion 0, 1.00
     say "Inconceivable!" if got_hit(events)
-    determine_mode
+    sniper_mode
     set_location
     resolve_all_turns
   end
@@ -144,14 +151,6 @@ class LcfVersion02
     return events.has_key? "got_hit"
   end
 
-  def determine_mode
-    if energy > 50
-      sniper_mode
-    else
-      sniper_mode
-    end
-  end
-
   def set_location
     #puts "#{@is_master}|set_location"
     if @is_master == 1
@@ -195,7 +194,7 @@ class LcfVersion02
     scan_for_next_target
     aim_at_target
     move_if_hit
-    #set_destination_based_on_damage
+    #calculate_destination_based_on_damage
     got_to_destination
   end
 
@@ -253,16 +252,16 @@ class LcfVersion02
       pair_dest_x = @@master_x_destination
       pair_dest_y = @@master_y_destination
     end
-    if(pair_dest_x.to_i == @clipping_offset) && (pair_dest_y.to_i == @clipping_offset)#upper_left
+    if (pair_dest_x.to_i == @clipping_offset) && (pair_dest_y.to_i == @clipping_offset) #upper_left
       @x_destination = @battlefield_width - @clipping_offset
       @y_destination = @battlefield_height - @clipping_offset
-    elsif(pair_dest_x.to_i == @battlefield_width - @clipping_offset) && (pair_dest_y.to_i == @clipping_offset)#upper_right
+    elsif (pair_dest_x.to_i == @battlefield_width - @clipping_offset) && (pair_dest_y.to_i == @clipping_offset) #upper_right
       @x_destination = @clipping_offset
       @y_destination = @battlefield_height - @clipping_offset
-    elsif(pair_dest_x.to_i == @battlefield_width - @clipping_offset) && (pair_dest_y.to_i == @battlefield_height - @clipping_offset)#lower_right
+    elsif (pair_dest_x.to_i == @battlefield_width - @clipping_offset) && (pair_dest_y.to_i == @battlefield_height - @clipping_offset) #lower_right
       @x_destination = @clipping_offset
       @y_destination = @clipping_offset
-    elsif(pair_dest_x.to_i == @clipping_offset) && (pair_dest_y.to_i == @battlefield_height - @clipping_offset)#lower_left
+    elsif (pair_dest_x.to_i == @clipping_offset) && (pair_dest_y.to_i == @battlefield_height - @clipping_offset) #lower_left
       @x_destination = @battlefield_width - @clipping_offset
       @y_destination = @clipping_offset
     end
@@ -272,7 +271,7 @@ class LcfVersion02
   def fire_fire
     fire_power = 0.1
     if (@dont_shoot_max_right != nil) && (@dont_shoot_max_left != nil)
-      if(@dont_shoot_max_right < gun_heading.to_f) && (gun_heading.to_f < @dont_shoot_max_left)
+      if (@dont_shoot_max_right < gun_heading.to_f) && (gun_heading.to_f < @dont_shoot_max_left)
         #puts "#{@is_master}|Don'tShoot!!!'"
         fire_power = 0
       end
@@ -326,7 +325,7 @@ class LcfVersion02
 
   def aim_at_masters_target
     if (@@master_x_target != -1) && (@@master_y_target != -1)
-        unless get_angle_to_location(@@master_x_target, @@master_y_target).to_i == gun_heading.to_i
+      unless get_angle_to_location(@@master_x_target, @@master_y_target).to_i == gun_heading.to_i
         tick_gun_turn (get_angle_to_location @@master_x_target, @@master_y_target).to_f - gun_heading.to_f
       end
     end
@@ -350,7 +349,7 @@ class LcfVersion02
       end
     end
 
-    unless get_angle_to_location(x_target,y_target).to_i == gun_heading.to_i
+    unless get_angle_to_location(x_target, y_target).to_i == gun_heading.to_i
       tick_gun_turn (get_angle_to_location x_target.to_f, y_target.to_f).to_f - gun_heading.to_f
     end
   end
@@ -383,8 +382,9 @@ class LcfVersion02
     end
   end
 
-  def set_destination_based_on_damage
+  def calculate_destination_based_on_damage
 
+    set_destination
   end
 
   def got_to_destination
@@ -441,9 +441,7 @@ class LcfVersion02
   end
 
   def distance_between_points x1, y1, x2, y2
-    temp_for_puts = Math.hypot(y2 - y1, x1 - x2)
-    #puts "#{@is_master}|#{temp_for_puts}"
-    temp_for_puts
+    Math.hypot(y2 - y1, x1 - x2)
   end
 
   def go_to_next_corner
@@ -455,16 +453,16 @@ class LcfVersion02
     @@go_to_next_corner = 1
 
     #puts "#{@is_master}|(#{x.to_i} == #{@x_destination}) && (#{y.to_i} == #{@x_destination})"
-    if(@x_destination == @clipping_offset) && (@y_destination == @clipping_offset)
+    if (@x_destination == @clipping_offset) && (@y_destination == @clipping_offset)
       @x_destination = @battlefield_width - @clipping_offset
       @y_destination = @clipping_offset
-    elsif(@x_destination == (@battlefield_width - @clipping_offset)) && (@y_destination == @clipping_offset)
+    elsif (@x_destination == (@battlefield_width - @clipping_offset)) && (@y_destination == @clipping_offset)
       @x_destination = @battlefield_width - @clipping_offset
       @y_destination = @battlefield_height - @clipping_offset
-    elsif(@x_destination == (@battlefield_width - @clipping_offset)) && (@y_destination == (@battlefield_height - @clipping_offset))
+    elsif (@x_destination == (@battlefield_width - @clipping_offset)) && (@y_destination == (@battlefield_height - @clipping_offset))
       @x_destination = @clipping_offset
       @y_destination = @battlefield_height - @clipping_offset
-    elsif(@x_destination == @clipping_offset) && (@y_destination == (@battlefield_height - @clipping_offset))
+    elsif (@x_destination == @clipping_offset) && (@y_destination == (@battlefield_height - @clipping_offset))
       @x_destination = @clipping_offset
       @y_destination = @clipping_offset
     else
