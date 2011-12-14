@@ -18,18 +18,17 @@ class VHGoodness
     @p_x, @p_y = location_from_broadcasts events
     if !events['robot_scanned'].empty? and !pointed_at_partner? @p_x, @p_y
       @gun_turn = -@gun_turn
-      @e_x, @e_y = get_robot_scanned_location events['robot_scanned'][0][0]
+      @e_x, @e_y = position_from_distance_and_angle events['robot_scanned'][0][0]
     end
-    broadcast_location
 
     if (speed == 4 or speed == -4)
       @speed_modifier = -@speed_modifier
     end
 
-    #converge_on (battlefield_width/2), (battlefield_height/2)
     turn_gun(@gun_turn)
     accelerate @speed_modifier
     fire(0.1)
+    broadcast_location
   end
 
   def output string
@@ -51,67 +50,12 @@ class VHGoodness
     return p_x, p_y
   end
 
-  def converge_on c_x, c_y
-    @my_heading = angle_between_two_points x, y, c_x, c_y
-    if !on_heading?
-      get_on_heading
-      accelerate(-1)
-    else
-      accelerate 1
-    end
-  end
-
-  def on_heading?
-    (@my_heading - heading).abs < 2
-  end
-
-  def get_on_heading
-    amount_to_turn = (@my_heading - heading)
-    turn amount_to_turn
-    if amount_to_turn > 10
-      return 10
-    end
-    amount_to_turn
-  end
-
-  def get_robot_scanned_location distance
-    e_vector = position_from_distance_and_angle(distance, radar_heading-5)
-    return position_from_distance_and_angle(distance, radar_heading-5)
-    #return e_vector[0].to_i, e_vector[1].to_i
-  end
-
-  #def position_from_distance_and_angle(distance, angle)
-  #  angle = 1 if angle <= 0
-  #  # * Math::PI/180
-  #  d_x = trim(distance * Math.cos(angle * Math::PI/180))
-  #  d_y = trim(-distance * Math.sin(angle * Math::PI/180))
-  #  puts "Delta X: #{d_x} + my x: #{x} = E Loc: #{x+d_x}"
-  #  puts "Delta Y: #{d_y} + my y: #{y} = E Loc: #{y+d_y}"
-  #
-  #  target_vector = Vector[d_x,
-  #                         d_y]
-  #  target_vector + Vector[x,(y)]
-  #  #Vector[trim(distance * Math.cos(angle * Math::PI/180)) + x,
-  #  #       trim(-distance * Math.sin(angle * Math::PI/180)) - (y)]
-  #end
-
-  def position_from_distance_and_angle(distance, angle)
+  def position_from_distance_and_angle(distance, angle = radar_heading-5)
     d_x = distance * Math.cos(angle * Math::PI/180)
     d_y = -distance * Math.sin(angle * Math::PI/180)
     output "Delta X: #{d_x} + my x: #{x} = E Loc: #{x+d_x}"
     output "Delta Y: #{d_y} + my y: #{y} = E Loc: #{y+d_y}"
     return x + d_x, y + d_y
-  end
-
-  def is_partner_scanned? scanned_x, scanned_y
-    scanned_angle = angle_between_two_points x, y, scanned_x, scanned_y
-    is_within_fifteen_degree_range? scanned_angle, radar_heading
-  end
-
-  def dont_shoot? my_gun_angle
-    p_angle = angle_between_two_points x, y, @p_x, @p_y
-    should_not_fire = is_within_fifteen_degree_range? p_angle, my_gun_angle
-    should_not_fire
   end
 
   def pointed_at_partner? p_x, p_y
@@ -121,28 +65,6 @@ class VHGoodness
     angle = Math.atan2(d_y, d_x).to_deg
     angle += 360 if angle < 0
     (radar_heading - angle).abs < 15
-  end
-
-  def angle_between_two_points x_1, y_1, x_2, y_2
-    offset_for_y_axis = -1
-    d_x = (x_2-x_1)
-    d_y = ((offset_for_y_axis*y_2)-(offset_for_y_axis*y_1))
-    angle = Math.atan2(d_y, d_x).to_deg
-    angle += 360 if angle < 0
-    angle
-  end
-
-  def heading_to_point x_1, y_1
-    offset_for_y_axis = -1
-    d_x = (x_1-x)
-    d_y = ((offset_for_y_axis*y_1)-(offset_for_y_axis*y))
-    angle = Math.atan2(d_y, d_x).to_deg
-    angle += 360 if angle < 0
-    angle
-  end
-
-  def is_within_fifteen_degree_range? p_angle, my_gun_angle
-    (p_angle - my_gun_angle).abs < 15
   end
 
   def trim number
