@@ -1,0 +1,2 @@
+class DontMoveSetter < DestinationSetter
+end
