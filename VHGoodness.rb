@@ -1,8 +1,77 @@
 require 'robot'
 require 'numeric'
+require 'Matrix'
 
 class VHGoodness
-   include Robot
+  include Robot
+
+  def initialize
+    @speed_modifier = 1
+    @gun_turn = -10
+    @my_heading = nil
+    @id = rand(100)
+    @p_x, @p_y = 0, 0
+  end
+
+  def tick events
+    @last_robot_turn = 0
+    @p_x, @p_y = location_from_broadcasts events
+    if !events['robot_scanned'].empty? and !pointed_at_partner? @p_x, @p_y
+      @gun_turn = -@gun_turn
+      @e_x, @e_y = position_from_distance_and_angle events['robot_scanned'][0][0]
+    end
+
+    if (speed == 4 or speed == -4)
+      @speed_modifier = -@speed_modifier
+    end
+
+    turn_gun(@gun_turn)
+    accelerate @speed_modifier
+    fire(0.1)
+    broadcast_location
+  end
+
+  def output string
+    puts "#{@id}|#{time}|#{string}"
+  end
+
+  def broadcast_location
+    broadcast "loc|#{x.to_i}|#{y.to_i}"
+  end
+
+  def location_from_broadcasts events
+    if !events['broadcasts'].empty?
+      p_vars = events['broadcasts'][0][0].split('|')
+      p_x = p_vars[1].to_i
+      p_y = p_vars[2].to_i
+    else
+      p_x, p_y = 0, 0
+    end
+    return p_x, p_y
+  end
+
+  def position_from_distance_and_angle(distance, angle = radar_heading-5)
+    d_x = distance * Math.cos(angle * Math::PI/180)
+    d_y = -distance * Math.sin(angle * Math::PI/180)
+    output "Delta X: #{d_x} + my x: #{x} = E Loc: #{x+d_x}"
+    output "Delta Y: #{d_y} + my y: #{y} = E Loc: #{y+d_y}"
+    return x + d_x, y + d_y
+  end
+
+  def pointed_at_partner? p_x, p_y
+    offset_for_y_axis = -1
+    d_x = (p_x-x)
+    d_y = ((offset_for_y_axis*p_y)-(offset_for_y_axis*y))
+    angle = Math.atan2(d_y, d_x).to_deg
+    angle += 360 if angle < 0
+    (radar_heading - angle).abs < 15
+  end
+
+  def trim number
+    (number * 1000).round.to_f / 1000
+  end
+end
+
 #battlefield_height  #the height of the battlefield
 #  battlefield_width   #the width of the battlefield
 #  energy              #your remaining energy (if this drops below 0 you are dead)
@@ -32,66 +101,3 @@ class VHGoodness
 #  say(msg)            #shows msg above the robot on screen
 #  broadcast(msg)      #broadcasts msg to all bots (they recieve 'broadcasts'
 #                      #events with the msg and rough direction)
-  def tick events
-    if events['robot_scanned'].empty?
-      turn_gun(10)
-    else
-      navigate
-      if !dont_shoot?(gun_heading)
-        fire(3)
-      end
-    end
-    broadcast_location
-  end
-
-  def broadcast_location
-    puts "SENDING LCOATION AS: #{x.to_i}|#{y.to_i}"
-    broadcast "#{x.to_i}|#{y.to_i}"
-  end
-
-  def navigate
-    distance_from_edge = 250
-    if speed < 4
-      accelerate(1)
-    end
-    if x >= (battlefield_width - distance_from_edge) or x <= distance_from_edge or y >= (battlefield_height - distance_from_edge) or y <= distance_from_edge
-      turn 10
-    end
-  end
-
-  def dont_shoot? my_gun_angle
-    p_x, p_y = 0.0,0.0
-    if !events['broadcasts'].nil?
-      #puts "RECEIVED BROADCASTS: #{events['broadcasts']}"
-      p_vars = events['broadcasts'][0][0].split('|')
-      p_x = p_vars[0].to_f
-      p_y = p_vars[1].to_f
-      #puts "RECIEVED LCOATION AS #{p_x},#{p_y}"
-    end
-    
-    p_angle = angle_give_two_points x, y, p_x, p_y
-    should_not_fire = is_within_fifteen_degree_range? p_angle, my_gun_angle
-    puts "(#{x}, #{y} should fire = #{should_not_fire}; on #{p_x}, #{p_y} (p_angle: #{p_angle}, my_gun_angle: #{my_gun_angle})"
-    should_not_fire
-  end
-
-  def angle_give_two_points x_1, y_1, x_2, y_2
-    d_x = (x_2-x_1)
-    d_y = (y_2-y_1)
-    angle = Math.atan2(d_y, d_x).to_deg
-    angle += 360 if angle < 0
-    angle
-  end
-
-  def is_within_fifteen_degree_range? p_angle, my_gun_angle
-    (p_angle - my_gun_angle).abs < 15
-  end
-
-  def heading_up_down?
-    heading == 90 or heading == 270
-  end
-
-  def heading_left_right?
-    heading == 0 or heading == 180
-  end
-end
