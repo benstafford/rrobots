@@ -175,13 +175,18 @@ class Radar
     @desiredHeading = @currentTarget.bisector
   end
 
-  def remove_partner_from_targets(targets)
-    targets.delete_if { |target| target.contains(polarIce.currentPartnerPosition) }
+  def remove_partners_from_targets(targets)
+    log "commander.remove_partners_from_targets\n"
+    polarIce.currentPartnerPosition.each{|partner| remove_partner_from_targets(partner, targets) if partner != nil}
+  end
+
+  def remove_partner_from_targets(partner, targets)
+    targets.delete_if { |target| target.contains(partner) }
   end
 
   def check_track_scan(targets)
     log "radar.check_track_scan #{targets}\n"
-    remove_partner_from_targets(targets) if polarIce.currentPartnerPosition != nil
+    remove_partners_from_targets(targets) if polarIce.currentPartnerPosition != nil
     if (targets != nil) && (targets.empty?)
       target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
     else
@@ -241,7 +246,7 @@ class Radar
 
   def check_maintain_lock(targets)
     log "radar.check_maintain_lock #{targets}\n"
-    remove_partner_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
+    remove_partners_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
     if (targets == nil) || (targets.empty?)
       lock_target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
     else
@@ -278,7 +283,7 @@ class Radar
 
   def check_broaden_scan(targets)
     log "radar.check_broaden_scan #{targets}\n"
-    remove_partner_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
+    remove_partners_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
     if (targets != nil) && (targets.empty?)
       broaden_scan_target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
     else

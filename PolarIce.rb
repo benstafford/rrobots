@@ -88,7 +88,7 @@ class PolarIce
   end
 
   def initialize_state_machine
-    @commander.scan
+    @commander.init
   end
 
   def fire_the_gun
@@ -103,6 +103,7 @@ class PolarIce
 
   def process_partner_broadcasts(broadcasts)
     log "process_partner_broadcasts #{broadcasts}\n"
+    determine_role(broadcasts.count) if !broadcasts.empty?
     broadcasts.each do |message|
       process_partner_message(message)
     end
@@ -110,15 +111,36 @@ class PolarIce
 
   def process_partner_message(message)
     log "process_partner_message #{message}\n"
-    message_x, message_y = message[0][1..-1].split(',').map { |s| s.to_i(36).to_f/100 }
+    message_x, message_y = message[0][2..-1].split(',').map { |s| s.to_i(36).to_f/100 }
     if message[0][0] == "P"
-      @currentPartnerPosition = Vector[message_x,message_y]
+      @currentPartnerPosition[message[0][1].to_i] = Vector[message_x,message_y]
       log "currentPartnerPosition = #{@currentPartnerPosition}\n"
     end
   end
 
+  def determine_role(message_count)
+    if (@role == :alone)
+      case time
+        when 1 then become_slave(message_count)
+        when 2 then become_master(message_count)
+      end
+    end
+  end
+
+  def become_master(message_count)
+    @role = :master
+    @id = message_count + 1
+    @quote = @id.to_s
+  end
+
+  def become_slave(message_count)
+    @role = :slave
+    @id = message_count
+    @quote = @id.to_s
+  end
+
   def send_position_to_partner
-    @broadcastMessage = "P" + @currentPosition.encode
+    @broadcastMessage = "P" + @id.to_s + @currentPosition.encode
   end
 
   def process_radar(robots_scanned)
@@ -176,6 +198,14 @@ class PolarIce
     @previousSpeed = speed
   end
 
+  def stop
+    driver.stop
+  end
+
+  def stopped
+    commander.stopped
+  end
+
   def start_quick_scan
     radar.scan
   end
@@ -217,14 +247,16 @@ class PolarIce
   def unlock
     driver.unlock
   end
-  
+
   def initialize
     initialize_crew
     initialize_basic_operations
+    initialize_role
+    initialize_partner_communications
   end
 
   def initialize_crew
-    @driver = Driver.new
+    @driver = Driver.new(self)
     @loader = Loader.new
     @gunner = Gunner.new(self)
     @radar = Radar.new(self)
@@ -234,6 +266,15 @@ class PolarIce
   def initialize_basic_operations
     @broadcastMessage = INITIAL_BROADCAST_MESSAGE
     @quote = INITIAL_QUOTE
+  end
+
+  def initialize_role
+    @role = :alone
+    @id = 0
+  end
+
+  def initialize_partner_communications
+    @currentPartnerPosition = Array.new
   end
 
   attr_reader(:currentPosition)
@@ -249,4 +290,7 @@ class PolarIce
   attr_accessor(:previousPosition)
 
   attr_accessor(:currentPartnerPosition)
+
+  attr_accessor(:role)
+  attr_accessor(:id)
 end

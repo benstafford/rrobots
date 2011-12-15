@@ -9,11 +9,15 @@ class Commander
     commander = self
     @stateMachine = Statemachine.build do
       state :initializing do
-        event :scan, :quick_scan
+        event :scan, :stop_for_quick_scan
         event :base_test, :base_test
       end
       state :base_test do
         event :scan, :base_test
+      end
+      state :stop_for_quick_scan do
+        on_entry :stop_for_quick_scan
+        event :stopped, :quick_scan
       end
       state :quick_scan do
         on_entry :start_quick_scan
@@ -23,7 +27,7 @@ class Commander
       end
       state :track do
         on_entry :start_tracking
-        event :target_lost, :quick_scan
+        event :target_lost, :stop_for_quick_scan
         event :update_target, :track, :aim_at_target
       end
       context commander
@@ -38,11 +42,21 @@ class Commander
     @stateMachine.base_test
   end
 
-  def scan
+  def init
     log "commander.scan\n"
     @stateMachine.scan
   end
 
+  def stop_for_quick_scan
+    log "commander.stop_for_quick_scan\n"
+    polarIce.stop
+  end
+
+  def stopped
+    log "commander.stopped\n"
+    @stateMachine.stopped
+  end
+  
   def start_quick_scan
     log "commander.start_quick_scan\n"
     @originalHeading = polarIce.heading
@@ -83,17 +97,23 @@ class Commander
   end
 
   def choose_target
-    log "choose_target\n"
-    remove_partner_from_targets if (polarIce.currentPartnerPosition != nil)
+    log "commander.choose_target\n"
+    remove_partners_from_targets if (polarIce.currentPartnerPosition != nil)
     closest_target
   end
 
-  def remove_partner_from_targets
-    log "remove_partner_from_targets\n"
-    @targets.delete_if{|target| target.contains(polarIce.currentPartnerPosition)}
+  def remove_partners_from_targets
+    log "commander.remove_partners_from_targets\n"
+    polarIce.currentPartnerPosition.each{|partner| remove_partner_from_targets(partner) if partner != nil}
+  end
+
+  def remove_partner_from_targets(partner)
+    log "commander.remove_partner_from_targets\n"
+    @targets.delete_if{|target| target.contains(partner)}
   end
 
   def closest_target
+    log "commander.choose_target"
     closest = @targets[0]
     @targets.each {|target| closest = target if target.distance < closest.distance }
     closest

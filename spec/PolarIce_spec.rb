@@ -721,8 +721,8 @@ describe 'PolarIce' do
       end
       it 'should aim at the first sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(0, 60, 400, 1, @position, 0))
-        print "#{@bot.radar.targets}\n"
-        
+#        print "#{@bot.radar.targets}\n"
+
         total_rotation.should == 0
       end
       it 'should aim at the second sextant if it only saw a target there' do
@@ -773,7 +773,7 @@ describe 'PolarIce' do
       position = Vector[1435,65]
       angle = Math.atan2(position[1]-target[1],target[0]-position[0]).to_deg + 360
       distance = Math.hypot(target[0] - position[0], target[1] - position[1])
-      print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
+#      print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
 
       @bot.stub!(:x).and_return(position[0])
       @bot.stub!(:y).and_return(position[1])
@@ -791,7 +791,7 @@ describe 'PolarIce' do
       target = Vector[968,1540]
       angle = Math.atan2(position[1] - target[1], target[0] - position[0]).to_deg.normalize_angle
       distance = Math.hypot(target[0] - position[0], target[1] - position[1])
-      print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
+#      print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
 
       @bot.stub!(:x).and_return(position[0])
       @bot.stub!(:y).and_return(position[1])
@@ -806,9 +806,16 @@ describe 'PolarIce' do
     end
     it 'should not attack its partner' do
       target = Vector[1600,800]
-      @events['broadcasts'] << ["P" + target.encode, "east"]
+      @events['broadcasts'] << ["P0" + target.encode, "east"]
       do_quick_scan(Sighting.new(0, 60, 800, 1, @position, 0))
       do_quick_scan(Sighting.new(0, 60, 800, 1, @position, 0))
+    end
+    it 'should not attack any of its partners' do
+      target = Vector[1600,800]
+      target2 = Vector[0,800]
+      @events['broadcasts'] << ["P0" + target.encode, "east"] << ["P1" + target2.encode, "west"]
+      do_quick_scan([Sighting.new(0, 60, 800, 1, @position, 0), Sighting.new(120, 180, 800, 1, @position, 0)])
+      do_quick_scan([Sighting.new(0, 60, 800, 1, @position, 0), Sighting.new(120, 180, 800, 1, @position, 0)])
     end
     describe 'It should maintain lock until the target is not seen' do
       before(:each) do
@@ -816,7 +823,7 @@ describe 'PolarIce' do
         target = Vector[968,1540]
         angle = Math.atan2(position[1] - target[1], target[0] - position[0]).to_deg.normalize_angle
         distance = Math.hypot(target[0] - position[0], target[1] - position[1])
-        print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
+#        print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
 
         @bot.stub!(:x).and_return(position[0])
         @bot.stub!(:y).and_return(position[1])
@@ -838,19 +845,60 @@ describe 'PolarIce' do
     it 'should send its position for 0,0' do
       @bot.stub!(:x).and_return(0)
       @bot.stub(:y).and_return(0)
-      @bot.should_receive(:broadcast).with("P0,0")
+      @bot.should_receive(:broadcast).with("P00,0")
       @bot.tick @events
     end
     it 'should send its position for 123.45, 123.45 in base 36 as 9ix,9ix' do
       @bot.stub!(:x).and_return(123.45)
       @bot.stub(:y).and_return(123.45)
-      @bot.should_receive(:broadcast).with("P9ix,9ix")
+      @bot.should_receive(:broadcast).with("P09ix,9ix")
       @bot.tick @events
     end
-    it 'should receive its partners position P9ix,9ix as 123.45,123.45' do
-      @events['broadcasts'] << ["P9ix,9ix", "east"]
+    it 'should receive its partners position P09ix,9ix as 123.45,123.45' do
+      @events['broadcasts'] << ["P09ix,9ix", "east"]
       @bot.tick @events
-      @bot.currentPartnerPosition.should == Vector[123.45,123.45]
+      @bot.currentPartnerPosition.should == [Vector[123.45,123.45]]
+    end
+    it 'should receive multiple partners positions' do
+      @events['broadcasts'] << ["P19ix,9ix", "east"] << ["P20,0", "west"]
+      @bot.tick @events
+      @bot.currentPartnerPosition.should == [nil, Vector[123.45,123.45],Vector[0.0,0.0]]
+    end
+    it 'should be master if the first message is received at time 2' do
+      @bot.stub!(:time).and_return(2)
+      @events['broadcasts'] << ["P09ix,9ix", "east"]
+      @bot.tick @events
+      @bot.role.should == :master
+    end
+    it 'should be slave if the first message is received at time 1' do
+      @bot.stub!(:time).and_return(1)
+      @events['broadcasts'] << ["P09ix,9ix", "east"]
+      @bot.tick @events
+      @bot.role.should == :slave
+    end
+    it 'should be #1 if it sees 1 message on tick 1' do
+      @bot.stub!(:time).and_return(1)
+      @events['broadcasts'] << ["P09ix,9ix", "east"]
+      @bot.tick @events
+      @bot.id.should == 1
+    end
+    it 'should be #2 if it sees 2 messages on tick 1' do
+      @bot.stub!(:time).and_return(1)
+      @events['broadcasts'] << ["P09ix,9ix", "east"] << ["P28ix,8ix", "east"]
+      @bot.tick @events
+      @bot.id.should == 2
+    end
+    it 'should be #2 if it sees 1 messages on tick 2' do
+      @bot.stub!(:time).and_return(2)
+      @events['broadcasts'] << ["P09ix,9ix", "east"]
+      @bot.tick @events
+      @bot.id.should == 2
+    end
+    it 'should be #3 if it sees 2 messages on tick 2' do
+      @bot.stub!(:time).and_return(2)
+      @events['broadcasts'] << ["P09ix,9ix", "east"] << ["P08ix,8ix", "east"]
+      @bot.tick @events
+      @bot.id.should == 3
     end
   end
 end
@@ -912,7 +960,6 @@ describe 'Sighting' do
       sighting.broaden(1)
       sighting.start_angle.should == 13
     end
-
     it 'should work for 254, 257' do
       sighting = Sighting.new(254, 257, 100, 1, @position, 0)
       sighting.broaden(1)
