@@ -8,29 +8,34 @@ class Commander
   def initialize_state_machine
     commander = self
     @stateMachine = Statemachine.build do
+      context commander
+
       state :initializing do
         event :scan, :stop_for_quick_scan
         event :base_test, :base_test
       end
+
       state :base_test do
         event :scan, :base_test
       end
+
       state :stop_for_quick_scan do
         on_entry :stop_for_quick_scan
         event :stopped, :quick_scan
       end
+
       state :quick_scan do
         on_entry :start_quick_scan
         on_exit :end_quick_scan
         event :quick_scan_successful, :track, :add_targets
         event :quick_scan_failed, :quick_scan, :start_quick_scan
       end
+      
       state :track do
         on_entry :start_tracking
         event :target_lost, :stop_for_quick_scan
         event :update_target, :track, :aim_at_target
       end
-      context commander
     end
   end
 

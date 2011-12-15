@@ -18,6 +18,7 @@ class Radar
     radar = self
     @stateMachine = Statemachine.build do
       context radar
+
       state :awaiting_orders do
         on_entry :awaiting_orders
         event :scan, :quick_scan, :start_quick_scan
@@ -25,29 +26,35 @@ class Radar
         event :scanned, :awaiting_orders
         event :tick, :awaiting_orders
       end
+
       state :quick_scan do
         event :scanned, :sector_scanned, :add_targets
         event :tick, :quick_scan
       end
+
       state :sector_scanned do
         on_entry :count_sectors_scanned
         event :scan_incomplete, :quick_scan
         event :quick_scan_successful, :awaiting_orders
         event :quick_scan_failed, :awaiting_orders
       end
+
       state :rotate do
         event :tick, :wait_for_rotation
         event :scanned, :rotate
       end
+
       state :wait_for_rotation do
         on_entry :check_desired_heading
         event :arrived, :track, :start_track
         event :rotating, :rotate
       end
+
       state :track do
         event :scanned, :narrow_scan
         event :tick, :track
       end
+      
       state :narrow_scan do
         on_entry :check_track_scan
         event :target_locked, :maintain_lock
@@ -56,23 +63,27 @@ class Radar
         event :tick, :narrow_scan
         event :scanned, :narrow_scan
       end
+
       state :maintain_lock do
         on_entry :maintain_lock
         event :tick, :maintain_lock
         event :scanned, :check_maintain_lock
       end
+
       state :check_maintain_lock do
         on_entry :check_maintain_lock
         event :target_locked, :maintain_lock
         event :target_not_locked, :broaden_scan
         event :tick, :check_maintain_lock
       end
+
       state :broaden_scan do
         on_entry :broaden_scan
         event :scanned, :check_broaden_scan
         event :target_lost, :awaiting_orders
         event :tick, :broaden_scan
       end
+      
       state :check_broaden_scan do
         on_entry :check_broaden_scan
         event :target_found, :track, :start_track
