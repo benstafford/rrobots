@@ -3,6 +3,7 @@ require 'robots/NewInvader/InvaderFiringEngine'
 require 'robots/NewInvader/InvaderMath'
 require 'robots/NewInvader/InvaderMovementEngine'
 require 'robots/NewInvader/InvaderRadarEngine'
+require 'LcfVersion02'
 
 class NewInvader
    include Robot
@@ -19,6 +20,9 @@ class NewInvader
   attr_accessor :found_enemy
   attr_accessor :last_target_time
   attr_accessor :current_direction
+  attr_accessor :loren_shield
+
+  @@private_battlefield =  Battlefield.new 1600, 1600, 50001, Time.now.to_i
 
   def initialize
     @mode = InvaderMode::HEAD_TO_EDGE
@@ -30,9 +34,9 @@ class NewInvader
     @move_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderDriverSearchCorner.new(self)
     @fire_engine = []
     @fire_engine[InvaderMode::HEAD_TO_EDGE] = InvaderGunnerHeadToEdge.new(self)
-    @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderGunnerProvidedTarget.new(self)
-    @fire_engine[InvaderMode::FOUND_TARGET] = InvaderGunnerFoundTarget.new(self)
-    @fire_engine[InvaderMode::SEARCHING] = InvaderGunnerSearching.new(self)
+    @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderFiringEngine.new(self)
+    @fire_engine[InvaderMode::FOUND_TARGET] = @fire_engine[InvaderMode::PROVIDED_TARGET]
+    @fire_engine[InvaderMode::SEARCHING] = @fire_engine[InvaderMode::PROVIDED_TARGET]
     @fire_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderGunnerShootOppositeCorner.new(self)
     @radar_engine = []
     @radar_engine[InvaderMode::HEAD_TO_EDGE] = InvaderRadarEngineHeadToEdge.new(self)
@@ -41,6 +45,10 @@ class NewInvader
     @radar_engine[InvaderMode::SEARCHING] =  InvaderRadarEngineSearching.new(self) #@radar_engine[InvaderMode::FOUND_TARGET]
     @radar_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderRadarEngineSearchOppositeCorner.new(self)
     @math = InvaderMath.new
+
+    @loren_shield = Object.const_get("LcfVersion02").new
+    @loren_shield = RobotRunner.new(@loren_shield, @@private_battlefield, 1)
+    @@private_battlefield << @loren_shield
   end
 
   def tick events
@@ -49,6 +57,17 @@ class NewInvader
     fire_gun
     radar_sweep
     send_broadcast
+    deflect_loren
+  end
+
+  def deflect_loren
+    @loren_shield.x = x
+    @loren_shield.y = y
+    begin
+      @loren_shield.internal_tick
+    rescue
+      puts "loren bot error'd'"
+    end
   end
 
   def change_mode desired_mode

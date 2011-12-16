@@ -6,17 +6,19 @@ class InvaderFiringEngine
   attr_accessor :robot
   attr_accessor :target_enemy
   attr_accessor :math
-
+  attr_accessor :last_target_time
   def initialize invader
     @robot = invader
     @math = InvaderMath.new
     @turn_gun = 0
     @firepower = 0
+    @last_target_time = 0
   end
 
   def fire
     @turn_gun = 0
     @firepower = 0
+    target_an_enemy
     aim
     shoot
     dont_fire_at_friend
@@ -24,12 +26,20 @@ class InvaderFiringEngine
 
   private
 
+  def target_an_enemy
+    @last_target_time = @robot.time unless @robot.broadcast_enemy.nil?
+    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
+    @last_target_time = @robot.time unless @robot.found_enemy.nil?
+    @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
+    @target_enemy = nil unless @robot.time - 15 < @last_target_time
+  end
+
   def power_based_on_distance
-    #this = InvaderPoint.new(@robot.x, @robot.y)
-    #distance = @math.distance_between_objects(this, @target_enemy)
-    #firepower = 3.0 - (distance/780)
-    #return firepower
-    0.1
+    this = InvaderPoint.new(@robot.x, @robot.y)
+    distance = @math.distance_between_objects(this, @target_enemy)
+    firepower = 3.0 - (distance/780)
+    return firepower
+    #0.1
   end
 
   def dont_fire_at_friend
@@ -46,6 +56,23 @@ class InvaderFiringEngine
       @turn_gun = [[@turn_gun, 30].min,-30].max
     end
   end
+
+  def aim
+    if @target_enemy.nil?
+      point_gun @robot.opposite_edge + Math.sin(@robot.time)
+    else
+      point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + Math.sin(@robot.time)
+    end
+  end
+
+  def shoot
+    if @target_enemy.nil?
+      @firepower = 0.1
+    else
+      @firepower = power_based_on_distance
+    end
+  end
+
 end
 
 class InvaderGunnerHeadToEdge <  InvaderFiringEngine
@@ -55,38 +82,6 @@ class InvaderGunnerHeadToEdge <  InvaderFiringEngine
 
   def shoot
     @firepower = 3 unless @robot.events['robot_scanned'].empty?
-  end
-end
-
-class InvaderGunnerProvidedTarget < InvaderFiringEngine
-  def aim
-    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
-    point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + Math.sin(@robot.time)
-  end
-
-  def shoot
-    @firepower = power_based_on_distance
-  end
-end
-
-class InvaderGunnerFoundTarget < InvaderFiringEngine
-  def aim
-    @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-    point_gun @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + Math.sin(@robot.time)
-  end
-
-  def shoot
-    @firepower = power_based_on_distance
-  end
-end
-
-class InvaderGunnerSearching < InvaderFiringEngine
-  def aim
-    point_gun @robot.opposite_edge + Math.sin(@robot.time)
-  end
-
-  def shoot
-    @firepower = 0.1
   end
 end
 
