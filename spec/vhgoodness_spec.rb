@@ -7,7 +7,7 @@ describe 'VHGoodness' do
       @vh_goodness = VHGoodness.new
     end
     it 'should be able to find the relative angle of 45 deg (0,0) and (1,1)' do
-      @vh_goodness.angle_give_two_points(0, 0, 1, 1).should == 45
+      @vh_goodness.angle_between_two_points(0, 0, 1, 1).should == 45
     end
     it 'should be able to find the relative angle of 135 deg (0,0) and (-1,1)' do
       @vh_goodness.angle_give_two_points(0, 0, -1, 1).should == 135

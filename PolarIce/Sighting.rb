@@ -58,7 +58,13 @@ class Sighting
   def contains(position)
     log "contains #{self} #{position}\n"
     vector = origin.polar_vector_to(position)
-    (vector[R] == distance) && (contains_angle(vector[T]))
+    if (vector[R] == distance)
+      contains_angle(vector[T])
+    elsif (vector[R] < distance)
+      central_angle < 6 && contains_angle(vector[T])
+    else
+      false
+    end
   end
 
   def contains_angle(angle)

@@ -18,6 +18,7 @@ class Radar
     radar = self
     @stateMachine = Statemachine.build do
       context radar
+
       state :awaiting_orders do
         on_entry :awaiting_orders
         event :scan, :quick_scan, :start_quick_scan
@@ -25,29 +26,35 @@ class Radar
         event :scanned, :awaiting_orders
         event :tick, :awaiting_orders
       end
+
       state :quick_scan do
         event :scanned, :sector_scanned, :add_targets
         event :tick, :quick_scan
       end
+
       state :sector_scanned do
         on_entry :count_sectors_scanned
         event :scan_incomplete, :quick_scan
         event :quick_scan_successful, :awaiting_orders
         event :quick_scan_failed, :awaiting_orders
       end
+
       state :rotate do
         event :tick, :wait_for_rotation
         event :scanned, :rotate
       end
+
       state :wait_for_rotation do
         on_entry :check_desired_heading
         event :arrived, :track, :start_track
         event :rotating, :rotate
       end
+
       state :track do
         event :scanned, :narrow_scan
         event :tick, :track
       end
+      
       state :narrow_scan do
         on_entry :check_track_scan
         event :target_locked, :maintain_lock
@@ -56,23 +63,27 @@ class Radar
         event :tick, :narrow_scan
         event :scanned, :narrow_scan
       end
+
       state :maintain_lock do
         on_entry :maintain_lock
         event :tick, :maintain_lock
         event :scanned, :check_maintain_lock
       end
+
       state :check_maintain_lock do
         on_entry :check_maintain_lock
         event :target_locked, :maintain_lock
         event :target_not_locked, :broaden_scan
         event :tick, :check_maintain_lock
       end
+
       state :broaden_scan do
         on_entry :broaden_scan
         event :scanned, :check_broaden_scan
         event :target_lost, :awaiting_orders
         event :tick, :broaden_scan
       end
+      
       state :check_broaden_scan do
         on_entry :check_broaden_scan
         event :target_found, :track, :start_track
@@ -175,13 +186,18 @@ class Radar
     @desiredHeading = @currentTarget.bisector
   end
 
-  def remove_partner_from_targets(targets)
-    targets.delete_if { |target| target.contains(polarIce.currentPartnerPosition) }
+  def remove_partners_from_targets(targets)
+    log "commander.remove_partners_from_targets\n"
+    polarIce.currentPartnerPosition.each{|partner| remove_partner_from_targets(partner, targets) if partner != nil}
+  end
+
+  def remove_partner_from_targets(partner, targets)
+    targets.delete_if { |target| target.contains(partner) }
   end
 
   def check_track_scan(targets)
     log "radar.check_track_scan #{targets}\n"
-    remove_partner_from_targets(targets) if polarIce.currentPartnerPosition != nil
+    remove_partners_from_targets(targets) if polarIce.currentPartnerPosition != nil
     if (targets != nil) && (targets.empty?)
       target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
     else
@@ -241,7 +257,7 @@ class Radar
 
   def check_maintain_lock(targets)
     log "radar.check_maintain_lock #{targets}\n"
-    remove_partner_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
+    remove_partners_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
     if (targets == nil) || (targets.empty?)
       lock_target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
     else
@@ -278,7 +294,7 @@ class Radar
 
   def check_broaden_scan(targets)
     log "radar.check_broaden_scan #{targets}\n"
-    remove_partner_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
+    remove_partners_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
     if (targets != nil) && (targets.empty?)
       broaden_scan_target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
     else
