@@ -8,6 +8,8 @@ class VHGoodness
   def initialize
     @speed_modifier = 1
     @gun_turn = -10
+    @fire_power = 0.1
+    @turn_bot = 0
     @my_heading = nil
     @id = rand(100)
     @p_x, @p_y = 0, 0
@@ -16,23 +18,15 @@ class VHGoodness
   def tick events
     @last_robot_turn = 0
     @p_x, @p_y = location_from_broadcasts events
-    if !events['robot_scanned'].empty? and !pointed_at_partner? @p_x, @p_y
-      @gun_turn = -@gun_turn
-      @e_x, @e_y = position_from_distance_and_angle events['robot_scanned'][0][0]
-    end
+    @e_x, @e_y = enemy_location
 
-    if (speed == 4 or speed == -4)
-      @speed_modifier = -@speed_modifier
-    end
+
+    move_around
 
     turn_gun(@gun_turn)
-    accelerate @speed_modifier
-    fire(0.1)
+    accelerate(@speed_modifier)
+    fire(@fire_power)
     broadcast_location
-  end
-
-  def output string
-    puts "#{@id}|#{time}|#{string}"
   end
 
   def broadcast_location
@@ -42,20 +36,17 @@ class VHGoodness
   def location_from_broadcasts events
     if !events['broadcasts'].empty?
       p_vars = events['broadcasts'][0][0].split('|')
-      p_x = p_vars[1].to_i
-      p_y = p_vars[2].to_i
-    else
-      p_x, p_y = 0, 0
+      return p_vars[1].to_i, p_vars[2].to_i
     end
-    return p_x, p_y
+    return 0, 0
   end
 
-  def position_from_distance_and_angle(distance, angle = radar_heading-5)
-    d_x = distance * Math.cos(angle * Math::PI/180)
-    d_y = -distance * Math.sin(angle * Math::PI/180)
-    output "Delta X: #{d_x} + my x: #{x} = E Loc: #{x+d_x}"
-    output "Delta Y: #{d_y} + my y: #{y} = E Loc: #{y+d_y}"
-    return x + d_x, y + d_y
+  def enemy_location
+    if !events['robot_scanned'].empty? and !pointed_at_partner? @p_x, @p_y
+      @gun_turn = -@gun_turn
+      return position_from_distance_and_angle events['robot_scanned'][0][0]
+    end
+    return nil, nil
   end
 
   def pointed_at_partner? p_x, p_y
@@ -67,8 +58,20 @@ class VHGoodness
     (radar_heading - angle).abs < 15
   end
 
-  def trim number
-    (number * 1000).round.to_f / 1000
+  def position_from_distance_and_angle(distance, angle = radar_heading-5)
+    d_x = distance * Math.cos(angle * Math::PI/180)
+    d_y = -distance * Math.sin(angle * Math::PI/180)
+    return x + d_x, y + d_y
+  end
+
+  def move_around
+    if (speed == 4 or speed == -4)
+      @speed_modifier = -@speed_modifier
+    end
+  end
+
+  def output string
+    puts "#{@id}|#{time}|#{string}"
   end
 end
 
