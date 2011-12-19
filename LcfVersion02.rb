@@ -6,6 +6,11 @@ require 'LCF/go_to_next_corner_setter'
 class LcfVersion02
   include Robot
 
+  attr_reader(:x_destination)
+  attr_reader(:y_destination)
+  attr_reader(:x_location)
+  attr_reader(:y_location)
+
   @@number_classes_initialized = 0
   @@was_here = 2
   @@master_x_destination = -1.0
@@ -41,6 +46,7 @@ class LcfVersion02
     @x_target = -1.0
     @y_target = -1.0
     @time_target = 0
+    @distance_to_target = -1.0
     @clipping_offset = 121
     @has_scanned_enemy_robot = 0
     @pair_is_alive = 1
@@ -49,10 +55,11 @@ class LcfVersion02
     @last_scan_angle = 60
     @@was_here = 2
     @@go_to_next_corner = 0
-    @@current_destination_setter = 0
+    @@current_destination_setter = -1
     @destination_setters = []
-    @destination_setters[0] = DontMoveSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-    @destination_setters[1] = GoToNextCornerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+    @last_turns_energy = 100
+    @edge_to_hit = 0
+    @edge_to_hit_oscillation = 1
 
     if @@number_classes_initialized % 2 == 1
       @is_master = 1
@@ -86,13 +93,24 @@ class LcfVersion02
     @tick_bot_turn = 0
     @tick_gun_turn = 0
     @tick_radar_turn = 0
+    @x_location = x.to_f
+    @y_location = y.to_f
+    do_on_first_tick
     determine_if_your_pair_is_alive
     set_dont_shoot
     slow_motion 0, 1.00
-    say "Inconceivable!" if got_hit(events)
+    assess_damage
+    say "Inconceivable!" if got_hit events
     sniper_mode
     set_location
     resolve_all_turns
+  end
+
+  def do_on_first_tick
+    if time == 0
+      @destination_setters[0] = DontMoveSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[1] = GoToNextCornerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+    end
   end
 
   def determine_if_your_pair_is_alive
@@ -146,6 +164,17 @@ class LcfVersion02
     end
   end
 
+  def assess_damage
+    if got_hit events
+      if @@current_destination_setter != -1
+        @destination_setters[@@current_destination_setter].add_damage_for_this_tick (@last_turns_energy - energy)
+        #puts "#{@is_master}|#{@destination_setters[@@current_destination_setter].average_damage_per_tick}" if @is_master == 1
+      end
+      #puts "#{@is_master}|took #{@last_turns_energy - energy} damage" if @is_master == 1
+      @last_turns_energy = energy
+    end
+  end
+
   def got_hit events
     #puts "#{@is_master}|time = #{time}|#{events["got_hit"]}" if events.has_key? "got_hit"
     return events.has_key? "got_hit"
@@ -193,8 +222,8 @@ class LcfVersion02
     fire_fire
     scan_for_next_target
     aim_at_target
-    move_if_hit
-    #calculate_destination_based_on_damage
+    #move_if_hit
+    calculate_destination_based_on_damage
     got_to_destination
   end
 
@@ -242,6 +271,7 @@ class LcfVersion02
     if (@x_destination == @battlefield_width - @clipping_offset) && (@y_destination == @clipping_offset)
       @start_logging = 1
     end
+    #puts "currLoc(#{x},#{y})|dest(#{@x_destination},#{@y_destination})" if @is_master == 1
   end
 
   def find_catty_corner
@@ -323,6 +353,21 @@ class LcfVersion02
     end
   end
 
+  def aim_at_edge_of_target
+    #puts "#{@is_master}|#{@edge_to_hit * get_angle_to_edge_of_bot_from_distance(get_corner_to_corner_distance)}" if @is_master == 1
+    #puts "#{@is_master}|#{@edge_to_hit}" if @is_master == 1
+    heading_to_target = (get_angle_to_location @x_target, @y_target).to_f + (@edge_to_hit * (get_angle_to_edge_of_bot_from_distance(get_corner_to_corner_distance)* 0.6))
+    unless heading_to_target.to_i == gun_heading.to_i
+      tick_gun_turn heading_to_target - gun_heading.to_f
+    end
+    if @edge_to_hit != 0
+      @edge_to_hit = 0
+    else
+      @edge_to_hit = @edge_to_hit_oscillation
+      @edge_to_hit_oscillation *= -1
+    end
+  end
+
   def aim_at_masters_target
     if (@@master_x_target != -1) && (@@master_y_target != -1)
       unless get_angle_to_location(@@master_x_target, @@master_y_target).to_i == gun_heading.to_i
@@ -371,20 +416,28 @@ class LcfVersion02
       @@go_to_next_corner = 0
     else
       if (got_hit(events)) && speed.to_i == 0
-        #if @clipping_offset == 121
-        #  @clipping_offset = @clipping_offset * 2
-        #else
-        #  @clipping_offset = @clipping_offset / 2
-        #end
-        #go_to_nearest_corner
         go_to_next_corner
       end
     end
   end
 
   def calculate_destination_based_on_damage
-
-    set_destination
+    if @@current_destination_setter != -1
+      if @is_master == 1
+        @destination_setters.each_with_index { |x, i| @@current_destination_setter = i if x.average_damage_per_tick < @destination_setters[@@current_destination_setter].average_damage_per_tick}
+        #@destination_setters.each_with_index { |x, i| puts "#{i}|#{x.get_name}|#{x.average_damage_per_tick}"}
+        #puts "#{@is_master}|#{@destination_setters[@@current_destination_setter].get_name}" if @is_master == 1
+        puts "before|#{@x_destination}, #{@y_destination}" if @is_master == 1
+        @x_destination, @y_destination = @destination_setters[@@current_destination_setter].calculate_destination self
+        puts "after|#{@x_destination}, #{@y_destination}" if @is_master == 1
+        set_destination
+      end
+    else
+      if (time != 0) && (speed.to_i == 0) && (@@current_destination_setter == -1) && (@is_master == 1)
+        @@current_destination_setter = 0
+        puts "@@current_destination_setter has been initialized!!!"
+      end
+    end
   end
 
   def got_to_destination
@@ -415,8 +468,10 @@ class LcfVersion02
     @x_last_target = @x_target
     @y_last_target = @y_target
     @time_last_target = @time_target
+
     @x_target = x.to_f + (Math.cos(radi_angle) * distance_to_target)
     @y_target = y.to_f - (Math.sin(radi_angle) * distance_to_target)
+    @distance_to_target = distance_to_target
     @time_target = time
     #puts "#{@is_master}|#{@x_target},#{@y_target}"
     if @is_master == 1

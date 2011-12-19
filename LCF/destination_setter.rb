@@ -7,8 +7,13 @@ class DestinationSetter
     @clipping_offset = clipping_offset
   end
 
-  def add_damage damage
+  def get_name
+    return "base class"
+  end
+
+  def add_damage_for_this_tick damage
     @damage_taken += damage
+    add_tick
   end
 
   def add_tick
@@ -23,7 +28,8 @@ class DestinationSetter
     end
   end
 
-  def calculate_destination x_destination, y_destination
+  def calculate_destination bot
     #all child classes need to implement this
+    return bot.x_destination, bot.y_destination
   end
 end
