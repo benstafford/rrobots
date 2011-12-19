@@ -58,8 +58,6 @@ class LcfVersion02
     @@current_destination_setter = -1
     @destination_setters = []
     @last_turns_energy = 100
-    @edge_to_hit = 0
-    @edge_to_hit_oscillation = 1
 
     if @@number_classes_initialized % 2 == 1
       @is_master = 1
@@ -222,8 +220,9 @@ class LcfVersion02
     fire_fire
     scan_for_next_target
     aim_at_target
-    #move_if_hit
-    calculate_destination_based_on_damage
+    #aim_at_left_edge_of_target
+    move_if_hit
+    #calculate_destination_based_on_damage
     got_to_destination
   end
 
@@ -353,18 +352,10 @@ class LcfVersion02
     end
   end
 
-  def aim_at_edge_of_target
-    #puts "#{@is_master}|#{@edge_to_hit * get_angle_to_edge_of_bot_from_distance(get_corner_to_corner_distance)}" if @is_master == 1
-    #puts "#{@is_master}|#{@edge_to_hit}" if @is_master == 1
-    heading_to_target = (get_angle_to_location @x_target, @y_target).to_f + (@edge_to_hit * (get_angle_to_edge_of_bot_from_distance(get_corner_to_corner_distance)* 0.6))
+  def aim_at_left_edge_of_target
+    heading_to_target = (get_angle_to_location @x_target, @y_target).to_f + (get_angle_to_edge_of_bot_from_distance(get_corner_to_corner_distance) * 0.5)
     unless heading_to_target.to_i == gun_heading.to_i
       tick_gun_turn heading_to_target - gun_heading.to_f
-    end
-    if @edge_to_hit != 0
-      @edge_to_hit = 0
-    else
-      @edge_to_hit = @edge_to_hit_oscillation
-      @edge_to_hit_oscillation *= -1
     end
   end
 
@@ -405,7 +396,8 @@ class LcfVersion02
       angle = Math.atan2(y - arg_y, arg_x - x) / Math::PI * 180 % 360
       #puts "Angle to location #{arg_x},#{arg_y} == #{angle}" if !@start_logging.nil?
     else
-      puts "Error|Trying to get an angle to the same point|arg_x->#{arg_x}|arg_y->#{arg_y}|x->#{x}|y->#{y}"
+      #puts "Error|Trying to get an angle to the same point|arg_x->#{arg_x}|arg_y->#{arg_y}|x->#{x}|y->#{y}"
+      angle = 0
     end
     return angle
   end
@@ -427,15 +419,16 @@ class LcfVersion02
         @destination_setters.each_with_index { |x, i| @@current_destination_setter = i if x.average_damage_per_tick < @destination_setters[@@current_destination_setter].average_damage_per_tick}
         #@destination_setters.each_with_index { |x, i| puts "#{i}|#{x.get_name}|#{x.average_damage_per_tick}"}
         #puts "#{@is_master}|#{@destination_setters[@@current_destination_setter].get_name}" if @is_master == 1
-        puts "before|#{@x_destination}, #{@y_destination}" if @is_master == 1
-        @x_destination, @y_destination = @destination_setters[@@current_destination_setter].calculate_destination self
-        puts "after|#{@x_destination}, #{@y_destination}" if @is_master == 1
+        #puts "before|#{@x_destination}, #{@y_destination}" if @is_master == 1
+        #@x_destination, @y_destination = @destination_setters[@@current_destination_setter].calculate_destination self
+        #puts "after|#{@x_destination}, #{@y_destination}" if @is_master == 1
         set_destination
       end
+      @x_destination, @y_destination = @destination_setters[@@current_destination_setter].calculate_destination self
     else
       if (time != 0) && (speed.to_i == 0) && (@@current_destination_setter == -1) && (@is_master == 1)
         @@current_destination_setter = 0
-        puts "@@current_destination_setter has been initialized!!!"
+        #puts "@@current_destination_setter has been initialized!!!"
       end
     end
   end
