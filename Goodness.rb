@@ -1,8 +1,7 @@
 require 'robot'
 require 'numeric'
-require 'Matrix'
 
-class VHGoodness
+class Goodness
   include Robot
 
   def initialize
