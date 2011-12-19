@@ -13,18 +13,22 @@ class VHGoodness
     @my_heading = nil
     @id = rand(100)
     @p_x, @p_y = 0, 0
+    @center = [0,0]
   end
 
   def tick events
+    @center = [(battlefield_width/2),(battlefield_height/2)]
     @last_robot_turn = 0
     @p_x, @p_y = location_from_broadcasts events
     @e_x, @e_y = enemy_location
 
 
     move_around
+    #orbit @center
 
-    turn_gun(@gun_turn)
-    accelerate(@speed_modifier)
+    turn(@turn_bot)
+    turn_gun(adjusted_gun_turn)
+    #accelerate(@speed_modifier)
     fire(@fire_power)
     broadcast_location
   end
@@ -50,12 +54,16 @@ class VHGoodness
   end
 
   def pointed_at_partner? p_x, p_y
+    (radar_heading - heading_to_point(p_x, p_y)).abs < 15
+  end
+
+  def heading_to_point h_x, h_y
     offset_for_y_axis = -1
-    d_x = (p_x-x)
-    d_y = ((offset_for_y_axis*p_y)-(offset_for_y_axis*y))
+    d_x = (h_x-x)
+    d_y = ((offset_for_y_axis*h_y)-(offset_for_y_axis*y))
     angle = Math.atan2(d_y, d_x).to_deg
     angle += 360 if angle < 0
-    (radar_heading - angle).abs < 15
+    angle
   end
 
   def position_from_distance_and_angle(distance, angle = radar_heading-5)
@@ -65,9 +73,44 @@ class VHGoodness
   end
 
   def move_around
-    if (speed == 4 or speed == -4)
-      @speed_modifier = -@speed_modifier
+    #if (speed == 4 or speed == -4)
+    #  @speed_modifier = -@speed_modifier
+    #end
+
+    orbit @center
+
+    accelerate(@speed_modifier) if time % 5 == 0
+
+    #if time % 5 == 0
+    #  @turn_bot = 10
+    #else
+    #  @turn_bot = 0
+    #end
+  end
+
+  def orbit point, orbit_range = 100
+    if distance_between_points(point) <= orbit_range
+      approach_point point
     end
+  end
+
+  def distance_between_points point
+    d_x, d_y = (point[0] - x), (-point[1] - (-y))
+    Math.hypot(d_x, d_y)
+  end
+
+  def approach_point point
+    new_heading = heading_to_point(point[0], point[1])
+
+    if(heading - new_heading).abs > 10
+      @turn_bot = 10
+    else
+      @turn_bot = (heading - new_heading).abs
+    end
+  end
+
+  def adjusted_gun_turn
+    @gun_turn - @turn_bot
   end
 
   def output string
