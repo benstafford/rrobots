@@ -176,26 +176,6 @@ class InvaderRadarEngineHeadToEdge < InvaderRadarEngine
   end
 end
 
-class InvaderRadarEngineSearchOppositeCorner < InvaderRadarEngine
-  def locate_enemy scan
-    desired_direction = @math.rotated(@robot.heading_of_edge, @robot.current_direction * -90)
-    get_corner_scan_location(desired_direction, scan.to_f, @robot.location)
-  end
-
-  def point_radar
-    desired_direction = @math.rotated(@robot.heading_of_edge, @robot.current_direction * -90)
-    check_direction = @math.rotated(@robot.heading_of_edge, @robot.current_direction * -91)
-    if (@robot.radar_heading == desired_direction)
-      @ready_for_metronome = true
-      desired_direction = check_direction
-    end
-    if (@robot.radar_heading == check_direction) and @robot.found_enemy.nil?
-      @robot.change_mode InvaderMode::HEAD_TO_EDGE
-    end
-    @turn_radar = @robot.math.turn_toward(@robot.radar_heading, desired_direction)
-  end
-end
-
 class InvaderRadarEngineProvidedTarget < InvaderRadarEngine
   attr_accessor :target_enemy
 

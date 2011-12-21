@@ -31,19 +31,16 @@ class NewInvader
     @move_engine[InvaderMode::PROVIDED_TARGET] = InvaderDriverProvidedTarget.new(self)
     @move_engine[InvaderMode::FOUND_TARGET] = InvaderDriverPursueTarget.new(self)
     @move_engine[InvaderMode::SEARCHING] = InvaderDriverSearching.new(self)
-    @move_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderDriverSearchCorner.new(self)
     @fire_engine = []
     @fire_engine[InvaderMode::HEAD_TO_EDGE] = InvaderGunnerHeadToEdge.new(self)
     @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderFiringEngine.new(self)
     @fire_engine[InvaderMode::FOUND_TARGET] = @fire_engine[InvaderMode::PROVIDED_TARGET]
     @fire_engine[InvaderMode::SEARCHING] = @fire_engine[InvaderMode::PROVIDED_TARGET]
-    @fire_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderGunnerShootOppositeCorner.new(self)
     @radar_engine = []
     @radar_engine[InvaderMode::HEAD_TO_EDGE] = InvaderRadarEngineHeadToEdge.new(self)
     @radar_engine[InvaderMode::PROVIDED_TARGET] = InvaderRadarEngineProvidedTarget.new(self)
     @radar_engine[InvaderMode::FOUND_TARGET] = InvaderRadarEngine.new(self)
     @radar_engine[InvaderMode::SEARCHING] =  InvaderRadarEngineSearching.new(self) #@radar_engine[InvaderMode::FOUND_TARGET]
-    @radar_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderRadarEngineSearchOppositeCorner.new(self)
     @math = InvaderMath.new
 
     @loren_shield = Object.const_get("LcfVersion02").new
@@ -194,9 +191,6 @@ class NewInvader
     if not @found_enemy.nil? and @mode == InvaderMode::SEARCHING
       say "Found!"
       change_mode InvaderMode::FOUND_TARGET
-    end
-    if not @found_enemy.nil? and @mode == InvaderMode::SEARCH_OPPOSITE_CORNER
-      say "Sneaking up on me, eh?!"
     end
   end
 end

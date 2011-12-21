@@ -133,14 +133,6 @@ class InvaderDriverPursueTarget < InvaderMovementEngine
   end
 end
 
-class InvaderDriverSearchCorner < InvaderMovementEngine
-  def move
-    @accelerate = 0
-    @turn = 0
-    @accelerate = 0 - @robot.speed
-  end
-end
-
 class InvaderDriverSearching < InvaderMovementEngine
   def move
     @accelerate = 0
@@ -148,11 +140,9 @@ class InvaderDriverSearching < InvaderMovementEngine
     turn_around if need_to_turn?
     if @robot.current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
       @robot.current_direction = -1
-      @robot.change_mode InvaderMode::SEARCH_OPPOSITE_CORNER
     end
     if @robot.current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
       @robot.current_direction = 1
-      @robot.change_mode InvaderMode::SEARCH_OPPOSITE_CORNER
     end
     @accelerate = @robot.current_direction
   end

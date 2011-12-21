@@ -84,19 +84,3 @@ class InvaderGunnerHeadToEdge <  InvaderFiringEngine
     @firepower = 3 unless @robot.events['robot_scanned'].empty?
   end
 end
-
-class InvaderGunnerShootOppositeCorner < InvaderFiringEngine
-  def aim
-    point_gun desired_gun_heading # + Math.sin(@robot.time)
-  end
-
-  def desired_gun_heading
-    @math.rotated(@robot.heading_of_edge, @robot.current_direction * -90)
-  end
-
-  def shoot
-    if @robot.gun_heading == desired_gun_heading
-      @firepower = 3.0
-    end
-  end
-end
