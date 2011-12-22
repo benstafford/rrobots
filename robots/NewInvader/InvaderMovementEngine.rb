@@ -1,8 +1,8 @@
 class InvaderMovementEngine
+  include InvaderMath
+
   attr_accessor :accelerate
   attr_accessor :turn
-  attr_accessor :robot
-  attr_accessor :math
 
   DISTANCE_PAST_SCAN = 5
   PURSUE_FRIEND_TARGET_TIME = 20
@@ -11,7 +11,6 @@ class InvaderMovementEngine
   def initialize invader
     @robot = invader
     @robot.current_direction = 1
-    @math = InvaderMath.new
     @turn = 0
     @accelerate = 0
   end
@@ -25,7 +24,7 @@ class InvaderMovementEngine
   def distance_to_initial_edge edge_heading, distance
     if not @robot.friend_edge.nil?
       return @robot.battlefield_width + 1 if @robot.friend_edge == edge_heading
-      return @robot.battlefield_width + 1 if @math.rotated(@robot.friend_edge, 180) == edge_heading
+      return @robot.battlefield_width + 1 if rotated(@robot.friend_edge, 180) == edge_heading
     end
     distance
   end
@@ -36,21 +35,22 @@ class InvaderMovementEngine
   end
 
   def turn_around
-    @turn = @math.turn_toward(@robot.heading, right_of_edge)
+    @turn = turn_toward(@robot.heading, right_of_edge)
     @turn = [[@turn, 10].min, -10].max
   end
 
   def left_of_edge
-    return @math.rotated(@robot.heading_of_edge, 90)
+    return rotated(@robot.heading_of_edge, 90)
   end
 
   def right_of_edge
-    return @math.rotated(@robot.heading_of_edge, -90)
+    return rotated(@robot.heading_of_edge, -90)
   end
 
 end
 
 class InvaderDriverHeadToEdge < InvaderMovementEngine
+
   def move
     @accelerate = 0
     @turn = 0
@@ -65,14 +65,14 @@ class InvaderDriverHeadToEdge < InvaderMovementEngine
       @robot.change_mode InvaderMode::SEARCHING
     else
       @accelerate = 1
-      @turn = @robot.math.turn_toward(@robot.heading, @robot.heading_of_edge)
+      @turn = turn_toward(@robot.heading, @robot.heading_of_edge)
       @turn = [[@turn, 10].min, -10].max
     end
   end
 
   def select_closest_edge
     if !@robot.heading_of_edge.nil? and !@robot.friend_edge.nil?
-      if @robot.heading_of_edge != @robot.friend_edge and @robot.heading_of_edge!= @robot.math.rotated(@robot.friend_edge, 180)
+      if @robot.heading_of_edge != @robot.friend_edge and @robot.heading_of_edge!= rotated(@robot.friend_edge, 180)
         return
       end
       if @robot.heading_of_edge < @robot.friend_edge
@@ -104,7 +104,11 @@ class InvaderDriverHeadToEdge < InvaderMovementEngine
 end
 
 class InvaderDriverPursueTarget < InvaderMovementEngine
-  attr_accessor :target_enemy
+
+  def initialize invader
+    super invader
+    @target_enemy = nil
+  end
 
   def move
     @accelerate = 0
@@ -115,15 +119,15 @@ class InvaderDriverPursueTarget < InvaderMovementEngine
   def pursue_found_target
     turn_around if need_to_turn?
     @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-    enemy_direction = @math.degree_from_point_to_point(@robot.location_next_tick, @target_enemy)
-    turn_direction = @math.turn_toward(@robot.opposite_edge, enemy_direction)
+    enemy_direction = degree_from_point_to_point(@robot.location_next_tick, @target_enemy)
+    turn_direction = turn_toward(@robot.opposite_edge, enemy_direction)
     if turn_direction > 0
       @robot.current_direction = 1
     else
       @robot.current_direction = -1
     end
 
-    distance = @math.distance_between_objects(@robot.location_next_tick, @target_enemy)
+    distance = distance_between_objects(@robot.location_next_tick, @target_enemy)
     if distance < HOVER_DISTANCE
       @robot.current_direction = 0 - @robot.current_direction
     end
@@ -149,8 +153,11 @@ class InvaderDriverSearching < InvaderMovementEngine
 end
 
 class InvaderDriverProvidedTarget < InvaderDriverSearching
-  attr_accessor :pursuit_time
-  attr_accessor :target_enemy
+  def initialize invader
+    @pursuit_time = nil
+    @target_enemy = nil
+    super invader
+  end
 
   def move
     @accelerate = 0
@@ -170,7 +177,7 @@ class InvaderDriverProvidedTarget < InvaderDriverSearching
     turn_around if need_to_turn?
     if not @robot.broadcast_enemy.nil?
       @target_enemy = @robot.broadcast_enemy
-      direction = @robot.math.turn_toward(@robot.opposite_edge, @robot.math.degree_from_point_to_point(@robot.location_next_tick, @robot.broadcast_enemy))
+      direction = turn_toward(@robot.opposite_edge, degree_from_point_to_point(@robot.location_next_tick, @robot.broadcast_enemy))
       if direction > 0
         @robot.say "Coming, Buddy!"
         @robot.current_direction = 1

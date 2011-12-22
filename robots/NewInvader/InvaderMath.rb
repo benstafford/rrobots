@@ -12,7 +12,7 @@ class InvaderPoint
   end
 end
 
-class InvaderMath
+module InvaderMath
 
     CLOCKWISE = -1
     COUNTERCLOCKWISE = 1

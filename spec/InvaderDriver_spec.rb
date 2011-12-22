@@ -2,7 +2,7 @@ $LOAD_PATH.unshift(File.dirname(__FILE__))
 require 'spec_helper'
 require 'NewInvader'
 
-describe 'InvaderGunner' do
+describe 'InvaderDriver' do
   before(:each) do
     @bot = NewInvader.new
     @bot.stub!(:time).and_return(0)

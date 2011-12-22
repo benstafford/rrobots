@@ -1,26 +1,23 @@
+
+$LOAD_PATH.unshift File.join(File.dirname(__FILE__), 'robots/NewInvader')
 require 'robot'
-require 'robots/NewInvader/InvaderFiringEngine'
-require 'robots/NewInvader/InvaderMath'
-require 'robots/NewInvader/InvaderMovementEngine'
-require 'robots/NewInvader/InvaderRadarEngine'
+require 'InvaderFiringEngine'
+require 'InvaderMath'
+require 'InvaderMovementEngine'
+require 'InvaderRadarEngine'
 require 'LcfVersion02'
 
 class NewInvader
    include Robot
+   include InvaderMath
 
   attr_accessor :mode
   attr_accessor :heading_of_edge
-  attr_accessor :move_engine
-  attr_accessor :fire_engine
-  attr_accessor :radar_engine
-  attr_accessor :math
   attr_accessor :friend
   attr_accessor :friend_edge
   attr_accessor :broadcast_enemy
   attr_accessor :found_enemy
-  attr_accessor :last_target_time
   attr_accessor :current_direction
-  attr_accessor :loren_shield
 
   @@private_battlefield =  Battlefield.new 1600, 1600, 50001, Time.now.to_i
 
@@ -41,11 +38,16 @@ class NewInvader
     @radar_engine[InvaderMode::PROVIDED_TARGET] = InvaderRadarEngineProvidedTarget.new(self)
     @radar_engine[InvaderMode::FOUND_TARGET] = InvaderRadarEngine.new(self)
     @radar_engine[InvaderMode::SEARCHING] =  InvaderRadarEngineSearching.new(self) #@radar_engine[InvaderMode::FOUND_TARGET]
-    @math = InvaderMath.new
 
     @loren_shield = Object.const_get("LcfVersion02").new
     @loren_shield = RobotRunner.new(@loren_shield, @@private_battlefield, 1)
     @@private_battlefield << @loren_shield
+    @heading_of_edge = nil
+    @friend = nil
+    @friend_edge = nil
+    @broadcast_enemy = nil
+    @found_enemy = nil
+    @current_direction = 0
   end
 
   def tick events
@@ -73,7 +75,7 @@ class NewInvader
   end
 
   def opposite_edge
-    @math.rotated heading_of_edge, 180
+    rotated heading_of_edge, 180
   end
 
   def location
@@ -81,8 +83,8 @@ class NewInvader
   end
 
   def location_next_tick
-    new_x = x + Math::cos(heading.to_rad) * speed
-    new_y = y - Math::sin(heading.to_rad) * speed
+    new_x = x + Math.cos(heading.to_rad) * speed
+    new_y = y - Math.sin(heading.to_rad) * speed
     InvaderPoint.new(new_x, new_y)
   end
 
