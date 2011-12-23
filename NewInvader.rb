@@ -23,11 +23,7 @@ class NewInvader
 
   def initialize
     @mode = InvaderMode::HEAD_TO_EDGE
-    @move_engine = []
-    @move_engine[InvaderMode::HEAD_TO_EDGE] = InvaderDriverHeadToEdge.new(self)
-    @move_engine[InvaderMode::PROVIDED_TARGET] = InvaderDriverProvidedTarget.new(self)
-    @move_engine[InvaderMode::FOUND_TARGET] = InvaderDriverPursueTarget.new(self)
-    @move_engine[InvaderMode::SEARCHING] = InvaderDriverSearching.new(self)
+    @move_engine = InvaderMovementEngine.new(self)
     @fire_engine = []
     @fire_engine[InvaderMode::HEAD_TO_EDGE] = InvaderGunnerHeadToEdge.new(self)
     @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderFiringEngine.new(self)
@@ -47,7 +43,7 @@ class NewInvader
     @friend_edge = nil
     @broadcast_enemy = nil
     @found_enemy = nil
-    @current_direction = 0
+    @current_direction = 1
   end
 
   def tick events
@@ -111,7 +107,7 @@ class NewInvader
   end
 
   def move_engine
-    @move_engine[@mode]
+    @move_engine
   end
 
   def send_broadcast
