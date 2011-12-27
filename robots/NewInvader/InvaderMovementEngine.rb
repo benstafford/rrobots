@@ -9,53 +9,31 @@ class InvaderMovementEngine
     @robot.current_direction = 1
     @turn = 0
     @accelerate = 0
-    @modes = []
-    @modes[InvaderMode::HEAD_TO_EDGE] = InvaderDriverHeadToEdge.new(invader, self)
-    @modes[InvaderMode::PROVIDED_TARGET] = InvaderDriverProvidedTarget.new(invader, self)
-    @modes[InvaderMode::FOUND_TARGET] = InvaderDriverPursueTarget.new(invader, self)
-    @modes[InvaderMode::SEARCHING] = InvaderDriverSearching.new(invader, self)
+    @head_to_edge = InvaderDriverHeadToEdge.new(invader, self)
+    @patrol = InvaderDriverPatroller.new(invader, self)
   end
 
   def move
     @accelerate = 0
     @turn = 0
-    mode = @robot.mode
-    if !at_edge?
-      mode = InvaderMode::HEAD_TO_EDGE
+    @robot.at_edge = at_edge?
+    if @robot.at_edge
+      @patrol.move
     else
-      turn_around if need_to_turn?
+      @head_to_edge.move
     end
-
-    @modes[mode].move
   end
 
   def at_edge?
-    return false unless !@robot.heading_of_edge.nil?
+    return false if @robot.heading_of_edge.nil?
     @robot.distance_to_edge(@robot.heading_of_edge) <= (@robot.size + 1)
   end
-
-  private
-
-  def need_to_turn?
-    bearing = right_of_edge
-    @robot.heading!=bearing
-  end
-
-  def turn_around
-    @turn = turn_toward(@robot.heading, right_of_edge)
-    @turn = [[@turn, 10].min, -10].max
-  end
-
-  def right_of_edge
-    rotated(@robot.heading_of_edge, -90)
-  end
-
 end
 
 class DrivingMode
   include InvaderMath
 
-  DISTANCE_PAST_SCAN = 5
+  #DISTANCE_PAST_SCAN = 5
   PURSUE_FRIEND_TARGET_TIME = 20
   HOVER_DISTANCE = 200
 
@@ -90,7 +68,7 @@ class InvaderDriverHeadToEdge < DrivingMode
   def move
     select_closest_edge
     if at_edge?
-      @robot.change_mode InvaderMode::SEARCHING
+      @robot.at_edge = true
     else
       accelerate 1
       turn_angle = turn_toward(@robot.heading, @robot.heading_of_edge)
@@ -136,14 +114,50 @@ class InvaderDriverHeadToEdge < DrivingMode
 
 end
 
-class InvaderDriverPursueTarget < DrivingMode
+class InvaderDriverPatroller < DrivingMode
   def initialize invader, driver
     super invader, driver
     @target_enemy = nil
+    @pursuit_time = nil
   end
 
   def move
+    turn_around if need_to_turn?
+    if !@pursuit_time.nil? and @robot.time > @pursuit_time
+      @target_enemy = nil
+    end
+    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
     @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
+    if @target_enemy.nil?
+      patrol
+    else
+      @pursuit_time = @robot.time + PURSUE_FRIEND_TARGET_TIME
+      head_toward_target
+      not_too_close
+    end
+    accelerate @robot.current_direction
+  end
+
+  def need_to_turn?
+    bearing = right_of_edge
+    @robot.heading!=bearing
+  end
+
+  def turn_around
+    @turn = turn_toward(@robot.heading, right_of_edge)
+    turn [[@turn, 10].min, -10].max
+  end
+
+  def patrol
+    if @robot.current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
+      @robot.current_direction = -1
+    end
+    if @robot.current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
+      @robot.current_direction = 1
+    end
+  end
+
+  def head_toward_target
     enemy_direction = degree_from_point_to_point(@robot.location_next_tick, @target_enemy)
     turn_direction = turn_toward(@robot.opposite_edge, enemy_direction)
     if turn_direction > 0
@@ -151,42 +165,12 @@ class InvaderDriverPursueTarget < DrivingMode
     else
       @robot.current_direction = -1
     end
+  end
 
+  def not_too_close
     distance = distance_between_objects(@robot.location_next_tick, @target_enemy)
     if distance < HOVER_DISTANCE
       @robot.current_direction = 0 - @robot.current_direction
-    end
-
-    @robot.change_mode InvaderMode::SEARCHING
-    accelerate @robot.current_direction
-  end
-end
-
-class InvaderDriverSearching < DrivingMode
-  def move
-    if @robot.current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
-      @robot.current_direction = -1
-    end
-    if @robot.current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
-      @robot.current_direction = 1
-    end
-    accelerate @robot.current_direction
-  end
-end
-
-class InvaderDriverProvidedTarget < InvaderDriverSearching
-  def initialize invader, driver
-    @pursuit_time = nil
-    super invader, driver
-  end
-
-  def move
-    if not @robot.broadcast_enemy.nil?
-      @pursuit_time = @robot.time + PURSUE_FRIEND_TARGET_TIME
-    end
-    super
-    if @robot.time > @pursuit_time
-      @robot.change_mode InvaderMode::SEARCHING
     end
   end
 end

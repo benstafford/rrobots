@@ -4,22 +4,29 @@ class InvaderRadarEngine
   attr_accessor :turn_radar
   attr_accessor :ready_for_metronome
 
-  RADAR_LEAD = 5
+  SAFE_DISTANCE = 125
 
   def initialize invader
+    @radar_direction = 1
+    @radar_size = 60
     @robot = invader
-    @ready_for_metronome = true
+    @ready_for_metronome = false
     @turn_radar = 0
     @metronome_side = nil
   end
 
   def radar_sweep
     @turn_radar = 0
-    point_radar
+    if @robot.at_edge
+      point_radar
+    else
+      point_radar_at_opposite_edge
+    end
     @turn_radar = [[@turn_radar, 60].min,-60].max
   end
 
   def scan_radar robots_scanned
+    return nil if !@robot.at_edge
     return nil if @ready_for_metronome == false
     if robots_scanned.count > 0
       scan_list = []
@@ -39,33 +46,11 @@ class InvaderRadarEngine
 
   private
 
-  def point_radar
+  def point_radar_at_opposite_edge
     desired_direction = @robot.opposite_edge
-    if (@robot.radar_heading == desired_direction)
-      @ready_for_metronome = true
-      desired_direction = lead_search_movement(@robot.radar_heading, @robot.current_direction)
-    end
     @turn_radar = turn_toward(@robot.radar_heading, desired_direction)
   end
 
-  def locate_enemy scan
-    get_scan_loc(scan, @robot.current_direction, @robot.opposite_edge, @robot.location)
-  end
-
-  def lead_search_movement(current_heading, direction)
-    current_heading + (direction * RADAR_LEAD)
-  end
-
-  def get_corner_scan_location radar_heading, distance, location
-    return get_radar_point(radar_heading, distance, location)
-  end
-
- def get_scan_loc distance, direction, edge, location
-   direction = @robot.current_direction
-   return get_radar_point(edge + 5*direction, distance, location)
- end
-
-  SAFE_DISTANCE = 125
 
   def enemy? object, friend
     return true if friend.nil?
@@ -76,28 +61,20 @@ class InvaderRadarEngine
       true
     end
   end
-end
-
-class InvaderRadarEngineSearching < InvaderRadarEngine
-  attr_accessor :radar_direction
-  attr_accessor :radar_size
-
-  def initialize invader
-    @radar_direction = 1
-    @radar_size = 60
-    super(invader)
-  end
 
   def corner
     rotated(@robot.heading_of_edge, -90 * @radar_direction)
   end
 
-  def point_radar
+  def radar_ready_to_start_sweep?
     if (@ready_for_metronome == false) && @robot.radar_heading != corner
-      @turn_radar = turn_toward(@robot.radar_heading, corner)
-      return
+        @turn_radar = turn_toward(@robot.radar_heading, corner)
+        return false
     end
-    #puts "current radar_direction = #{@radar_direction}, heading = #{@robot.radar_heading}, corner = #{corner}"
+    true
+  end
+
+  def set_direction_from_corner
     if @robot.radar_heading == corner
       @ready_for_metronome = true
       back_to_gun = turn_toward(@robot.radar_heading, @robot.opposite_edge)
@@ -107,19 +84,26 @@ class InvaderRadarEngineSearching < InvaderRadarEngine
         @radar_direction = -1
       end
     end
+  end
 
-    @turn_radar = @radar_size * @radar_direction
-    new_radar_direction = rotated(@robot.radar_heading, @turn_radar)
+  def dont_turn_past_corner new_radar_heading
     if @radar_direction < 0
-      if radar_heading_between?(new_radar_direction, corner, rotated(corner, 180))
+      if radar_heading_between?(new_radar_heading, corner, rotated(corner, 180))
         @turn_radar = turn_toward(@robot.radar_heading, corner)
       end
     else
-      if radar_heading_between?(new_radar_direction, rotated(corner, 180), corner)
+      if radar_heading_between?(new_radar_heading, rotated(corner, 180), corner)
         @turn_radar = turn_toward(@robot.radar_heading, corner)
       end
     end
-    #puts "turning #{@turn_radar}, new radar_direction = #{@radar_direction}"
+  end
+
+  def point_radar
+    return if !radar_ready_to_start_sweep?
+    set_direction_from_corner
+    @turn_radar = @radar_size * @radar_direction
+    new_radar_heading = rotated(@robot.radar_heading, @turn_radar)
+    dont_turn_past_corner new_radar_heading
   end
 
   def locate_enemy scan
@@ -134,19 +118,19 @@ class InvaderRadarEngineSearching < InvaderRadarEngine
       return enemy
     end
 
-    if enemy_not_in_section_at_distance? scan
+    if !friend_in_section_at_distance?(scan)
       @radar_size = @radar_size/2
       @radar_direction = 0 - @radar_direction
     end
     return nil
   end
 
-  def enemy_not_in_section_at_distance? distance
+  def friend_in_section_at_distance? distance
     if @robot.friend.nil?
-      return true
+      return false
     end
     friend_distance = distance_between_objects(@robot.location, @robot.friend)
-    if (friend_distance - distance).abs < SAFE_DISTANCE
+    if (friend_distance - distance).abs > SAFE_DISTANCE
       return false
     end
     end_radar = @robot.radar_heading
@@ -161,52 +145,10 @@ class InvaderRadarEngineSearching < InvaderRadarEngine
       right_angle = max_angle
     end
     if radar_heading_between? degree_from_point_to_point(@robot.location, @robot.friend),left_angle, right_angle
-      return false
+      return true
     end
-    return true
+    return false
   end
 
 end
 
-class InvaderRadarEngineHeadToEdge < InvaderRadarEngine
-  def point_radar
-    @ready_for_metronome = true
-    @turn_radar = 1 if @robot.time == 0
-  end
-end
-
-class InvaderRadarEngineProvidedTarget < InvaderRadarEngine
-  attr_accessor :target_enemy
-
-  def point_radar
-    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
-    last_known_location = @target_enemy
-    enemy_direction = degree_from_point_to_point(@robot.location, last_known_location)
-    left_side = rotated(enemy_direction,5)
-    right_side = rotated(enemy_direction, -5)
-    if @ready_for_metronome == false
-      if radar_heading_between?(enemy_direction, left_side, right_side)
-        @ready_for_metronome = true
-        @metronome_side = "left"
-      else
-        @turn_radar = turn_toward(@robot.radar_heading, enemy_direction)
-      end
-    end
-    if (@ready_for_metronome == true)
-      if @metronome_side == "left"
-        @turn_radar =turn_toward(@robot.radar_heading, left_side)
-        @metronome_side = "right"
-      else
-        @turn_radar =turn_toward(@robot.radar_heading, right_side)
-        @metronome_side = "left"
-      end
-    end
-  end
-
-  def locate_enemy scan
-    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
-    desired_direction = degree_from_point_to_point(@robot.location, @target_enemy)
-    enemy = get_radar_point(desired_direction, scan.to_f, @robot.location)
-    return enemy
-  end
-end

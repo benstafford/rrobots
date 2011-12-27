@@ -18,22 +18,15 @@ class NewInvader
   attr_accessor :broadcast_enemy
   attr_accessor :found_enemy
   attr_accessor :current_direction
+  attr_accessor :at_edge
 
   @@private_battlefield =  Battlefield.new 1600, 1600, 50001, Time.now.to_i
 
   def initialize
     @mode = InvaderMode::HEAD_TO_EDGE
     @move_engine = InvaderMovementEngine.new(self)
-    @fire_engine = []
-    @fire_engine[InvaderMode::HEAD_TO_EDGE] = InvaderGunnerHeadToEdge.new(self)
-    @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderFiringEngine.new(self)
-    @fire_engine[InvaderMode::FOUND_TARGET] = @fire_engine[InvaderMode::PROVIDED_TARGET]
-    @fire_engine[InvaderMode::SEARCHING] = @fire_engine[InvaderMode::PROVIDED_TARGET]
-    @radar_engine = []
-    @radar_engine[InvaderMode::HEAD_TO_EDGE] = InvaderRadarEngineHeadToEdge.new(self)
-    @radar_engine[InvaderMode::PROVIDED_TARGET] = InvaderRadarEngineProvidedTarget.new(self)
-    @radar_engine[InvaderMode::FOUND_TARGET] = InvaderRadarEngine.new(self)
-    @radar_engine[InvaderMode::SEARCHING] =  InvaderRadarEngineSearching.new(self) #@radar_engine[InvaderMode::FOUND_TARGET]
+    @fire_engine =  InvaderFiringEngine.new(self)
+    @radar_engine = InvaderRadarEngine.new(self)
 
     @loren_shield = Object.const_get("LcfVersion02").new
     @loren_shield = RobotRunner.new(@loren_shield, @@private_battlefield, 1)
@@ -44,6 +37,7 @@ class NewInvader
     @broadcast_enemy = nil
     @found_enemy = nil
     @current_direction = 1
+    @at_edge = false
   end
 
   def tick events
@@ -99,11 +93,11 @@ class NewInvader
 
   private
   def fire_engine
-    @fire_engine[@mode]
+    @fire_engine
   end
 
   def radar_engine
-    @radar_engine[@mode]
+    @radar_engine
   end
 
   def move_engine

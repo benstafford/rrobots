@@ -17,10 +17,15 @@ class InvaderFiringEngine
   def fire
     @turn_gun = 0
     @firepower = 0
-    target_an_enemy
-    aim
-    shoot
-    dont_fire_at_friend
+    if @robot.at_edge
+      target_an_enemy
+      aim
+      shoot
+      dont_fire_at_friend
+    else
+      @turn_gun = 10
+      @firepower = 3 unless @robot.events['robot_scanned'].empty?
+    end
   end
 
   private
@@ -70,16 +75,5 @@ class InvaderFiringEngine
     else
       @firepower = power_based_on_distance
     end
-  end
-
-end
-
-class InvaderGunnerHeadToEdge <  InvaderFiringEngine
-  def aim
-    @turn_gun = 10
-  end
-
-  def shoot
-    @firepower = 3 unless @robot.events['robot_scanned'].empty?
   end
 end
