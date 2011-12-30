@@ -33,8 +33,6 @@ end
 class DrivingMode
   include InvaderMath
 
-  #DISTANCE_PAST_SCAN = 5
-  PURSUE_FRIEND_TARGET_TIME = 20
   HOVER_DISTANCE = 200
 
   def initialize invader, driver
@@ -61,6 +59,10 @@ class DrivingMode
 
   def at_edge?
     @driver.at_edge?
+  end
+
+  def target
+    @robot.target
   end
 end
 
@@ -117,21 +119,13 @@ end
 class InvaderDriverPatroller < DrivingMode
   def initialize invader, driver
     super invader, driver
-    @target_enemy = nil
-    @pursuit_time = nil
   end
 
   def move
     turn_around if need_to_turn?
-    if !@pursuit_time.nil? and @robot.time > @pursuit_time
-      @target_enemy = nil
-    end
-    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
-    @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-    if @target_enemy.nil?
+    if target.nil?
       patrol
     else
-      @pursuit_time = @robot.time + PURSUE_FRIEND_TARGET_TIME
       head_toward_target
       not_too_close
     end
@@ -158,7 +152,7 @@ class InvaderDriverPatroller < DrivingMode
   end
 
   def head_toward_target
-    enemy_direction = degree_from_point_to_point(@robot.location_next_tick, @target_enemy)
+    enemy_direction = degree_from_point_to_point(@robot.location_next_tick, target)
     turn_direction = turn_toward(@robot.opposite_edge, enemy_direction)
     if turn_direction > 0
       @robot.current_direction = 1
@@ -168,7 +162,7 @@ class InvaderDriverPatroller < DrivingMode
   end
 
   def not_too_close
-    distance = distance_between_objects(@robot.location_next_tick, @target_enemy)
+    distance = distance_between_objects(@robot.location_next_tick, target)
     if distance < HOVER_DISTANCE
       @robot.current_direction = 0 - @robot.current_direction
     end

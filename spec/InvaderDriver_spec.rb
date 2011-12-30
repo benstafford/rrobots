@@ -16,7 +16,6 @@ describe 'InvaderDriver' do
     @bot.stub!(:x).and_return(80)
     @bot.stub!(:y).and_return(800)
     @bot.stub!(:heading).and_return(90)
-    @bot.stub!(:mode).and_return(InvaderMode::HEAD_TO_EDGE)
     @driver.move
     @driver.turn.should == 10
     @driver.accelerate.should == 1
@@ -26,7 +25,6 @@ describe 'InvaderDriver' do
     @bot.stub!(:x).and_return(800)
     @bot.stub!(:y).and_return(80)
     @bot.stub!(:heading).and_return(0)
-    @bot.stub!(:mode).and_return(InvaderMode::HEAD_TO_EDGE)
     @driver.move
     @driver.turn.should == 10
     @driver.accelerate.should == 1

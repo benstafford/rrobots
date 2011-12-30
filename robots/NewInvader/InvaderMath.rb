@@ -1,10 +1,3 @@
-class InvaderMode
-  HEAD_TO_EDGE = 1
-  PROVIDED_TARGET = 2
-  FOUND_TARGET = 3
-  SEARCHING = 4
-end
-
 class InvaderPoint
   attr_accessor :x,:y
   def initialize(x,y)

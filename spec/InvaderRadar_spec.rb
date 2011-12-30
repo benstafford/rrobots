@@ -5,7 +5,7 @@ require 'NewInvader'
 describe 'InvaderRadar' do
   before(:each) do
     @bot = NewInvader.new
-    @bot.mode = InvaderMode::SEARCHING
+    @bot.at_edge = true
     @bot.heading_of_edge = 90
     @bot.current_direction = -1
     @bot.stub!(:x).and_return(1540)

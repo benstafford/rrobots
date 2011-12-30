@@ -10,15 +10,12 @@ class InvaderFiringEngine
     @robot = invader
     @turn_gun = 0
     @firepower = 0
-    @last_target_time = 0
-    @target_enemy = nil
   end
 
   def fire
     @turn_gun = 0
     @firepower = 0
     if @robot.at_edge
-      target_an_enemy
       aim
       shoot
       dont_fire_at_friend
@@ -29,18 +26,13 @@ class InvaderFiringEngine
   end
 
   private
-
-  def target_an_enemy
-    @last_target_time = @robot.time unless @robot.broadcast_enemy.nil?
-    @target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
-    @last_target_time = @robot.time unless @robot.found_enemy.nil?
-    @target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-    @target_enemy = nil unless @robot.time - 15 < @last_target_time
+  def target
+    @robot.target
   end
 
   def power_based_on_distance
     this = InvaderPoint.new(@robot.x, @robot.y)
-    distance = distance_between_objects(this, @target_enemy)
+    distance = distance_between_objects(this, target)
     firepower = 3.0 - (distance/780)
     return firepower
     #0.1
@@ -62,15 +54,15 @@ class InvaderFiringEngine
   end
 
   def aim
-    if @target_enemy.nil?
-      point_gun @robot.opposite_edge + Math.sin(@robot.time)
+    if target.nil?
+      point_gun @robot.opposite_edge
     else
-      point_gun degree_from_point_to_point(@robot.location_next_tick, @target_enemy) + Math.sin(@robot.time)
+      point_gun degree_from_point_to_point(@robot.location_next_tick, target)
     end
   end
 
   def shoot
-    if @target_enemy.nil?
+    if target.nil?
       @firepower = 0.1
     else
       @firepower = power_based_on_distance
