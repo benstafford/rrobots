@@ -1,4 +1,7 @@
 class DestinationSetter
+  attr_reader(:damage_taken)
+  attr_reader(:ticks_used)
+
   def initialize battlefield_width, battlefield_height, clipping_offset
     @damage_taken = 0
     @ticks_used = 0
@@ -8,12 +11,11 @@ class DestinationSetter
   end
 
   def get_name
-    return "base class"
+    return "base setter"
   end
 
   def add_damage_for_this_tick damage
     @damage_taken += damage
-    add_tick
   end
 
   def add_tick
