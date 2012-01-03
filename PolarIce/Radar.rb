@@ -14,6 +14,11 @@ class Radar
     rotator_tick
   end
 
+  def update_state(position, heading)
+    @currentPosition = position
+    @currentHeading = heading
+  end
+
   def initialize_state_machine
     radar = self
     @stateMachine = Statemachine.build do

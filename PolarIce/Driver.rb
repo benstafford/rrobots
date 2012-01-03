@@ -18,6 +18,12 @@ class Driver
     @stateMachine.tick
   end
 
+  def update_state(position, heading, speed)
+    @currentPosition = position
+    @currentHeading = heading
+    @currentSpeed = speed
+  end
+
   def initialize_state_machine
     driver = self
     @stateMachine = Statemachine.build do

@@ -31,6 +31,7 @@ class PolarIce
   INITIAL_QUOTE = ""
 
   def tick events
+    log ">>> ID = #{id} :TIME = #{time}\n"
     update_state
     if events != nil
       process_damage(events['got_hit']) if !events['got_hit'].empty?
@@ -44,12 +45,13 @@ class PolarIce
     turn_the_radar
     perform_actions
     store_previous_status
+    log "<<< ID = #{id} : TIME = #{time}\n"
   end
 
   def update_state
     @currentPosition = Vector[x,y]
 
-    log "time #{time}: pos=#{@currentPosition} h=#{heading} g=#{gun_heading} r=#{radar_heading} s=#{speed}\n"
+    log_tick_info
     update_driver_state
     update_gunner_state
     update_radar_state
@@ -59,27 +61,25 @@ class PolarIce
     end
   end
 
+  def log_tick_info
+    log "time #{time}: x=#{x} y=#{y} h=#{heading} g=#{gun_heading} r=#{radar_heading} s=#{speed}\n"
+  end
+
   def initialize_first_tick
-    log "Position = #{@currentPosition}\n"
-    log "Heading = #{radar_heading}\n"
     @initialized = true
     initialize_state_machine
   end
 
   def update_driver_state
-    driver.currentPosition = currentPosition
-    driver.currentHeading = heading
-    driver.currentSpeed = speed
+    driver.update_state(currentPosition, heading, speed)
   end
 
   def update_gunner_state
-    gunner.currentPosition = currentPosition
-    gunner.currentHeading = gun_heading
+    gunner.update_state(currentPosition, gun_heading)
   end
 
   def update_radar_state
-    radar.currentPosition = currentPosition
-    radar.currentHeading = radar_heading
+    radar.update_state(currentPosition, radar_heading)
   end
 
   def process_damage(hits)
@@ -103,7 +103,7 @@ class PolarIce
 
   def process_partner_broadcasts(broadcasts)
     log "process_partner_broadcasts #{broadcasts}\n"
-    determine_role(broadcasts.count) if !broadcasts.empty?
+    determine_role(broadcasts.count)
     broadcasts.each do |message|
       process_partner_message(message)
     end
@@ -111,36 +111,67 @@ class PolarIce
 
   def process_partner_message(message)
     log "process_partner_message #{message}\n"
-    message_x, message_y = message[0][2..-1].split(',').map { |s| s.to_i(36).to_f/100 }
     if message[0][0] == "P"
-      @currentPartnerPosition[message[0][1].to_i] = Vector[message_x,message_y]
+      @currentPartnerPosition[message[0][1].to_i] = decode_vector(message[0][2..-1])
       log "currentPartnerPosition = #{@currentPartnerPosition}\n"
+    elsif message[0][0] == "T"
+#      gunner.desiredTarget = decode_vector(message[0][2..-1])
     end
   end
 
+  def decode_vector(message)
+    message_x, message_y = message.split(',').map { |s| s.to_i(36).to_f/100 }
+    Vector[message_x,message_y]
+  end
+
   def determine_role(message_count)
-    if (@role == :alone)
-      case time
-        when 1 then become_slave(message_count)
-        when 2 then become_master(message_count)
+    log "determine_role #{message_count}\n"
+    if (message_count > 0)
+      if ((@role == :unknown) || (@role == :alone))
+        case time
+          when 1 then become_slave(message_count)
+          when 2 then become_master(message_count)
+        end
+      end
+    else
+      if (time >= 2)
+        if (@role != :alone)
+          become_alone
+        end
       end
     end
   end
 
   def become_master(message_count)
+    log "become_master\n"
     @role = :master
     @id = message_count + 1
     @quote = @id.to_s
+    commander.become_master
   end
 
   def become_slave(message_count)
+    log "become_slave\n"
     @role = :slave
     @id = message_count
     @quote = @id.to_s
+    commander.become_slave
+  end
+
+  def become_alone
+    log "become_alone\n"
+    @role = :alone
+    @id = 1
+    @quote = @id.to_s
+    commander.become_alone
   end
 
   def send_position_to_partner
     @broadcastMessage = "P" + @id.to_s + @currentPosition.encode
+  end
+
+  def send_target_to_partner
+    @broadcastMessage = "T" + @id.to_s + gunner.desiredTarget.encode
   end
 
   def process_radar(robots_scanned)
@@ -221,13 +252,18 @@ class PolarIce
   def target(target)
     log "polarIce.target #{target}\n"
     gunner.target(target)
+    send_target_to_partner
   end
 
   def update_target(target)
     log "polarIce.update_target #{target}\n"
     commander.update_target(target)
   end
-  
+
+  def aim_at_position position
+    gunner.aim_at_position position
+  end
+
   def track(target)
     radar.track(target)
   end
@@ -269,7 +305,7 @@ class PolarIce
   end
 
   def initialize_role
-    @role = :alone
+    @role = :unknown
     @id = 0
   end
 

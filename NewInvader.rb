@@ -5,45 +5,56 @@ require 'InvaderFiringEngine'
 require 'InvaderMath'
 require 'InvaderMovementEngine'
 require 'InvaderRadarEngine'
+require 'InvaderLogger'
 require 'LcfVersion02'
 
 class NewInvader
    include Robot
    include InvaderMath
-
-  attr_accessor :mode
+  @@number_classes_initialized = 0
+  @@logger = InvaderLogger.new
+  attr_accessor :is_master
   attr_accessor :heading_of_edge
   attr_accessor :friend
   attr_accessor :friend_edge
-  attr_accessor :broadcast_enemy
-  attr_accessor :found_enemy
   attr_accessor :current_direction
+  attr_accessor :at_edge
+  attr_accessor :target
+  attr_accessor :enemy_direction
+  attr_accessor :enemy_speed
+  attr_accessor :last_target_time
 
+  PERSISTENT_TARGET_TIME = 4
   @@private_battlefield =  Battlefield.new 1600, 1600, 50001, Time.now.to_i
 
   def initialize
-    @mode = InvaderMode::HEAD_TO_EDGE
+    @is_master = false
+    if @@number_classes_initialized % 2 == 1
+      @is_master = true
+    end
+
+    @@number_classes_initialized = @@number_classes_initialized + 1
+    @my_id = @@number_classes_initialized
+    @@logger.register @my_id
+
     @move_engine = InvaderMovementEngine.new(self)
-    @fire_engine = []
-    @fire_engine[InvaderMode::HEAD_TO_EDGE] = InvaderGunnerHeadToEdge.new(self)
-    @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderFiringEngine.new(self)
-    @fire_engine[InvaderMode::FOUND_TARGET] = @fire_engine[InvaderMode::PROVIDED_TARGET]
-    @fire_engine[InvaderMode::SEARCHING] = @fire_engine[InvaderMode::PROVIDED_TARGET]
-    @radar_engine = []
-    @radar_engine[InvaderMode::HEAD_TO_EDGE] = InvaderRadarEngineHeadToEdge.new(self)
-    @radar_engine[InvaderMode::PROVIDED_TARGET] = InvaderRadarEngineProvidedTarget.new(self)
-    @radar_engine[InvaderMode::FOUND_TARGET] = InvaderRadarEngine.new(self)
-    @radar_engine[InvaderMode::SEARCHING] =  InvaderRadarEngineSearching.new(self) #@radar_engine[InvaderMode::FOUND_TARGET]
+    @fire_engine =  InvaderFiringEngine.new(self)
+    @radar_engine = InvaderRadarEngine.new(self)
 
     @loren_shield = Object.const_get("LcfVersion02").new
     @loren_shield = RobotRunner.new(@loren_shield, @@private_battlefield, 1)
     @@private_battlefield << @loren_shield
     @heading_of_edge = nil
     @friend = nil
+    @friend_id = nil
     @friend_edge = nil
     @broadcast_enemy = nil
     @found_enemy = nil
+    @target = nil
+    @enemy_direction = nil
+    @enemy_speed = nil
     @current_direction = 1
+    @at_edge = false
   end
 
   def tick events
@@ -84,26 +95,17 @@ class NewInvader
     InvaderPoint.new(new_x, new_y)
   end
 
-  def distance_to_edge edge
-    case edge.to_i
-      when 0
-        return battlefield_width - x
-      when 90
-        return y
-      when 180
-        return x
-      when 270
-        return battlefield_height - y
-    end
+  def my_distance_to_edge edge
+    distance_to_edge edge, location, battlefield_width, battlefield_height
   end
 
   private
   def fire_engine
-    @fire_engine[@mode]
+    @fire_engine
   end
 
   def radar_engine
-    @radar_engine[@mode]
+    @radar_engine
   end
 
   def move_engine
@@ -111,21 +113,25 @@ class NewInvader
   end
 
   def send_broadcast
-    message = x.to_i.to_s(16).rjust(3,' ')
-    message += y.to_i.to_s(16).rjust(3,' ')
-    message += @heading_of_edge.to_i.to_s.rjust(3,' ')
-    if !@found_enemy.nil?
-      message += @found_enemy.x.to_i.to_s(16).rjust(3,' ')
-      message += @found_enemy.y.to_i.to_s(16).rjust(3,' ')
-    end
-    broadcast message
+    broadcast "#{@my_id}"
+    @@logger.log @my_id, time, location, @heading_of_edge, @found_enemy
   end
 
   def react_to_events
+    expire_lost_target
     record_friend
-    record_friend_edge
     record_broadcast_enemy
     record_radar_detected
+    determine_target
+  end
+
+  def expire_lost_target
+    if !@last_target_time.nil?
+      if time - @last_target_time == PERSISTENT_TARGET_TIME
+        @last_target_time = nil
+        @target = nil
+      end
+    end
   end
 
   def move
@@ -157,39 +163,44 @@ class NewInvader
 
   def record_friend
     @friend = nil
-    message = get_broadcast()
-    if !message.nil?
-      @friend = InvaderPoint.new(message[0..2].to_i(16), message[3..5].to_i(16))
-    end
-  end
-
-  def record_friend_edge
     @friend_edge = nil
+    @friend_id = nil
     message = get_broadcast()
     if !message.nil?
-      @friend_edge = message[6..8].to_i
+      @friend_id = message.to_i
+      @friend = @@logger.getFriendLocation(@friend_id)
+      @friend_edge = @@logger.getFriendEdge(@friend_id)
     end
   end
 
   def record_broadcast_enemy
-    message = get_broadcast()
     @broadcast_enemy = nil
-    if !message.nil? and message.length > 9
-      enemy = InvaderPoint.new(message[9..11].to_i(16), message[12..14].to_i(16))
-      @broadcast_enemy = enemy
-      if @mode == InvaderMode::SEARCHING and not @broadcast_enemy.nil?
-        change_mode InvaderMode::PROVIDED_TARGET
-        @last_target_time = time
-      end
+    if !@friend_id.nil?
+      @broadcast_enemy = @@logger.getFoundEnemy(@friend_id)
     end
   end
 
   def record_radar_detected
     @found_enemy = radar_engine.scan_radar(events['robot_scanned'])
-    if not @found_enemy.nil? and @mode == InvaderMode::SEARCHING
-      say "Found!"
-      change_mode InvaderMode::FOUND_TARGET
+  end
+
+  def determine_target
+    prev_target = target
+    @enemy_direction = nil
+    @enemy_speed = nil
+    @target = @broadcast_enemy unless @broadcast_enemy.nil?
+    @last_target_time = time unless @broadcast_enemy.nil?
+    @target = @found_enemy unless @found_enemy.nil?
+    @last_target_time = time unless @found_enemy.nil?
+    if @is_master == false
+      @target = @broadcast_enemy unless @broadcast_enemy.nil?
+      @last_target_time = time unless @broadcast_enemy.nil?
     end
+
+    return if prev_target.nil? or @target.nil?
+    @enemy_direction = degree_from_point_to_point(prev_target, target)
+    @enemy_speed = distance_between_objects(prev_target, target)
+    @enemy_speed = nil if @enemy_speed > 8
+    @enemy_direction = nil if @enemy_speed.nil?
   end
 end
-

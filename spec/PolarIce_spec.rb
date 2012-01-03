@@ -89,7 +89,7 @@ describe 'PolarIce' do
     @bot.stub!(:heading).and_return(0)
     @bot.stub!(:gun_heading).and_return(0)
     @bot.stub!(:radar_heading).and_return(0)
-    @bot.stub!(:time).and_return(0)
+    @bot.stub!(:time).and_return(2)
     @bot.stub!(:size).and_return(60)
 
     @position = Vector[800,800]
@@ -695,7 +695,7 @@ describe 'PolarIce' do
       events = Hash.new{|h, k| h[k]=[]}
       events['got_hit'] << 1
       @bot.tick events
-      @bot.lastHitTime.should == 0
+      @bot.lastHitTime.should == @bot.time
     end
   end
   describe 'It should handle radar scans' do
@@ -707,7 +707,7 @@ describe 'PolarIce' do
       @bot.stub!(:radar_heading).and_return(360)
       @events['robot_scanned'] << [400] << [300]
       @bot.tick @events
-      @bot.radar.targets.should == [Sighting.new(270, 360, 400, 1, @position, 0), Sighting.new(270, 360, 300, 1, @position, 0)]
+      @bot.radar.targets.should == [Sighting.new(270, 360, 400, 1, @position, 2), Sighting.new(270, 360, 300, 1, @position, 2)]
     end
   end
   describe 'It should scan for the targets' do
@@ -845,13 +845,13 @@ describe 'PolarIce' do
     it 'should send its position for 0,0' do
       @bot.stub!(:x).and_return(0)
       @bot.stub(:y).and_return(0)
-      @bot.should_receive(:broadcast).with("P00,0")
+      @bot.should_receive(:broadcast).with("P10,0")
       @bot.tick @events
     end
     it 'should send its position for 123.45, 123.45 in base 36 as 9ix,9ix' do
       @bot.stub!(:x).and_return(123.45)
       @bot.stub(:y).and_return(123.45)
-      @bot.should_receive(:broadcast).with("P09ix,9ix")
+      @bot.should_receive(:broadcast).with("P19ix,9ix")
       @bot.tick @events
     end
     it 'should receive its partners position P09ix,9ix as 123.45,123.45' do

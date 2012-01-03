@@ -12,7 +12,7 @@ class Sighting
   end
 
   def to_s
-    "Sighting[start=#{@start_angle},end=#{@end_angle},distance=#{@distance},direction=#{@direction.trim(2)},origin=#{@origin},time=#{@time},central=#{central_angle.trim(2)},arc_length=#{arc_length.trim(2)},bisector=#{bisector}]"
+    "Sighting[start=#{@start_angle},end=#{@end_angle},distance=#{@distance},direction=#{@direction.trim(2)},origin=#{@origin},time=#{@time}]"
   end
 
   def central_angle
@@ -56,7 +56,6 @@ class Sighting
   end
 
   def contains(position)
-    log "contains #{self} #{position}\n"
     vector = origin.polar_vector_to(position)
     if (vector[R] == distance)
       contains_angle(vector[T])
@@ -68,7 +67,6 @@ class Sighting
   end
 
   def contains_angle(angle)
-    log "contains_angle #{angle}\n"
     case direction
       when 1 then contains_angle_left(angle)
       when -1 then contains_angle_right(angle)
@@ -76,14 +74,12 @@ class Sighting
   end
 
   def contains_angle_left(angle)
-    log "contains_angle_left #{angle}\n"
     start = start_angle
     start -= 360 if start_angle > end_angle
     start <= angle  && angle <= end_angle
   end
 
   def contains_angle_right(angle)
-    log "contains_angle_right #{angle}\n"
     start = start_angle
     start += 360 if start_angle < end_angle
     start >= angle && angle >= end_angle

@@ -6,12 +6,10 @@ module Rotator
 
   def calculate_desired_heading
     @desiredHeading = @currentPosition.angle_to(@desiredTarget)
-    log "rotator.calculate_desired_heading #{@desiredHeading}\n"
   end
 
   def turn
     @rotation = calculate_turn
-    log "rotator.turn desiredTarget=#{@desiredTarget} currentHeading=#{@currentHeading} desiredHeading=#{@desiredHeading} rotation=#{@rotation}\n"
   end
 
   def calculate_turn
