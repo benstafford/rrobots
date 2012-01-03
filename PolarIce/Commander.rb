@@ -11,12 +11,27 @@ class Commander
       context commander
 
       state :initializing do
-        event :scan, :stop_for_quick_scan
         event :base_test, :base_test
+        event :scan, :stop_for_quick_scan
+        event :await_comm, :await_comm
       end
 
       state :base_test do
         event :scan, :base_test
+        event :await_comm, :base_test
+      end
+
+      state :await_comm do
+        on_entry :await_comm
+        event :become_alone, :stop_for_quick_scan
+        event :become_master, :stop_for_quick_scan
+        event :become_slave, :stop_for_quick_scan
+      end
+
+      state :await_orders do
+        on_entry :await_orders
+        event :target, :await_orders, :target
+        event :become_alone, :stop_for_quick_scan
       end
 
       state :stop_for_quick_scan do
@@ -29,12 +44,14 @@ class Commander
         on_exit :end_quick_scan
         event :quick_scan_successful, :track, :add_targets
         event :quick_scan_failed, :quick_scan, :start_quick_scan
+        event :become_alone, :quick_scan
       end
       
       state :track do
         on_entry :start_tracking
         event :target_lost, :stop_for_quick_scan
         event :update_target, :track, :aim_at_target
+        event :become_alone, :track
       end
     end
   end
@@ -48,8 +65,39 @@ class Commander
   end
 
   def init
-    log "commander.scan\n"
-    @stateMachine.scan
+    log "commander.init\n"
+    @stateMachine.await_comm
+  end
+
+  def await_comm
+    log "commander.await_comm\n"
+  end
+
+  def become_master
+    log "commander.become_master\n"
+    @stateMachine.become_master
+  end
+
+  def become_slave
+    log "commander.become_slave\n"
+    @stateMachine.become_slave
+  end
+
+  def become_alone
+    log "commander.become_alone\n"
+    @stateMachine.become_alone
+  end
+
+  def await_orders
+    log "commander.await_orders\n"
+  end
+
+  def target position
+    @stateMachine.target(position)
+  end
+  
+  def aim_at_position position
+    polarIce.aim_at_position position
   end
 
   def stop_for_quick_scan

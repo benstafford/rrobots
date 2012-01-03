@@ -18,6 +18,10 @@ class Gunner
     log "gunner.target #{target} #{@desiredTarget}\n"
   end
 
+  def aim_at_position position
+    @desiredTarget = position
+  end
+
   def initialize(polarIce)
     @polarIce = polarIce
     @maximumRotation = MAXIMUM_ROTATION
