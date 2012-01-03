@@ -29,6 +29,12 @@ class Gunner
     @desiredHeading = INITIAL_DESIRED_HEADING
     @desiredTarget = INITIAL_DESIRED_TARGET
   end
+
+  def update_state(position, heading)
+    @currentPosition = position
+    @currentHeading = heading
+  end
+
   attr_accessor(:polarIce)
 end
 module GunnerAccessor

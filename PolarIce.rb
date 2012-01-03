@@ -51,7 +51,7 @@ class PolarIce
   def update_state
     @currentPosition = Vector[x,y]
 
-    log "time #{time}: pos=#{@currentPosition} h=#{heading} g=#{gun_heading} r=#{radar_heading} s=#{speed}\n"
+    log_tick_info
     update_driver_state
     update_gunner_state
     update_radar_state
@@ -61,27 +61,25 @@ class PolarIce
     end
   end
 
+  def log_tick_info
+    log "time #{time}: x=#{x} y=#{y} h=#{heading} g=#{gun_heading} r=#{radar_heading} s=#{speed}\n"
+  end
+
   def initialize_first_tick
-    log "Position = #{@currentPosition}\n"
-    log "Heading = #{radar_heading}\n"
     @initialized = true
     initialize_state_machine
   end
 
   def update_driver_state
-    driver.currentPosition = currentPosition
-    driver.currentHeading = heading
-    driver.currentSpeed = speed
+    driver.update_state(currentPosition, heading, speed)
   end
 
   def update_gunner_state
-    gunner.currentPosition = currentPosition
-    gunner.currentHeading = gun_heading
+    gunner.update_state(currentPosition, gun_heading)
   end
 
   def update_radar_state
-    radar.currentPosition = currentPosition
-    radar.currentHeading = radar_heading
+    radar.update_state(currentPosition, radar_heading)
   end
 
   def process_damage(hits)

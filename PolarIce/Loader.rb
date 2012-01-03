@@ -13,6 +13,7 @@ class Loader
 
   attr_accessor(:power)
 end
+
 module LoaderAccessor
   def desiredLoaderPower
     loader.power
