@@ -1,54 +1,49 @@
+
+$LOAD_PATH.unshift File.join(File.dirname(__FILE__), 'robots/NewInvader')
 require 'robot'
-require 'robots/NewInvader/InvaderFiringEngine'
-require 'robots/NewInvader/InvaderMath'
-require 'robots/NewInvader/InvaderMovementEngine'
-require 'robots/NewInvader/InvaderRadarEngine'
+require 'InvaderFiringEngine'
+require 'InvaderMath'
+require 'InvaderMovementEngine'
+require 'InvaderRadarEngine'
 require 'LcfVersion02'
 
 class NewInvader
    include Robot
+   include InvaderMath
 
   attr_accessor :mode
   attr_accessor :heading_of_edge
-  attr_accessor :move_engine
-  attr_accessor :fire_engine
-  attr_accessor :radar_engine
-  attr_accessor :math
   attr_accessor :friend
   attr_accessor :friend_edge
   attr_accessor :broadcast_enemy
   attr_accessor :found_enemy
-  attr_accessor :last_target_time
   attr_accessor :current_direction
-  attr_accessor :loren_shield
 
   @@private_battlefield =  Battlefield.new 1600, 1600, 50001, Time.now.to_i
 
   def initialize
     @mode = InvaderMode::HEAD_TO_EDGE
-    @move_engine = []
-    @move_engine[InvaderMode::HEAD_TO_EDGE] = InvaderDriverHeadToEdge.new(self)
-    @move_engine[InvaderMode::PROVIDED_TARGET] = InvaderDriverProvidedTarget.new(self)
-    @move_engine[InvaderMode::FOUND_TARGET] = InvaderDriverPursueTarget.new(self)
-    @move_engine[InvaderMode::SEARCHING] = InvaderDriverSearching.new(self)
-    @move_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderDriverSearchCorner.new(self)
+    @move_engine = InvaderMovementEngine.new(self)
     @fire_engine = []
     @fire_engine[InvaderMode::HEAD_TO_EDGE] = InvaderGunnerHeadToEdge.new(self)
     @fire_engine[InvaderMode::PROVIDED_TARGET] = InvaderFiringEngine.new(self)
     @fire_engine[InvaderMode::FOUND_TARGET] = @fire_engine[InvaderMode::PROVIDED_TARGET]
     @fire_engine[InvaderMode::SEARCHING] = @fire_engine[InvaderMode::PROVIDED_TARGET]
-    @fire_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderGunnerShootOppositeCorner.new(self)
     @radar_engine = []
     @radar_engine[InvaderMode::HEAD_TO_EDGE] = InvaderRadarEngineHeadToEdge.new(self)
     @radar_engine[InvaderMode::PROVIDED_TARGET] = InvaderRadarEngineProvidedTarget.new(self)
     @radar_engine[InvaderMode::FOUND_TARGET] = InvaderRadarEngine.new(self)
     @radar_engine[InvaderMode::SEARCHING] =  InvaderRadarEngineSearching.new(self) #@radar_engine[InvaderMode::FOUND_TARGET]
-    @radar_engine[InvaderMode::SEARCH_OPPOSITE_CORNER] = InvaderRadarEngineSearchOppositeCorner.new(self)
-    @math = InvaderMath.new
 
     @loren_shield = Object.const_get("LcfVersion02").new
     @loren_shield = RobotRunner.new(@loren_shield, @@private_battlefield, 1)
     @@private_battlefield << @loren_shield
+    @heading_of_edge = nil
+    @friend = nil
+    @friend_edge = nil
+    @broadcast_enemy = nil
+    @found_enemy = nil
+    @current_direction = 1
   end
 
   def tick events
@@ -76,7 +71,7 @@ class NewInvader
   end
 
   def opposite_edge
-    @math.rotated heading_of_edge, 180
+    rotated heading_of_edge, 180
   end
 
   def location
@@ -84,8 +79,8 @@ class NewInvader
   end
 
   def location_next_tick
-    new_x = x + Math::cos(heading.to_rad) * speed
-    new_y = y - Math::sin(heading.to_rad) * speed
+    new_x = x + Math.cos(heading.to_rad) * speed
+    new_y = y - Math.sin(heading.to_rad) * speed
     InvaderPoint.new(new_x, new_y)
   end
 
@@ -112,7 +107,7 @@ class NewInvader
   end
 
   def move_engine
-    @move_engine[@mode]
+    @move_engine
   end
 
   def send_broadcast
@@ -194,9 +189,6 @@ class NewInvader
     if not @found_enemy.nil? and @mode == InvaderMode::SEARCHING
       say "Found!"
       change_mode InvaderMode::FOUND_TARGET
-    end
-    if not @found_enemy.nil? and @mode == InvaderMode::SEARCH_OPPOSITE_CORNER
-      say "Sneaking up on me, eh?!"
     end
   end
 end

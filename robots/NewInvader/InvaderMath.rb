@@ -3,7 +3,6 @@ class InvaderMode
   PROVIDED_TARGET = 2
   FOUND_TARGET = 3
   SEARCHING = 4
-  SEARCH_OPPOSITE_CORNER = 5
 end
 
 class InvaderPoint
@@ -13,7 +12,7 @@ class InvaderPoint
   end
 end
 
-class InvaderMath
+module InvaderMath
 
     CLOCKWISE = -1
     COUNTERCLOCKWISE = 1
