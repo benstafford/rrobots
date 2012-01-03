@@ -17,7 +17,7 @@ class InvaderMovementEngine
     @accelerate = 0
     @turn = 0
     @robot.at_edge = at_edge?
-    if @robot.at_edge
+    if @robot.at_edge and !edge_conflict?
       @patrol.move
     else
       @head_to_edge.move
@@ -26,7 +26,11 @@ class InvaderMovementEngine
 
   def at_edge?
     return false if @robot.heading_of_edge.nil?
-    @robot.distance_to_edge(@robot.heading_of_edge) <= (@robot.size + 1)
+    @robot.my_distance_to_edge(@robot.heading_of_edge) <= (@robot.size + 1)
+  end
+
+  def edge_conflict?
+    @head_to_edge.edge_conflict?
   end
 end
 
@@ -78,26 +82,22 @@ class InvaderDriverHeadToEdge < DrivingMode
     end
   end
 
-  def select_closest_edge
-    if !@robot.heading_of_edge.nil? and !@robot.friend_edge.nil?
-      if @robot.heading_of_edge != @robot.friend_edge and @robot.heading_of_edge!= rotated(@robot.friend_edge, 180)
-        return
-      end
-      if @robot.heading_of_edge < @robot.friend_edge
-        return
-      end
-      if !@robot.friend.nil?
-        if @robot.x < @robot.friend.x
-          return
-        end
-      end
-    end
+  def edge_conflict?
+    return true if @robot.heading_of_edge.nil?
+    return false if @robot.is_master
+    return false if @robot.friend_edge.nil?
+    return true if @robot.heading_of_edge == @robot.friend_edge
+    return true if @robot.heading_of_edge == rotated(@robot.friend_edge, 180)
+    return false
+  end
 
+  def select_closest_edge
+    return if !edge_conflict?
     min_distance = @robot.battlefield_width
     closest_edge = 0
     for index in 0..3
       angle = index * 90
-      edge_distance = distance_to_initial_edge(angle,@robot.distance_to_edge(angle))
+      edge_distance = distance_to_initial_edge(angle,@robot.my_distance_to_edge(angle))
       if edge_distance < min_distance
         closest_edge = angle
         min_distance = edge_distance
@@ -143,22 +143,40 @@ class InvaderDriverPatroller < DrivingMode
   end
 
   def patrol
-    if @robot.current_direction > 0 and @robot.distance_to_edge(right_of_edge) <= @robot.size + 1
+    if @robot.current_direction > 0 and @robot.my_distance_to_edge(right_of_edge) <= @robot.size + 1
       @robot.current_direction = -1
     end
-    if @robot.current_direction < 0 and @robot.distance_to_edge(left_of_edge) <= @robot.size + 1
+    if @robot.current_direction < 0 and @robot.my_distance_to_edge(left_of_edge) <= @robot.size + 1
       @robot.current_direction = 1
     end
   end
 
   def head_toward_target
-    enemy_direction = degree_from_point_to_point(@robot.location_next_tick, target)
+    target_location = target
+    target_location = use_alternate_location_if_target_on_partner_edge target_location
+    enemy_direction = degree_from_point_to_point(@robot.location_next_tick, target_location)
     turn_direction = turn_toward(@robot.opposite_edge, enemy_direction)
     if turn_direction > 0
       @robot.current_direction = 1
     else
       @robot.current_direction = -1
     end
+  end
+
+
+  def use_alternate_location_if_target_on_partner_edge target_location
+    return target_location if @robot.friend_edge.nil?
+    return target_location if distance_to_edge(@robot.friend_edge, target_location, @robot.battlefield_width, @robot.battlefield_height) > 120
+    case @robot.heading_of_edge
+        when 0
+          return InvaderPoint.new(1540,800)
+        when 90
+          return InvaderPoint.new(800,60)
+        when 180
+          return InvaderPoint.new(60,800)
+        when 270
+          return InvaderPoint.new(800,1540)
+      end
   end
 
   def not_too_close

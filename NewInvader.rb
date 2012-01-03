@@ -13,12 +13,15 @@ class NewInvader
    include InvaderMath
   @@number_classes_initialized = 0
   @@logger = InvaderLogger.new
+  attr_accessor :is_master
   attr_accessor :heading_of_edge
   attr_accessor :friend
   attr_accessor :friend_edge
   attr_accessor :current_direction
   attr_accessor :at_edge
   attr_accessor :target
+  attr_accessor :enemy_direction
+  attr_accessor :enemy_speed
   attr_accessor :last_target_time
 
   PERSISTENT_TARGET_TIME = 4
@@ -47,6 +50,9 @@ class NewInvader
     @friend_edge = nil
     @broadcast_enemy = nil
     @found_enemy = nil
+    @target = nil
+    @enemy_direction = nil
+    @enemy_speed = nil
     @current_direction = 1
     @at_edge = false
   end
@@ -89,17 +95,8 @@ class NewInvader
     InvaderPoint.new(new_x, new_y)
   end
 
-  def distance_to_edge edge
-    case edge.to_i
-      when 0
-        return battlefield_width - x
-      when 90
-        return y
-      when 180
-        return x
-      when 270
-        return battlefield_height - y
-    end
+  def my_distance_to_edge edge
+    distance_to_edge edge, location, battlefield_width, battlefield_height
   end
 
   private
@@ -188,16 +185,22 @@ class NewInvader
   end
 
   def determine_target
+    prev_target = target
+    @enemy_direction = nil
+    @enemy_speed = nil
     @target = @broadcast_enemy unless @broadcast_enemy.nil?
     @last_target_time = time unless @broadcast_enemy.nil?
     @target = @found_enemy unless @found_enemy.nil?
     @last_target_time = time unless @found_enemy.nil?
-    #@last_target_time = @robot.time unless @robot.broadcast_enemy.nil?
-    #@target_enemy = @robot.broadcast_enemy unless @robot.broadcast_enemy.nil?
-    #@last_target_time = @robot.time unless @robot.found_enemy.nil?
-    #@target_enemy = @robot.found_enemy unless @robot.found_enemy.nil?
-    #@target_enemy = nil unless @robot.time - 15 < @last_target_time
+    if @is_master == false
+      @target = @broadcast_enemy unless @broadcast_enemy.nil?
+      @last_target_time = time unless @broadcast_enemy.nil?
+    end
+
+    return if prev_target.nil? or @target.nil?
+    @enemy_direction = degree_from_point_to_point(prev_target, target)
+    @enemy_speed = distance_between_objects(prev_target, target)
+    @enemy_speed = nil if @enemy_speed > 8
+    @enemy_direction = nil if @enemy_speed.nil?
   end
-
 end
-

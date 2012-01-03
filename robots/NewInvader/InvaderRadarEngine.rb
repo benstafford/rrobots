@@ -23,7 +23,8 @@ class InvaderRadarEngine
     if @robot.at_edge
       point_radar
     else
-      point_radar_at_opposite_edge
+      keep_on_target
+      @turn_radar = @radar_size * @radar_direction
     end
     @turn_radar = [[@turn_radar, 60].min,-60].max
   end
@@ -48,12 +49,6 @@ class InvaderRadarEngine
   end
 
   private
-
-  def point_radar_at_opposite_edge
-    desired_direction = @robot.opposite_edge
-    @turn_radar = turn_toward(@robot.radar_heading, desired_direction)
-  end
-
 
   def enemy? object, friend
     return true if friend.nil?
@@ -115,7 +110,6 @@ class InvaderRadarEngine
   end
 
   def lost_him
-    #@ready_for_metronome = false
     @radar_size = MAX_PERSONAL_RADAR_SCAN
   end
 
@@ -131,7 +125,7 @@ class InvaderRadarEngine
       return nil
     end
     if @radar_size <= MIN_PERSONAL_RADAR_SCAN
-      radar = rotated(@robot.radar_heading, 0 - @radar_size/2)
+      radar = rotated(@robot.radar_heading,(0 - @radar_direction * @radar_size/2))
       enemy = get_radar_point(radar, scan, @robot.location )
       @last_target_time = @robot.time
       return enemy
@@ -168,6 +162,4 @@ class InvaderRadarEngine
     end
     return false
   end
-
 end
-
