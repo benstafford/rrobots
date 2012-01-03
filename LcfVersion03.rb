@@ -2,6 +2,7 @@ require 'robot'
 require 'LCF/destination_setter'
 require 'LCF/side_walker_setter'
 require 'LCF/tight_figure_eight_setter'
+require 'LCF/get_on_target_setter'
 
 class LcfVersion03
   include Robot
@@ -67,8 +68,25 @@ class LcfVersion03
   attr_reader(:my_heading)
   attr_reader(:pair_x_destination)
   attr_reader(:pair_y_destination)
+  attr_reader(:x_target)
+  attr_reader(:y_target)
 
   def tick events
+    initialize_tick_vars
+    determine_if_your_pair_is_alive
+    set_dont_shoot
+    assess_damage
+    say "Inconceivable!" if got_hit events
+    fire_fire
+    determine_target
+    aim_at_closest_target
+    calculate_destination_based_on_damage
+    got_to_destination
+    resolve_all_turns
+    send_pair_communication
+  end
+
+  def initialize_tick_vars
     @tick_bot_turn = 0
     @tick_gun_turn = 0
     @tick_radar_turn = 0
@@ -77,20 +95,11 @@ class LcfVersion03
     @my_heading = heading.to_f
     @pair_x_destination = @@pairs_x_destination
     @pair_y_destination = @@pairs_y_destination
-    do_on_first_tick
-    determine_if_your_pair_is_alive
-    set_dont_shoot
-    assess_damage
-    say "Inconceivable!" if got_hit events
-    sniper_mode
-    resolve_all_turns
-    send_pair_communication
-  end
 
-  def do_on_first_tick
     if time == 0
-      @destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      @destination_setters[1] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[0] = GetOnTargetSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      #@destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      #@destination_setters[1] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
     end
   end
 
@@ -196,27 +205,6 @@ class LcfVersion03
     @@pairs_time_last_target = @time_last_target
   end
 
-  def tick_bot_turn angle
-    @tick_bot_turn = angle
-  end
-
-  def tick_gun_turn angle
-    @tick_gun_turn = angle
-  end
-
-  def tick_radar_turn angle
-    @tick_radar_turn = angle
-  end
-
-  def sniper_mode
-    #say "MASTER" if @is_master == 1
-    fire_fire
-    determine_target
-    aim_at_closest_target
-    calculate_destination_based_on_damage
-    got_to_destination
-  end
-
   def fire_fire
     fire_power = 0.1
     if (@dont_shoot_max_right != nil) && (@dont_shoot_max_left != nil)
@@ -248,7 +236,7 @@ class LcfVersion03
       @number_of_scan_turns = 0
     else
       @number_of_scan_turns += 1
-      tick_radar_turn 60 * @radar_scan_direction
+      @tick_radar_turn = 60 * @radar_scan_direction
     end
   end
 
@@ -288,7 +276,7 @@ class LcfVersion03
         handle_empty
       end
     end
-    tick_radar_turn @current_scan_angle * @radar_scan_direction
+    @tick_radar_turn = @current_scan_angle * @radar_scan_direction
     #puts "@find_target_in#{@find_target_in}|scan at #{@current_scan_angle * @radar_scan_direction}" if @is_master == 1
   end
 
@@ -360,11 +348,11 @@ class LcfVersion03
   end
 
   def aim_at_pairs_target heading_to_target = gun_heading.to_f
-    tick_gun_turn (get_angle_to_location @@pairs_x_target, @@pairs_y_target).to_f - heading_to_target
+    @tick_gun_turn = (get_angle_to_location @@pairs_x_target, @@pairs_y_target).to_f - heading_to_target
   end
 
   def aim_at_target heading_to_target = gun_heading.to_f
-    tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - heading_to_target
+    @tick_gun_turn = (get_angle_to_location @x_target, @y_target).to_f - heading_to_target
   end
 
   def get_angle_to_location arg_x, arg_y
@@ -396,7 +384,7 @@ class LcfVersion03
   end
 
   def turn_to_location arg_x, arg_y
-    tick_bot_turn (get_angle_to_location arg_x, arg_y) - heading.to_f
+    @tick_bot_turn = (get_angle_to_location arg_x, arg_y) - heading.to_f
   end
 
   def accelerate_bot
