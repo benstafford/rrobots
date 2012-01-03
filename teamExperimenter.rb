@@ -39,7 +39,7 @@ def record_outcome(battlefield)
   end
 end
 
-def print_aggregate_results
+def print_aggregate_results number_of_rounds
   win_counts = []
   @win_record.each do |team_number|
     if (win_counts[team_number].nil?)
@@ -50,7 +50,8 @@ def print_aggregate_results
   c = 0
 
   win_counts.each do |count|
-    $stderr.print "Team #{c}: #{count}%   "
+    count = 0 if count.nil?
+    $stderr.print "Team #{c}: #{100*count/number_of_rounds}%   "
     c = c + 1
   end
   puts
@@ -58,6 +59,12 @@ def print_aggregate_results
 end
 
 $stdout.sync = true
+
+number_of_rounds = 100
+ARGV.grep( /^-rounds=(\d+)/ )do |item|
+  number_of_rounds = $1.to_i
+  ARGV.delete(item)
+end
 
 # look for resolution arg
 xres, yres = 800, 800
@@ -123,7 +130,7 @@ end
 for variable_element in range_start..range_end do
   @win_record = []
   previous_seed = 0
-  for trial in 1..100 do
+  for trial in 1..number_of_rounds do
     seed = Time.now.to_i + Process.pid
     while (seed == previous_seed)
       seed = Time.now.to_i + Process.pid
@@ -144,5 +151,5 @@ for variable_element in range_start..range_end do
     run(battlefield, trial)
   end
   $stderr.print "Trial #{variable_element}  -- "
-  print_aggregate_results
+  print_aggregate_results number_of_rounds
 end
