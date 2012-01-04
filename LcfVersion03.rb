@@ -2,7 +2,7 @@ require 'robot'
 require 'LCF/destination_setter'
 require 'LCF/side_walker_setter'
 require 'LCF/tight_figure_eight_setter'
-require 'LCF/get_on_target_setter'
+require 'LCF/foo_setter'
 
 class LcfVersion03
   include Robot
@@ -22,6 +22,7 @@ class LcfVersion03
   @@current_destination_setter = 0
 
   def initialize
+    Process.exit if (caller[1].to_s[0,10] != "rrobots.rb") && (caller[1].to_s[0,19] != "teamexperimenter.rb")
     @@number_classes_initialized = @@number_classes_initialized + 1
     @x_destination = -1.0
     @y_destination = -1.0
@@ -68,8 +69,6 @@ class LcfVersion03
   attr_reader(:my_heading)
   attr_reader(:pair_x_destination)
   attr_reader(:pair_y_destination)
-  attr_reader(:x_target)
-  attr_reader(:y_target)
 
   def tick events
     initialize_tick_vars
@@ -97,9 +96,9 @@ class LcfVersion03
     @pair_y_destination = @@pairs_y_destination
 
     if time == 0
-      @destination_setters[0] = GetOnTargetSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      #@destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      #@destination_setters[1] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      #@destination_setters[0] = FooSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[1] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
     end
   end
 
@@ -154,57 +153,6 @@ class LcfVersion03
     return events.has_key? "got_hit"
   end
 
-  def resolve_all_turns
-    @tick_bot_turn -= 360 if @tick_bot_turn > 180
-    @tick_bot_turn += 360 if @tick_bot_turn < -180
-    if @tick_bot_turn.abs > 10
-      if @tick_bot_turn > 0
-        @tick_bot_turn = 10
-      else
-        @tick_bot_turn = -10
-      end
-    end
-    turn @tick_bot_turn
-
-    @tick_gun_turn -= 360 if @tick_gun_turn > 180
-    @tick_gun_turn += 360 if @tick_gun_turn < -180
-    @tick_gun_turn -= @tick_bot_turn
-    if (@tick_gun_turn).abs > 30
-      if (@tick_gun_turn) > 0
-        @tick_gun_turn =  30
-      else
-        @tick_gun_turn = -30
-      end
-    end
-    turn_gun @tick_gun_turn
-
-    @tick_radar_turn -= 360 if @tick_radar_turn > 180
-    @tick_radar_turn += 360 if @tick_radar_turn < -180
-    @tick_radar_turn -= @tick_gun_turn + @tick_bot_turn
-    if (@tick_radar_turn).abs > 60
-      if (@tick_radar_turn) > 0
-        @tick_radar_turn = 60
-      else
-        @tick_radar_turn = -60
-      end
-    end
-    turn_radar @tick_radar_turn
-  end
-
-  def send_pair_communication
-    @@pairs_energy = energy
-    @@pairs_x_destination = @x_destination
-    @@pairs_y_destination = @y_destination
-    @@pairs_x_location = x.to_f
-    @@pairs_y_location = y.to_f
-    @@pairs_x_target = @x_target
-    @@pairs_y_target = @y_target
-    @@pairs_time_target = @time_target
-    @@pairs_x_last_target = @x_last_target
-    @@pairs_y_last_target = @y_last_target
-    @@pairs_time_last_target = @time_last_target
-  end
-
   def fire_fire
     fire_power = 0.1
     if (@dont_shoot_max_right != nil) && (@dont_shoot_max_left != nil)
@@ -225,10 +173,11 @@ class LcfVersion03
 
   def find_closest_enemy_bot
     unless (events['robot_scanned'].empty?)
-      #puts "#{time}|#{events['robot_scanned'].length}|#{events['robot_scanned'][0].length}|#{events['robot_scanned'].inspect}" if @is_master == 1
-      @enemy_bots_x_location.clear
-      @enemy_bots_y_location.clear
+      #@enemy_bots_x_location.clear if @number_of_scan_turns == 0
+      #@enemy_bots_y_location.clear if @number_of_scan_turns == 0
       events['robot_scanned'].each{ |x| found_enemy_bot x[0].to_f if ((is_this_the_same_as_pairs_distance x[0].to_f) == 0)} if (@is_master == 1) #&& ((is_this_the_same_as_pairs_distance x.to_f) == 0)}
+      puts "#{time}|#{@enemy_bots_x_location.length}|#{@enemy_bots_x_location.inspect}" if @is_master == 1
+      puts "#{time}|#{@enemy_bots_y_location.length}|#{@enemy_bots_y_location.inspect}" if @is_master == 1
     end
 
     if @number_of_scan_turns >= 6
@@ -243,8 +192,8 @@ class LcfVersion03
   def found_enemy_bot distance_to_bot
     #puts "#{time}|#{distance_to_bot}"
     radi_angle = ((radar_heading + (-1 * @radar_scan_direction * 30))/2.0).to_f * Math::PI / 180
-    @enemy_bots_x_location[@enemy_bots_x_location.length + 1] = x.to_f + (Math.cos(radi_angle) * distance_to_bot)
-    @enemy_bots_y_location[@enemy_bots_y_location.length + 1] = y.to_f - (Math.sin(radi_angle) * distance_to_bot)
+    @enemy_bots_x_location[@enemy_bots_x_location.length] = x.to_f + (Math.cos(radi_angle) * distance_to_bot)
+    @enemy_bots_y_location[@enemy_bots_y_location.length] = y.to_f - (Math.sin(radi_angle) * distance_to_bot)
   end
 
   def is_this_the_same_as_pairs_distance bots_distance
@@ -393,5 +342,56 @@ class LcfVersion03
 
   def distance_between_points x1, y1, x2, y2
     Math.hypot(y2 - y1, x1 - x2)
+  end
+
+  def resolve_all_turns
+    @tick_bot_turn -= 360 if @tick_bot_turn > 180
+    @tick_bot_turn += 360 if @tick_bot_turn < -180
+    if @tick_bot_turn.abs > 10
+      if @tick_bot_turn > 0
+        @tick_bot_turn = 10
+      else
+        @tick_bot_turn = -10
+      end
+    end
+    turn @tick_bot_turn
+
+    @tick_gun_turn -= 360 if @tick_gun_turn > 180
+    @tick_gun_turn += 360 if @tick_gun_turn < -180
+    @tick_gun_turn -= @tick_bot_turn
+    if (@tick_gun_turn).abs > 30
+      if (@tick_gun_turn) > 0
+        @tick_gun_turn =  30
+      else
+        @tick_gun_turn = -30
+      end
+    end
+    turn_gun @tick_gun_turn
+
+    @tick_radar_turn -= 360 if @tick_radar_turn > 180
+    @tick_radar_turn += 360 if @tick_radar_turn < -180
+    @tick_radar_turn -= @tick_gun_turn + @tick_bot_turn
+    if (@tick_radar_turn).abs > 60
+      if (@tick_radar_turn) > 0
+        @tick_radar_turn = 60
+      else
+        @tick_radar_turn = -60
+      end
+    end
+    turn_radar @tick_radar_turn
+  end
+
+  def send_pair_communication
+    @@pairs_energy = energy
+    @@pairs_x_destination = @x_destination
+    @@pairs_y_destination = @y_destination
+    @@pairs_x_location = x.to_f
+    @@pairs_y_location = y.to_f
+    @@pairs_x_target = @x_target
+    @@pairs_y_target = @y_target
+    @@pairs_time_target = @time_target
+    @@pairs_x_last_target = @x_last_target
+    @@pairs_y_last_target = @y_last_target
+    @@pairs_time_last_target = @time_last_target
   end
 end
