@@ -17,6 +17,7 @@ require 'PolarIce/Gunner'
 require 'PolarIce/Radar'
 require 'PolarIce/Loader'
 require 'PolarIce/Commander'
+require 'PolarIce/PlatoonCommander'
 
 class PolarIce
   include Robot

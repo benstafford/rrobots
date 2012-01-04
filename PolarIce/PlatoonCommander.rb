@@ -1,0 +1,3 @@
+class PlatoonCommander
+  
+end
