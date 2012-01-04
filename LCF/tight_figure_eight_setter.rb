@@ -12,7 +12,6 @@ class TightFigureEightSetter < DestinationSetter
       @turn_direction *= -1
     end
     @current_deg += (@turn_direction * bot_turn)
-    #bot.return_cord(bot.x_location, bot.y_location, (@turn_direction * 10 + bot.my_heading), 0.1) #speed 0
     bot.return_cord(bot.x_location, bot.y_location, (@turn_direction * bot_turn + bot.my_heading), 65) #speed 8
   end
 end

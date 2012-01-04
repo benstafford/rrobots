@@ -3,6 +3,7 @@ class InvaderMovementEngine
 
   attr_accessor :accelerate
   attr_accessor :turn
+  attr_accessor :last_hit
 
   def initialize invader
     @robot = invader
@@ -11,17 +12,24 @@ class InvaderMovementEngine
     @accelerate = 0
     @head_to_edge = InvaderDriverHeadToEdge.new(invader, self)
     @patrol = InvaderDriverPatroller.new(invader, self)
+    @evade = InvaderDriverEvader.new(invader, self)
+    @last_hit = 0
   end
 
   def move
     @accelerate = 0
     @turn = 0
     @robot.at_edge = at_edge?
-    if @robot.at_edge and !edge_conflict?
-      @patrol.move
-    else
-      @head_to_edge.move
-    end
+    @last_hit = @robot.time if @robot.got_hit?
+    #if @last_hit > 0 and @robot.time - @last_hit < 36
+    #  @evade.move
+    #else
+      if @robot.at_edge and !edge_conflict?
+        @patrol.move
+      else
+        @head_to_edge.move
+      end
+    #end
   end
 
   def at_edge?
@@ -184,5 +192,33 @@ class InvaderDriverPatroller < DrivingMode
     if distance < HOVER_DISTANCE
       @robot.current_direction = 0 - @robot.current_direction
     end
+  end
+end
+
+class InvaderDriverEvader < DrivingMode
+  def initialize invader, driver
+    super invader, driver
+    @turn_direction = -1
+    @intended_edge = nil
+    @start_evade = 0
+  end
+
+  def need_to_turn?
+    @start_evade = @robot.time if @start_evade == 0
+    @start_evade = @robot.time if @robot.time - @start_evade > 18 and @driver.last_hit == @robot.time
+    @turn_direction = 0 - @turn_direction if @robot.time - @start_evade == 18
+    @turn_direction = -1 if @robot.time - @start_evade == 35
+    @robot.time - @start_evade < 18
+  end
+
+  def turn_around
+    @turn = 10 * @turn_direction * @robot.current_direction
+    turn [[@turn, 10].min, -10].max
+  end
+
+  def move
+    @intended_edge = right_of_edge if @intended_edge.nil?
+    turn_around if need_to_turn?
+    accelerate @robot.current_direction
   end
 end
