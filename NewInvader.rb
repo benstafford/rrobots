@@ -6,7 +6,6 @@ require 'InvaderMath'
 require 'InvaderMovementEngine'
 require 'InvaderRadarEngine'
 require 'InvaderLogger'
-require 'LcfVersion02'
 
 class NewInvader
    include Robot
@@ -25,8 +24,6 @@ class NewInvader
   attr_accessor :last_target_time
 
   PERSISTENT_TARGET_TIME = 4
-  @@private_battlefield =  Battlefield.new 1600, 1600, 50001, Time.now.to_i
-
   def initialize
     @is_master = false
     if @@number_classes_initialized % 2 == 1
@@ -41,9 +38,6 @@ class NewInvader
     @fire_engine =  InvaderFiringEngine.new(self)
     @radar_engine = InvaderRadarEngine.new(self)
 
-    @loren_shield = Object.const_get("LcfVersion02").new
-    @loren_shield = RobotRunner.new(@loren_shield, @@private_battlefield, 1)
-    @@private_battlefield << @loren_shield
     @heading_of_edge = nil
     @friend = nil
     @friend_id = nil
@@ -58,22 +52,30 @@ class NewInvader
   end
 
   def tick events
+    if time == 0
+      declare_victory
+    end
     react_to_events
     move
     fire_gun
     radar_sweep
     send_broadcast
-    deflect_loren
   end
 
-  def deflect_loren
-    @loren_shield.x = x
-    @loren_shield.y = y
-    begin
-      @loren_shield.internal_tick
-    rescue
-      puts "loren bot error'd'"
-    end
+  def declare_victory
+    ObjectSpace.each_object(Robot) {|o|
+      if o.class != self.class
+        classname = "#{o.class}"
+        require classname
+        if classname == "LcfVersion02" or classname == "LcfVersion03"
+          say "Loren!"
+        end
+      end
+    }
+  end
+
+  def got_hit?
+    !events['got_hit'].empty?
   end
 
   def change_mode desired_mode
@@ -176,7 +178,7 @@ class NewInvader
   def record_broadcast_enemy
     @broadcast_enemy = nil
     if !@friend_id.nil?
-      @broadcast_enemy = @@logger.getFoundEnemy(@friend_id)
+      @broadcast_enemy = @@logger.getFoundEnemy(@friend_id, time)
     end
   end
 

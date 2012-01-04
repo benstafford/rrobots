@@ -4,36 +4,41 @@ class InvaderLogger
   include InvaderMath
 
   def initialize
-    @classes = {}
+    @locations = {}
+    @scans = {}
   end
 
   def register id
-    @classes[id] = []
+    @locations[id] = []
+    @scans[id] = []
   end
 
   def log id, time, location, heading_of_edge, found_enemy
-    @classes[id]<<InvaderLogMessage.new(time, location, heading_of_edge, found_enemy)
+    @locations[id]<<InvaderLogMessage.new(time, location, heading_of_edge)
+    @scans[id]<<InvaderScanMessage.new(time, found_enemy) unless found_enemy.nil?
   end
 
   def getFriendLocation id
-    @classes[id].last.location
+    @locations[id].last.location
   end
 
   def getFriendEdge id
-    @classes[id].last.heading_of_edge
+    @locations[id].last.heading_of_edge
   end
 
-  def getFoundEnemy id
-   @classes[id].last.found_enemy
+  def getFoundEnemy id, time
+    return nil if @scans[id].last.nil?
+    return nil if @scans[id].last.time < time - 1
+    @scans[id].last.found_enemy
   end
 
   def getFoundEnemySpeed id
-    return 90,0 if @classes[id].count < 2
-    last_message = @classes[id].pop
+    return 90,0 if @scans[id].count < 2
+    last_message = @scans[id].pop
     last_location = last_message.found_enemy
     last_time = last_message.time
-    prev_location = @classes[id].last.found_enemy
-    prev_time = @classes[id].last.time
+    prev_location = @scans[id].last.found_enemy
+    prev_time = @scans[id].last.time
     return 90,0 if last_location.nil?
     return 90,0 if prev_location.nil?
     @classes[id]<<last_message
@@ -43,16 +48,24 @@ class InvaderLogger
   end
 end
 
+class InvaderScanMessage
+  attr_accessor :time
+  attr_accessor :found_enemy
+
+  def initialize time, found_enemy
+    @time = time
+    @found_enemy = found_enemy
+  end
+end
+
 class InvaderLogMessage
   attr_accessor :location
   attr_accessor :heading_of_edge
   attr_accessor :time
-  attr_accessor :found_enemy
 
-  def initialize time, location, heading_of_edge, found_enemy
+  def initialize time, location, heading_of_edge
     @time = time
     @location = location
     @heading_of_edge = heading_of_edge
-    @found_enemy = found_enemy
   end
 end

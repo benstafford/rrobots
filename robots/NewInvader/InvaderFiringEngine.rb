@@ -26,11 +26,11 @@ class InvaderFiringEngine
   end
 
   def power_based_on_distance
-    #this = InvaderPoint.new(@robot.x, @robot.y)
-    #distance = distance_between_objects(this, target)
-    #firepower = 3.0 - (distance/780)
-    #return firepower
-    0.1
+    this = InvaderPoint.new(@robot.x, @robot.y)
+    distance = distance_between_objects(this, target)
+    firepower = 3.0 - (distance/780)
+    return firepower
+    #0.3
     #3.0
   end
 

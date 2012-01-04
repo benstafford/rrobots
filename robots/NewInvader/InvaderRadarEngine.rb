@@ -30,8 +30,8 @@ class InvaderRadarEngine
   end
 
   def scan_radar robots_scanned
-    return nil if !@robot.at_edge
-    return nil if @ready_for_metronome == false
+    #return nil if !@robot.at_edge
+    #return nil if @ready_for_metronome == false
     if robots_scanned.count > 0
       scan_list = []
       robots_scanned.each do |element|
