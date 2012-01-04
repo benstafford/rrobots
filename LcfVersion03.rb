@@ -176,8 +176,8 @@ class LcfVersion03
       #@enemy_bots_x_location.clear if @number_of_scan_turns == 0
       #@enemy_bots_y_location.clear if @number_of_scan_turns == 0
       events['robot_scanned'].each{ |x| found_enemy_bot x[0].to_f if ((is_this_the_same_as_pairs_distance x[0].to_f) == 0)} if (@is_master == 1) #&& ((is_this_the_same_as_pairs_distance x.to_f) == 0)}
-      puts "#{time}|#{@enemy_bots_x_location.length}|#{@enemy_bots_x_location.inspect}" if @is_master == 1
-      puts "#{time}|#{@enemy_bots_y_location.length}|#{@enemy_bots_y_location.inspect}" if @is_master == 1
+      #puts "#{time}|#{@enemy_bots_x_location.length}|#{@enemy_bots_x_location.inspect}" if @is_master == 1
+      #puts "#{time}|#{@enemy_bots_y_location.length}|#{@enemy_bots_y_location.inspect}" if @is_master == 1
     end
 
     if @number_of_scan_turns >= 6
