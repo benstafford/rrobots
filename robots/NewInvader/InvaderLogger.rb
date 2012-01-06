@@ -1,4 +1,5 @@
 require 'InvaderMath'
+require 'logger'
 
 class InvaderLogger
   include InvaderMath
@@ -6,6 +7,7 @@ class InvaderLogger
   def initialize
     @locations = {}
     @scans = {}
+    initialize_logfile
   end
 
   def register id
@@ -45,6 +47,15 @@ class InvaderLogger
     direction = degree_from_point_to_point(prev_location, last_location)
     speed = distance_between_objects(prev_location, last_location)/(prev_time - last_time)
     return direction, speed
+  end
+
+  def LogStatusToFile robot
+    @logger.debug(",#{robot.time}, #{robot.my_id}, #{robot.x}, #{robot.y}, #{robot.heading}, #{robot.gun_heading}, #{robot.radar_heading}, #{robot.speed}, #{robot.move_engine.turn}, #{robot.fire_engine.turn_gun}, #{robot.radar_engine.turn_radar}, #{robot.heading_of_edge}, #{robot.target.inspect}")
+  end
+
+  def initialize_logfile
+    @logger = Logger.new('application.csv')
+    @logger.debug(',time, id, x, y, heading, gun_heading, radar_heading, speed, body_turn, gun_turn, radar_turn, selected_edge, radar_target_found')
   end
 end
 

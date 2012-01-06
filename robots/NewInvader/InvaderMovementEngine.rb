@@ -21,15 +21,15 @@ class InvaderMovementEngine
     @turn = 0
     @robot.at_edge = at_edge?
     @last_hit = @robot.time if @robot.got_hit?
-    #if @last_hit > 0 and @robot.time - @last_hit < 36
-    #  @evade.move
-    #else
+    if @last_hit > 0 and @robot.time - @last_hit < 36
+      @evade.move
+    else
       if @robot.at_edge and !edge_conflict?
         @patrol.move
       else
         @head_to_edge.move
       end
-    #end
+    end
   end
 
   def at_edge?

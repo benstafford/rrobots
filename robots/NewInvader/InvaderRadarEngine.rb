@@ -6,32 +6,38 @@ class InvaderRadarEngine
 
   SAFE_DISTANCE = 125
   MAX_PERSONAL_RADAR_SCAN = 12
-  MIN_PERSONAL_RADAR_SCAN = 6
+  MIN_PERSONAL_RADAR_SCAN = 3
 
   def initialize invader
     @radar_direction = 1
     @radar_size = MAX_PERSONAL_RADAR_SCAN
     @robot = invader
-    @ready_for_metronome = false
     @turn_radar = 0
-    @metronome_side = nil
     @last_target_time = nil
   end
 
   def radar_sweep
     @turn_radar = 0
+    keep_on_target
+    @turn_radar = @radar_size * @radar_direction
     if @robot.at_edge
-      point_radar
-    else
-      keep_on_target
-      @turn_radar = @radar_size * @radar_direction
+      if @robot.radar_heading == corner
+        point_away_from_corner
+      end
+      new_radar_heading = rotated(@robot.radar_heading, @turn_radar)
+      dont_turn_past_corner(new_radar_heading)
     end
     @turn_radar = [[@turn_radar, 60].min,-60].max
   end
 
+  def point_away_from_corner
+    direction = turn_toward(corner, @robot.opposite_edge)
+    @radar_direction = -1 if direction < 0
+    @radar_direction = 1 if direction > 0
+    @turn_radar = @radar_size * @radar_direction
+  end
+
   def scan_radar robots_scanned
-    #return nil if !@robot.at_edge
-    #return nil if @ready_for_metronome == false
     if robots_scanned.count > 0
       scan_list = []
       robots_scanned.each do |element|
@@ -41,7 +47,14 @@ class InvaderRadarEngine
       scan_list.each do |scan|
         enemy = locate_enemy(scan)
         if !enemy.nil? and enemy?(enemy, @robot.friend)
+          @last_target_time = @robot.time
           return enemy
+        end
+        if enemy.nil?
+          if !friend_in_section_at_distance?(scan)
+            @radar_size = @radar_size/2 if @radar_size > MIN_PERSONAL_RADAR_SCAN
+            @radar_direction = 0 - @radar_direction
+          end
         end
       end
     end
@@ -64,26 +77,6 @@ class InvaderRadarEngine
     rotated(@robot.heading_of_edge, -90 * @radar_direction)
   end
 
-  def radar_ready_to_start_sweep?
-    if (@ready_for_metronome == false) && @robot.radar_heading != corner
-        @turn_radar = turn_toward(@robot.radar_heading, corner)
-        return false
-    end
-    true
-  end
-
-  def set_direction_from_corner
-    if @robot.radar_heading == corner
-      @ready_for_metronome = true
-      back_to_gun = turn_toward(@robot.radar_heading, @robot.opposite_edge)
-      if (back_to_gun > 0)
-        @radar_direction = 1
-      else
-        @radar_direction = -1
-      end
-    end
-  end
-
   def dont_turn_past_corner new_radar_heading
     if @radar_direction < 0
       if radar_heading_between?(new_radar_heading, corner, rotated(corner, 180))
@@ -96,17 +89,10 @@ class InvaderRadarEngine
     end
   end
 
-  def point_radar
-    return if !radar_ready_to_start_sweep?
-    set_direction_from_corner
-    keep_on_target
-    @turn_radar = @radar_size * @radar_direction
-    new_radar_heading = rotated(@robot.radar_heading, @turn_radar)
-    dont_turn_past_corner new_radar_heading
-  end
 
   def scan_passed_him
     @radar_direction = 0 - @radar_direction
+    @radar_size = @radar_size * 2 if @radar_size < MAX_PERSONAL_RADAR_SCAN
   end
 
   def lost_him
@@ -116,24 +102,16 @@ class InvaderRadarEngine
   def keep_on_target
     return if @last_target_time.nil?
     time_since_scan = @robot.time - @last_target_time
-    scan_passed_him if time_since_scan == 1
-    lost_him if time_since_scan == 4
+    scan_passed_him if [1..4].include?(time_since_scan)
+    lost_him if time_since_scan == 5
   end
 
   def locate_enemy scan
-    if @ready_for_metronome == false
-      return nil
-    end
     if @radar_size <= MIN_PERSONAL_RADAR_SCAN
       radar = rotated(@robot.radar_heading,(0 - @radar_direction * @radar_size/2))
       enemy = get_radar_point(radar, scan, @robot.location )
-      @last_target_time = @robot.time
-      return enemy
-    end
-
-    if !friend_in_section_at_distance?(scan)
-      @radar_size = @radar_size/2
       @radar_direction = 0 - @radar_direction
+      return enemy
     end
     return nil
   end
