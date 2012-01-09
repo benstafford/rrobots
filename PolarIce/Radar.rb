@@ -1,3 +1,4 @@
+#The Radar is responsible for turning the radar and processing its scans.
 class Radar
   include Rotator
 
@@ -10,18 +11,18 @@ class Radar
   INITIAL_DESIRED_TARGET = nil
 
   def tick
-    @stateMachine.tick
+    @state_machine.tick
     rotator_tick
   end
 
   def update_state(position, heading)
-    @currentPosition = position
-    @currentHeading = heading
+    @current_position = position
+    @current_heading = heading
   end
 
   def initialize_state_machine
     radar = self
-    @stateMachine = Statemachine.build do
+    @state_machine = Statemachine.build do
       context radar
 
       state :awaiting_orders do
@@ -108,21 +109,21 @@ class Radar
 
   def scan
     log "radar.scan\n"
-    @stateMachine.scan
+    @state_machine.scan
   end
 
   def start_quick_scan
     log "radar.start_quick_scan\n"
-    @originalHeading = @currentHeading
+    @original_heading = @current_heading
     setup_scan
   end
 
   def setup_scan
-    log "radar.setup_scan oH=#{@originalHeading} cH=#{@currentHeading}\n"
-    @sectorsScanned = 0
-    @currentTarget = nil
+    log "radar.setup_scan oH=#{@original_heading} cH=#{@current_heading}\n"
+    @sectors_scanned = 0
+    @current_target = nil
     @targets.clear
-    @desiredHeading = (@currentHeading + MAXIMUM_ROTATION).normalize_angle
+    @desired_heading = (@current_heading + MAXIMUM_ROTATION).normalize_angle
   end
 
   def add_targets targets_scanned
@@ -131,11 +132,10 @@ class Radar
   end
 
   def count_sectors_scanned
-    @sectorsScanned += 1
-    log "radar.count_sectors_scanned #{@sectorsScanned}\n"
-    if @sectorsScanned < 6
-      @desiredHeading = (@currentHeading + MAXIMUM_ROTATION).normalize_angle
-      @stateMachine.scan_incomplete
+    @sectors_scanned += 1
+    log "radar.count_sectors_scanned #{@sectors_scanned}\n"
+    if @sectors_scanned < 6
+      quick_scan_incomplete
     elsif !@targets.empty?
       quick_scan_successful(@targets)
     else
@@ -144,67 +144,68 @@ class Radar
   end
 
   def restore_original_heading
-    log "radar.restore_original_heading #{@originalHeading}\n"
-    @desiredHeading = @originalHeading
+    log "radar.restore_original_heading #{@original_heading}\n"
+    @desired_heading = @original_heading
   end
 
   def scanned(targets_scanned)
 #    log "radar.scanned #{targets_scanned}\n"
-    @stateMachine.scanned(targets_scanned)
+    @state_machine.scanned(targets_scanned)
+  end
+
+  def quick_scan_incomplete
+    @desired_heading = (@current_heading + MAXIMUM_ROTATION).normalize_angle
+    @state_machine.scan_incomplete
   end
 
   def quick_scan_failed
     log "radar.quick_scan_failed\n"
-    @stateMachine.quick_scan_failed
+    @state_machine.quick_scan_failed
     polarIce.quick_scan_failed
   end
 
   def quick_scan_successful(targets)
     log "radar.quick_scan_successful #{targets}\n"
-    @stateMachine.quick_scan_successful
+    @state_machine.quick_scan_successful
     polarIce.quick_scan_successful(targets)
   end
 
   def track(target)
     log "radar.track #{target}\n"
-    @stateMachine.track(target)
+    @state_machine.track(target)
   end
 
   def rotate_to_sector(target)
     log "radar.rotate_to_sector #{target}\n"
-    @currentTarget = target
-    @desiredHeading = @currentTarget.start_angle
+    @current_target = target
+    @desired_heading = @current_target.start_angle
   end
 
   def check_desired_heading
-    log "radar.check_desired_heading current #{@currentHeading} desired #{@desiredHeading}\n"
-    if (@currentHeading == @desiredHeading)
-      @desiredHeading = nil
-      @stateMachine.arrived
+    log "radar.check_desired_heading current #{@current_heading} desired #{@desired_heading}\n"
+    if (@current_heading == @desired_heading)
+      @desired_heading = nil
+      @state_machine.arrived
     else
-      @stateMachine.rotating
+      @state_machine.rotating
     end
   end
 
   def start_track
-    log "radar.start_track #{@currentTarget}\n"
-    @desiredHeading = @currentTarget.bisector
+    log "radar.start_track #{@current_target}\n"
+    @desired_heading = @current_target.bisector
   end
 
   def remove_partners_from_targets(targets)
     log "commander.remove_partners_from_targets\n"
-    polarIce.currentPartnerPosition.each{|partner| remove_partner_from_targets(partner, targets) if partner != nil}
-  end
-
-  def remove_partner_from_targets(partner, targets)
-    targets.delete_if { |target| target.contains(partner) }
+    polarIce.current_partner_position.each{|partner| remove_partner_from_targets(partner, targets) if partner != nil}
   end
 
   def check_track_scan(targets)
     log "radar.check_track_scan #{targets}\n"
-    remove_partners_from_targets(targets) if polarIce.currentPartnerPosition != nil
+    remove_partners_from_targets(targets) if polarIce.current_partner_position != nil
     if (targets != nil) && (targets.empty?)
-      target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
+      target_not_found(Sighting.new(polarIce.previous_status.radar_heading, current_heading, 0, @rotation.direction, current_position, polarIce.time))
     else
       target_found(closest_target(targets))
     end
@@ -212,30 +213,21 @@ class Radar
 
   def target_not_found(target)
     log "radar.target_not_found #{target}\n"
-    if (target.start_angle == @currentTarget.end_angle)
-      end_angle = @currentTarget.start_angle
+    if (target.start_angle == @current_target.end_angle)
+      end_angle = @current_target.start_angle
     else
-      end_angle = @currentTarget.end_angle
+      end_angle = @current_target.end_angle
     end
 
-    @currentTarget = Sighting.new(end_angle, target.end_angle, @currentTarget.distance, target.direction, currentPosition, target.time)
-
-    @desiredHeading = @currentTarget.bisector
-
-    log "radar.not_found.currentTarget = #{@currentTarget}\n"
-    log "radar.not_found.desiredHeading = #{@desiredHeading}\n"
-
-    check_target_locked(@currentTarget)
+    @current_target = Sighting.new(end_angle, target.end_angle, @current_target.distance, target.direction, current_position, target.time)
+    @desired_heading = @current_target.bisector
+    check_target_locked(@current_target)
   end
 
   def target_found(target)
     log "radar.target_found new #{target}\n"
-
-    @currentTarget = target
-    @desiredHeading = @currentTarget.bisector
-
-    log "radar.found.currentTarget = #{@currentTarget}\n"
-    log "radar.found.desiredHeading = #{@desiredHeading}\n"
+    @current_target = target
+    @desired_heading = @current_target.bisector
     check_target_locked(target)
   end
 
@@ -243,11 +235,10 @@ class Radar
     log "radar.check_target #{target} ==> "
     if target_in_locked_range(target)
       log "target_locked\n"
-      @stateMachine.target_locked(target)
-      polarIce.update_target(target)
+      target_locked(target)
     else
       log "target_not_locked\n"
-      @stateMachine.target_not_locked(target)
+      @state_machine.target_not_locked(target)
     end
   end
 
@@ -257,51 +248,50 @@ class Radar
 
   def maintain_lock(target)
     log "radar.maintain_lock\n"
-    @desiredHeading = target.start_angle
+    @desired_heading = target.start_angle
   end
 
   def check_maintain_lock(targets)
     log "radar.check_maintain_lock #{targets}\n"
-    remove_partners_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
+    remove_partners_from_targets(targets) if (polarIce.current_partner_position != nil)
     if (targets == nil) || (targets.empty?)
-      lock_target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
+      lock_target_not_found(Sighting.new(polarIce.previousRadarHeading, current_heading, 0, @rotation.direction, current_position, polarIce.time))
     else
       lock_target_found(closest_target(targets))
     end
   end
 
-
   def lock_target_found(target)
     log "radar.lock_target_found #{target}\n"
-    @currentTarget = target
-    @desiredHeading = @currentTarget.start_angle
-    @stateMachine.target_locked(target)
+    @current_target = target
+    @desired_heading = @current_target.start_angle
+    @state_machine.target_locked(target)
   end
 
   def lock_target_not_found(target)
     log "radar.lock_target_not_found #{target}\n"
-    @currentTarget = target
-    @stateMachine.target_not_locked
+    @current_target = target
+    @state_machine.target_not_locked
 #    polarIce.target_lost
   end
 
   def broaden_scan
-    @currentTarget.broaden(10)
-    log "radar.broaden_scan #{@currentTarget}\n"
+    @current_target.broaden(10)
+    log "radar.broaden_scan #{@current_target}\n"
 
-    if (@currentTarget.central_angle < 60)
-      @desiredHeading = @currentTarget.start_angle
+    if (@current_target.central_angle < 60)
+      @desired_heading = @current_target.start_angle
     else
-      @stateMachine.target_lost
+      @state_machine.target_lost
       polarIce.target_lost
     end
   end
 
   def check_broaden_scan(targets)
     log "radar.check_broaden_scan #{targets}\n"
-    remove_partners_from_targets(targets) if (polarIce.currentPartnerPosition != nil)
+    remove_partners_from_targets(targets) if (polarIce.current_partner_position != nil)
     if (targets != nil) && (targets.empty?)
-      broaden_scan_target_not_found(Sighting.new(polarIce.previousRadarHeading, currentHeading, 0, @rotation.direction, currentPosition, polarIce.time))
+      broaden_scan_target_not_found(Sighting.new(polarIce.previousRadarHeading, current_heading, 0, @rotation.direction, current_position, polarIce.time))
     else
       broaden_scan_target_found(closest_target(targets))
     end
@@ -309,34 +299,35 @@ class Radar
 
   def broaden_scan_target_not_found(target)
     log "radar.broaden_scan_target_not_found #{target}\n"
-    @currentTarget = target
-    @stateMachine.target_not_found
+    @current_target = target
+    @state_machine.target_not_found
   end
 
   def broaden_scan_target_found(target)
-    @currentTarget = target
+    @current_target = target
     log "radar.broaden_scan_target_found #{target}\n"
     if (target_in_locked_range(target))
-      polarIce.update_target(target)
-      @stateMachine.target_locked(target)
+      target_locked(target)
     else
-      polarIce.update_target(target)
-      @stateMachine.target_found(target)
+      target_not_locked(target)
     end
   end
 
-  def closest_target(targets)
-    closest = targets[0]
-    targets.each {|target| closest = target if target.distance < closest.distance }
-    log "closest_target #{closest}\n"
-    closest
+  def target_locked(target)
+    polarIce.update_target(target)
+    @state_machine.target_locked(target)
+  end
+
+  def target_not_locked(target)
+    polarIce.update_target(target)
+    @state_machine.target_found(target)
   end
 
   def initialize(polarIce)
-    @maximumRotation = MAXIMUM_ROTATION
+    @max_rotation = MAXIMUM_ROTATION
     @rotation = INITIAL_ROTATION
-    @desiredHeading = INITIAL_DESIRED_HEADING
-    @desiredTarget = INITIAL_DESIRED_TARGET
+    @desired_heading = INITIAL_DESIRED_HEADING
+    @desired_target = INITIAL_DESIRED_TARGET
     @polarIce = polarIce
     @targets = Array.new
     initialize_state_machine
@@ -346,19 +337,19 @@ class Radar
   attr_accessor(:quick_scan_results)
 end
 module RadarAccessor
-  def radarRotation
+  def radar_rotation
     radar.rotation
   end
 
-  def desiredRadarTarget= target
-    radar.desiredTarget = target
+  def desired_radar_target= target
+    radar.desired_target = target
   end
 
-  def desiredRadarHeading
-    radar.desiredHeading
+  def desired_radar_heading
+    radar.desired_heading
   end
-  def desiredRadarHeading= heading
-    radar.desiredHeading = heading
+  def desired_radar_heading= heading
+    radar.desired_heading = heading
   end
   attr_accessor(:radar)
 end

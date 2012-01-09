@@ -1,3 +1,4 @@
+#The Gunner is responsible for turning the Gun.
 class Gunner
   include Rotator
 
@@ -14,44 +15,44 @@ class Gunner
   end
 
   def target(target)
-    @desiredTarget = target.origin + Vector[target.bisector,target.distance].to_cartesian
-    log "gunner.target #{target} #{@desiredTarget}\n"
+    @desired_target = target.origin + Vector[target.bisector,target.distance].to_cartesian
+    log "gunner.target #{target} #{@desired_target}\n"
   end
 
   def aim_at_position position
-    @desiredTarget = position
+    @desired_target = position
   end
 
   def initialize(polarIce)
     @polarIce = polarIce
-    @maximumRotation = MAXIMUM_ROTATION
+    @max_rotation = MAXIMUM_ROTATION
     @rotation = INITIAL_ROTATION
-    @desiredHeading = INITIAL_DESIRED_HEADING
-    @desiredTarget = INITIAL_DESIRED_TARGET
+    @desired_heading = INITIAL_DESIRED_HEADING
+    @desired_target = INITIAL_DESIRED_TARGET
   end
 
   def update_state(position, heading)
-    @currentPosition = position
-    @currentHeading = heading
+    @current_position = position
+    @current_heading = heading
   end
 
   attr_accessor(:polarIce)
 end
 module GunnerAccessor
-  def gunnerRotation
+  def gunner_rotation
     gunner.rotation
   end
 
-  def desiredGunnerTarget= target
-    gunner.desiredTarget = target
+  def desired_gunner_target= target
+    gunner.desired_target = target
   end
 
-  def desiredGunnerHeading
-    gunner.desiredHeading
+  def desired_gunner_heading
+    gunner.desired_heading
   end
 
-  def desiredGunnerHeading= heading
-    gunner.desiredHeading = heading
+  def desired_gunner_heading= heading
+    gunner.desired_heading = heading
   end
   attr_accessor(:gunner)
 end
