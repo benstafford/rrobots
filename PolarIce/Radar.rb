@@ -255,7 +255,7 @@ class Radar
     log "radar.check_maintain_lock #{targets}\n"
     remove_partners_from_targets(targets) if (polarIce.current_partner_position != nil)
     if (targets == nil) || (targets.empty?)
-      lock_target_not_found(Sighting.new(polarIce.previousRadarHeading, current_heading, 0, @rotation.direction, current_position, polarIce.time))
+      lock_target_not_found(Sighting.new(polarIce.previous_status.radar_heading, current_heading, 0, @rotation.direction, current_position, polarIce.time))
     else
       lock_target_found(closest_target(targets))
     end
@@ -291,7 +291,7 @@ class Radar
     log "radar.check_broaden_scan #{targets}\n"
     remove_partners_from_targets(targets) if (polarIce.current_partner_position != nil)
     if (targets != nil) && (targets.empty?)
-      broaden_scan_target_not_found(Sighting.new(polarIce.previousRadarHeading, current_heading, 0, @rotation.direction, current_position, polarIce.time))
+      broaden_scan_target_not_found(Sighting.new(polarIce.previous_status.radar_heading, current_heading, 0, @rotation.direction, current_position, polarIce.time))
     else
       broaden_scan_target_found(closest_target(targets))
     end
