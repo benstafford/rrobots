@@ -103,7 +103,7 @@ class LcfVersion03
     if time == 0
       @destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
       @destination_setters[1] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      #@destination_setters[2] = FooSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[2] = FooSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
     end
   end
 
