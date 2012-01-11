@@ -113,7 +113,7 @@ class PairBrute2
   end
 
   def turn_towards_enemy
-    (my_heading.shortest_turn_toward_heading @logbook.last_known_enemy_heading) + DODGE
+    my_heading.shortest_turn_toward_heading(@logbook.last_known_enemy_heading + DODGE)
   end
 
   def desired_turn
