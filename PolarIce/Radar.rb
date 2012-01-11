@@ -33,69 +33,74 @@ class Radar
         event :tick, :awaiting_orders
       end
 
-      state :quick_scan do
-        event :scanned, :sector_scanned, :add_targets
-        event :tick, :quick_scan
-      end
-
-      state :sector_scanned do
-        on_entry :count_sectors_scanned
-        event :scan_incomplete, :quick_scan
+      superstate :quick_scan do
         event :quick_scan_successful, :awaiting_orders
         event :quick_scan_failed, :awaiting_orders
+
+        state :scanning do
+          event :scanned, :sector_scanned, :add_targets
+          event :tick, :scanning
+        end
+
+        state :sector_scanned do
+          on_entry :count_sectors_scanned
+          event :scan_incomplete, :scanning
+        end
       end
 
-      state :rotate do
-        event :tick, :wait_for_rotation
-        event :scanned, :rotate
-      end
-
-      state :wait_for_rotation do
-        on_entry :check_desired_heading
-        event :arrived, :track, :start_track
-        event :rotating, :rotate
-      end
-
-      state :track do
-        event :scanned, :narrow_scan
-        event :tick, :track
-      end
-      
-      state :narrow_scan do
-        on_entry :check_track_scan
-        event :target_locked, :maintain_lock
-        event :target_not_locked, :track
+      superstate :track do
         event :target_lost, :awaiting_orders
-        event :tick, :narrow_scan
-        event :scanned, :narrow_scan
-      end
 
-      state :maintain_lock do
-        on_entry :maintain_lock
-        event :tick, :maintain_lock
-        event :scanned, :check_maintain_lock
-      end
+        state :rotate do
+          event :tick, :wait_for_rotation
+          event :scanned, :rotate
+        end
 
-      state :check_maintain_lock do
-        on_entry :check_maintain_lock
-        event :target_locked, :maintain_lock
-        event :target_not_locked, :broaden_scan
-        event :tick, :check_maintain_lock
-      end
+        state :wait_for_rotation do
+          on_entry :check_desired_heading
+          event :arrived, :tracking, :start_track
+          event :rotating, :rotate
+        end
 
-      state :broaden_scan do
-        on_entry :broaden_scan
-        event :scanned, :check_broaden_scan
-        event :target_lost, :awaiting_orders
-        event :tick, :broaden_scan
-      end
-      
-      state :check_broaden_scan do
-        on_entry :check_broaden_scan
-        event :target_found, :track, :start_track
-        event :target_locked, :maintain_lock
-        event :target_not_found, :broaden_scan
-        event :tick, :broaden_scan
+        state :tracking do
+          event :scanned, :narrow_scan
+          event :tick, :tracking
+        end
+
+        state :narrow_scan do
+          on_entry :check_track_scan
+          event :target_locked, :maintain_lock
+          event :target_not_locked, :tracking
+          event :tick, :narrow_scan
+          event :scanned, :narrow_scan
+        end
+
+        state :maintain_lock do
+          on_entry :maintain_lock
+          event :tick, :maintain_lock
+          event :scanned, :check_maintain_lock
+        end
+
+        state :check_maintain_lock do
+          on_entry :check_maintain_lock
+          event :target_locked, :maintain_lock
+          event :target_not_locked, :broaden_scan
+          event :tick, :check_maintain_lock
+        end
+
+        state :broaden_scan do
+          on_entry :broaden_scan
+          event :scanned, :check_broaden_scan
+          event :tick, :broaden_scan
+        end
+
+        state :check_broaden_scan do
+          on_entry :check_broaden_scan
+          event :target_found, :tracking, :start_track
+          event :target_locked, :maintain_lock
+          event :target_not_found, :broaden_scan
+          event :tick, :broaden_scan
+        end
       end
     end
   end
