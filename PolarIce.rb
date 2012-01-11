@@ -8,6 +8,7 @@ require 'statemachine'
 #                   gem install Statemachine
 
 require 'PolarIce/Logging'
+require 'PolarIce/Targets'
 require 'PolarIce/Numeric'
 require 'PolarIce/Vector'
 require 'PolarIce/Sighting'
@@ -17,6 +18,7 @@ require 'PolarIce/Gunner'
 require 'PolarIce/Radar'
 require 'PolarIce/Loader'
 require 'PolarIce/Commander'
+require 'PolarIce/Status'
 
 class PolarIce
   include Robot
@@ -32,12 +34,11 @@ class PolarIce
 
   def tick events
     log ">>> ID = #{id} :TIME = #{time}\n"
+    log_tick_info
+
     update_state
-    if events != nil
-      process_damage(events['got_hit']) if !events['got_hit'].empty?
-      process_intel(events['broadcasts'])
-      process_radar(events['robot_scanned'])
-    end
+    store_current_status
+    process_events(events) if events != nil
     fire_the_gun
     commander.tick
     move_the_bot
@@ -45,20 +46,22 @@ class PolarIce
     turn_the_radar
     perform_actions
     store_previous_status
-    log "<<< ID = #{id} : TIME = #{time}\n"
+  end
+
+  def process_events(events)
+    process_damage(events['got_hit'])
+    process_intel(events['broadcasts'])
+    process_radar(events['robot_scanned'])
   end
 
   def update_state
-    @currentPosition = Vector[x,y]
+    @current_position = Vector[x,y]
 
-    log_tick_info
-    update_driver_state
-    update_gunner_state
-    update_radar_state
+    driver.update_state(current_position, heading, speed)
+    gunner.update_state(current_position, gun_heading)
+    radar.update_state(current_position, radar_heading)
 
-    if !@initialized
-      initialize_first_tick
-    end
+    initialize_first_tick if !@initialized
   end
 
   def log_tick_info
@@ -70,21 +73,11 @@ class PolarIce
     initialize_state_machine
   end
 
-  def update_driver_state
-    driver.update_state(currentPosition, heading, speed)
-  end
-
-  def update_gunner_state
-    gunner.update_state(currentPosition, gun_heading)
-  end
-
-  def update_radar_state
-    radar.update_state(currentPosition, radar_heading)
-  end
-
   def process_damage(hits)
-    log "process_damage #{hits[0]}\n"
-    @lastHitTime = time
+    if hits != nil
+      log "process_damage #{hits[0]}\n"
+      @last_hit_time = time
+    end
   end
 
   def initialize_state_machine
@@ -109,35 +102,49 @@ class PolarIce
     end
   end
 
-  def process_partner_message(message)
-    log "process_partner_message #{message}\n"
-    if message[0][0] == "P"
-      @currentPartnerPosition[message[0][1].to_i] = decode_vector(message[0][2..-1])
-      log "currentPartnerPosition = #{@currentPartnerPosition}\n"
-    elsif message[0][0] == "T"
-#      gunner.desiredTarget = decode_vector(message[0][2..-1])
-    end
+  def process_partner_position_message(message_source, message_data)
+    @current_partner_position[message_source] = decode_vector(message_data)
   end
 
-  def decode_vector(message)
-    message_x, message_y = message.split(',').map { |s| s.to_i(36).to_f/100 }
-    Vector[message_x,message_y]
+  def process_partner_message(message)
+    log "process_partner_message #{message}\n"
+    message_string = message[0]
+    message_type = message_string[0]
+    message_source = message_string[1].to_i
+    message_data = message_string[2..-1]
+
+    if message_type == "P"
+      process_partner_position_message(message_source, message_data)
+      log "current_partner_position = #{@current_partner_position}\n"
+    elsif message_type == "T"
+#      gunner.desiredTarget = decode_vector(message_data)
+    end
   end
 
   def determine_role(message_count)
     log "determine_role #{message_count}\n"
     if (message_count > 0)
-      if ((@role == :unknown) || (@role == :alone))
-        case time
-          when 1 then become_slave(message_count)
-          when 2 then become_master(message_count)
-        end
-      end
+      determine_role_from_messages(message_count)
     else
-      if (time >= 2)
-        if (@role != :alone)
-          become_alone
-        end
+      determine_role_from_no_messages
+    end
+  end
+
+  def determine_role_from_messages(message_count)
+    if ((@role == :unknown) || (@role == :alone))
+      case time
+        when 1 then
+          become_slave(message_count)
+        when 2 then
+          become_master(message_count)
+      end
+    end
+  end
+
+  def determine_role_from_no_messages
+    if (time >= 2)
+      if (@role != :alone)
+        become_alone
       end
     end
   end
@@ -167,18 +174,18 @@ class PolarIce
   end
 
   def send_position_to_partner
-    @broadcastMessage = "P" + @id.to_s + @currentPosition.encode
+    @broadcast_message = "P" + @id.to_s + @current_position.encode
   end
 
   def send_target_to_partner
-    @broadcastMessage = "T" + @id.to_s + gunner.desiredTarget.encode
+    @broadcast_message = "T" + @id.to_s + gunner.desired_target.encode
   end
 
   def process_radar(robots_scanned)
     targets_scanned = Array.new
     if (robots_scanned != nil)
       robots_scanned.each do |target|
-        targets_scanned << Sighting.new(@previousRadarHeading, radar_heading, target[0], radar.rotation.direction, currentPosition, time)
+        targets_scanned << Sighting.new(@previous_status.radar_heading, radar_heading, target[0], radar.rotation.direction, current_position, time)
       end
     end
     radar.scanned targets_scanned
@@ -190,12 +197,10 @@ class PolarIce
   end
 
   def update_states_for_hull_movement
-    @previousPosition = currentPosition
-    @currentPosition = driver.newPosition
-    gunner.currentPosition = @currentPosition
-    gunner.currentHeading = (gunner.currentHeading + driver.rotation) % 360
-    radar.currentPosition = @currentPosition
-    radar.currentHeading = (radar.currentHeading + driver.rotation) % 360
+    @current_position = driver.new_position
+    rotation = driver.rotation
+    gunner.update_state(@current_position, (gunner.current_heading + rotation) % 360)
+    radar.update_state(@current_position, (radar.current_heading + rotation) % 360)
   end
 
   def turn_the_gun
@@ -204,7 +209,7 @@ class PolarIce
   end
 
   def update_states_for_gun_movement
-    radar.currentHeading = (radar.currentHeading + gunner.rotation) % 360
+    radar.current_heading = (radar.current_heading + gunner.rotation) % 360
   end
 
   def turn_the_radar
@@ -212,21 +217,26 @@ class PolarIce
   end
 
   def perform_actions
-    log "perform_actions #{time}: t=#{driver.rotation} g=#{gunner.rotation} r=#{radar.rotation} a=#{driver.acceleration} f=#{loader.power} b=#{@broadcastMessage}\n"
+    log_actions
     turn driver.rotation
     accelerate driver.acceleration
     turn_gun gunner.rotation
     fire loader.power
     turn_radar radar.rotation
-    broadcast @broadcastMessage
+    broadcast @broadcast_message
     say @quote
   end
 
+  def log_actions
+    log "perform_actions #{time}: t=#{driver.rotation} g=#{gunner.rotation} r=#{radar.rotation} a=#{driver.acceleration} f=#{loader.power} b=#{@broadcast_message}\n"
+  end
+
+  def store_current_status
+    @current_status = Status.new(@current_position, heading, gun_heading, radar_heading, speed)
+  end
+
   def store_previous_status
-    @previousHeading = heading
-    @previousGunHeading = gun_heading
-    @previousRadarHeading = radar_heading
-    @previousSpeed = speed
+    @previous_status = @current_status
   end
 
   def stop
@@ -285,6 +295,8 @@ class PolarIce
   end
 
   def initialize
+    @current_status = Status.new(nil, 0, 0, 0, 0)
+    @previous_status = Status.new(nil, 0, 0, 0, 0)
     initialize_crew
     initialize_basic_operations
     initialize_role
@@ -300,7 +312,7 @@ class PolarIce
   end
 
   def initialize_basic_operations
-    @broadcastMessage = INITIAL_BROADCAST_MESSAGE
+    @broadcast_message = INITIAL_BROADCAST_MESSAGE
     @quote = INITIAL_QUOTE
   end
 
@@ -310,22 +322,22 @@ class PolarIce
   end
 
   def initialize_partner_communications
-    @currentPartnerPosition = Array.new
+    @current_partner_position = Array.new
   end
 
-  attr_reader(:currentPosition)
+  attr_reader(:current_position)
 
   attr_accessor(:commander)
 
-  attr_accessor(:broadcastMessage)
+  attr_accessor(:broadcast_message)
 
   attr_accessor(:quote)
-  attr_accessor(:lastHitTime)
+  attr_accessor(:last_hit_time)
 
-  attr_accessor(:previousRadarHeading)
-  attr_accessor(:previousPosition)
+  attr_accessor(:current_status)
+  attr_accessor(:previous_status)
 
-  attr_accessor(:currentPartnerPosition)
+  attr_accessor(:current_partner_position)
 
   attr_accessor(:role)
   attr_accessor(:id)

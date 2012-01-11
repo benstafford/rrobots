@@ -6,7 +6,6 @@ require 'InvaderMath'
 require 'InvaderMovementEngine'
 require 'InvaderRadarEngine'
 require 'InvaderLogger'
-require 'LcfVersion02'
 
 class NewInvader
    include Robot
@@ -23,10 +22,12 @@ class NewInvader
   attr_accessor :enemy_direction
   attr_accessor :enemy_speed
   attr_accessor :last_target_time
+  attr_accessor :my_id
+  attr_accessor :move_engine
+  attr_accessor :fire_engine
+  attr_accessor :radar_engine
 
   PERSISTENT_TARGET_TIME = 4
-  @@private_battlefield =  Battlefield.new 1600, 1600, 50001, Time.now.to_i
-
   def initialize
     @is_master = false
     if @@number_classes_initialized % 2 == 1
@@ -41,9 +42,6 @@ class NewInvader
     @fire_engine =  InvaderFiringEngine.new(self)
     @radar_engine = InvaderRadarEngine.new(self)
 
-    @loren_shield = Object.const_get("LcfVersion02").new
-    @loren_shield = RobotRunner.new(@loren_shield, @@private_battlefield, 1)
-    @@private_battlefield << @loren_shield
     @heading_of_edge = nil
     @friend = nil
     @friend_id = nil
@@ -58,27 +56,32 @@ class NewInvader
   end
 
   def tick events
+   # if time == 0
+   #   declare_victory
+   # end
     react_to_events
     move
     fire_gun
     radar_sweep
+    make_turns
     send_broadcast
-    deflect_loren
+    @@logger.LogStatusToFile self
   end
 
-  def deflect_loren
-    @loren_shield.x = x
-    @loren_shield.y = y
-    begin
-      @loren_shield.internal_tick
-    rescue
-      puts "loren bot error'd'"
-    end
+  def declare_victory
+    ObjectSpace.each_object(Robot) {|o|
+      if o.class != self.class
+        classname = "#{o.class}"
+        require classname
+        if classname == "LcfVersion02" or classname == "LcfVersion03"
+          say "Loren!"
+        end
+      end
+    }
   end
 
-  def change_mode desired_mode
-    @mode = desired_mode
-    radar_engine.ready_for_metronome = false
+  def got_hit?
+    !events['got_hit'].empty?
   end
 
   def opposite_edge
@@ -99,7 +102,6 @@ class NewInvader
     distance_to_edge edge, location, battlefield_width, battlefield_height
   end
 
-  private
   def fire_engine
     @fire_engine
   end
@@ -108,9 +110,7 @@ class NewInvader
     @radar_engine
   end
 
-  def move_engine
-    @move_engine
-  end
+  private
 
   def send_broadcast
     broadcast "#{@my_id}"
@@ -129,28 +129,34 @@ class NewInvader
     if !@last_target_time.nil?
       if time - @last_target_time == PERSISTENT_TARGET_TIME
         @last_target_time = nil
-        @target = nil
+        #@target = nil
       end
     end
   end
 
   def move
-    move_engine.move
-    accelerate move_engine.accelerate
-    if move_engine.turn != 0
-      turn move_engine.turn
-    end
+    @move_engine.move
   end
 
   def fire_gun
     fire_engine.fire
-    turn_gun (0 - move_engine.turn) + fire_engine.turn_gun
-    fire fire_engine.firepower unless fire_engine.firepower == 0
   end
 
   def radar_sweep
     radar_engine.radar_sweep
-    turn_radar (0 - move_engine.turn) + (0 - fire_engine.turn_gun) + radar_engine.turn_radar
+  end
+
+  def make_turns
+    accelerate @move_engine.accelerate
+    move_turn = [[@move_engine.turn, 10].min, -10].max
+    turn move_turn if move_turn != 0
+
+    gun_turn = [[(0 - move_turn) + fire_engine.turn_gun,30].min, -30].max
+    turn_gun gun_turn if gun_turn !=0
+    fire fire_engine.firepower unless fire_engine.firepower == 0
+
+    radar_turn = [[(0 - (gun_turn + move_turn)) + radar_engine.turn_radar, 60].min, -60].max
+    turn_radar radar_turn if radar_turn != 0
   end
 
   def get_broadcast
@@ -176,7 +182,7 @@ class NewInvader
   def record_broadcast_enemy
     @broadcast_enemy = nil
     if !@friend_id.nil?
-      @broadcast_enemy = @@logger.getFoundEnemy(@friend_id)
+      @broadcast_enemy = @@logger.getFoundEnemy(@friend_id, time)
     end
   end
 

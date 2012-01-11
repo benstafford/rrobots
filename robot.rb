@@ -198,7 +198,7 @@ class RobotRunner
     @accelerate_min, @accelerate_max = -1, 1
     @teleport_min, @teleport_max = 0, 100
     @say_max = 256
-    @broadcast_max = 16
+    @broadcast_max = 50
   end
 
   def hit bullet

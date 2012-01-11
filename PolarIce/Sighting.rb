@@ -1,3 +1,4 @@
+#A Sighting provides information about a sighting on radar
 class Sighting
   T = 0
   R = 1
@@ -12,13 +13,13 @@ class Sighting
   end
 
   def to_s
-    "Sighting[start=#{@start_angle},end=#{@end_angle},distance=#{@distance},direction=#{@direction.trim(2)},origin=#{@origin},time=#{@time}]"
+    "Sighting[start=#{@start_angle},end=#{@end_angle},distance=#{@distance},direction=#{@direction.round},origin=#{@origin},time=#{@time}]"
   end
 
   def central_angle
-    arc1 = (360 + @start_angle - @end_angle).normalize_angle
-    arc2 = 360 - arc1
-    [arc1, arc2].min
+    arc = (360 + @start_angle - @end_angle).normalize_angle
+    arc_remainder = 360 - arc
+    [arc, arc_remainder].min
   end
 
   def arc_length
@@ -36,10 +37,11 @@ class Sighting
   end
 
   def bisector
+    half_angle = central_angle / 2
     if (highest_angle - lowest_angle) > 180
-      (lowest_angle - central_angle / 2).normalize_angle
+      (lowest_angle - half_angle).normalize_angle
     else
-      (lowest_angle + central_angle / 2).normalize_angle
+      (lowest_angle + half_angle).normalize_angle
     end
   end
 
@@ -57,10 +59,11 @@ class Sighting
 
   def contains(position)
     vector = origin.polar_vector_to(position)
-    if (vector[R] == distance)
-      contains_angle(vector[T])
-    elsif (vector[R] < distance)
-      central_angle < 6 && contains_angle(vector[T])
+    radius, angle = vector[R], vector[T]
+    if (radius == distance)
+      contains_angle(angle)
+    elsif (radius < distance)
+      central_angle < 6 && contains_angle(angle)
     else
       false
     end

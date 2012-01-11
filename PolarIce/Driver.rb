@@ -1,3 +1,4 @@
+#The Driver is responsible for turning and moving the tank.
 class Driver
   include Rotator
 
@@ -15,18 +16,18 @@ class Driver
   INITIAL_DESIRED_MAXIMUM_SPEED = 8
 
   def tick
-    @stateMachine.tick
+    @state_machine.tick
   end
 
   def update_state(position, heading, speed)
-    @currentPosition = position
-    @currentHeading = heading
-    @currentSpeed = speed
+    @current_position = position
+    @current_heading = heading
+    @current_speed = speed
   end
 
   def initialize_state_machine
     driver = self
-    @stateMachine = Statemachine.build do
+    @state_machine = Statemachine.build do
       context driver
 
       state :awaiting_orders do
@@ -63,19 +64,19 @@ class Driver
 
   def stop
     log "driver.stop\n"
-    @stateMachine.stop
+    @state_machine.stop
   end
 
   def do_stop
     log "driver.do_stop\n"
-    @desiredSpeed = 0
-    @desiredTarget = nil
-    @stateMachine.tick
+    @desired_speed = 0
+    @desired_target = nil
+    @state_machine.tick
   end
 
   def wait_for_stop
     log "driver.wait_for_stop\n"
-    if (@currentSpeed == 0)
+    if (@current_speed == 0)
       stopped
     else
       stopping
@@ -84,19 +85,19 @@ class Driver
 
   def stopped
     log "driver.stopped\n"
-    @stateMachine.stopped
+    @state_machine.stopped
     polarIce.stopped
   end
 
   def stopping
     log "driver.stopping\n"
-    @stateMachine.stopping
+    @state_machine.stopping
   end
 
   def lock
     log "driver.lock\n"
-    @stateMachine.lock
-    @desiredSpeed = 0
+    @state_machine.lock
+    @desired_speed = 0
   end
 
   def locked
@@ -105,28 +106,28 @@ class Driver
 
   def locked_tick
     rotator_tick
-    accelerate if @currentSpeed != nil && @desiredSpeed != nil
+    accelerate if @current_speed != nil && @desired_speed != nil
     calculate_new_position
   end
 
   def unlock
     log "driver.unlock\n"
-    @stateMachine.unlock
+    @state_machine.unlock
   end
 
   def default_tick
     rotator_tick
-    move if @currentPosition != nil && @desiredTarget != nil
-    accelerate if @currentSpeed != nil && @desiredSpeed != nil
+    move if @current_position != nil && @desired_target != nil
+    accelerate if @current_speed != nil && @desired_speed != nil
     calculate_new_position
   end
 
   def move
-    @desiredSpeed = calculate_desired_speed
+    @desired_speed = calculate_desired_speed
   end
 
   def calculate_desired_speed
-    Math.sqrt(currentPosition.distance_to(@desiredTarget)).floor.clamp(MAXIMUM_SPEED).clamp(@desiredMaximumSpeed)
+    Math.sqrt(current_position.distance_to(@desired_target)).floor.clamp(MAXIMUM_SPEED).clamp(@desired_max_speed)
   end
 
   def accelerate
@@ -134,65 +135,66 @@ class Driver
   end
 
   def calculate_acceleration
-    (@desiredSpeed - @currentSpeed).clamp(MAXIMUM_ACCELERATION)
+    (@desired_speed - @current_speed).clamp(MAXIMUM_ACCELERATION)
   end
 
   def calculate_new_position
-    newSpeed = @currentSpeed + @acceleration
-    newHeading = @currentHeading + @rotation
-    @newPosition = @currentPosition + Vector[newHeading, newSpeed].to_cartesian
+    new_speed = @current_speed + @acceleration
+    new_heading = @current_heading + @rotation
+    @new_position = @current_position + Vector[new_heading, new_speed].to_cartesian
   end
 
   def initialize polarIce
     @polarIce = polarIce
-    @maximumRotation = MAXIMUM_ROTATION
+    @max_rotation = MAXIMUM_ROTATION
     @acceleration = INITIAL_ACCELERATION_RATE
     @rotation = INITIAL_ROTATION
-    @desiredHeading = INITIAL_DESIRED_HEADING
-    @desiredTarget = INITIAL_DESIRED_POSITION
-    @desiredSpeed = INITIAL_DESIRED_SPEED
-    @desiredMaximumSpeed = INITIAL_DESIRED_MAXIMUM_SPEED
+    @desired_heading = INITIAL_DESIRED_HEADING
+    @desired_target = INITIAL_DESIRED_POSITION
+    @desired_speed = INITIAL_DESIRED_SPEED
+    @desired_max_speed = INITIAL_DESIRED_MAXIMUM_SPEED
     initialize_state_machine
   end
 
-  attr_accessor(:currentSpeed)
-  attr_accessor(:desiredSpeed)
-  attr_accessor(:desiredMaximumSpeed)
+  attr_accessor(:current_speed)
+  attr_accessor(:desired_speed)
+  attr_accessor(:desired_max_speed)
   attr_accessor(:acceleration)
-  attr_accessor(:newPosition)
+  attr_accessor(:new_position)
   attr_accessor(:polarIce)
 end
+
 module DriverAccessor
-  def driverRotation
+  def driver_rotation
     driver.rotation
   end
 
-  def desiredDriverTarget
-    driver.desiredTarget
+  def desired_driver_target
+    driver.desired_target
   end
 
-  def desiredDriverTarget= target
-    driver.desiredTarget = target
+  def desired_driver_target= target
+    driver.desired_target = target
   end
 
-  def desiredDriverHeading
-    driver.desiredHeading
+  def desired_driver_heading
+    driver.desired_heading
   end
 
-  def desiredDriverHeading= heading
-    driver.desiredHeading = heading
+  def desired_driver_heading= heading
+    driver.desired_heading = heading
   end
 
-  def desiredDriverSpeed
-    driver.desiredSpeed
+  def desired_driver_speed
+    driver.desired_speed
   end
 
-  def desiredDriverSpeed= speed
-    driver.desiredSpeed = speed
+  def desired_driver_speed= speed
+    driver.desired_speed = speed
   end
 
-  def desiredDriverMaximumSpeed= speed
-    driver.desiredMaximumSpeed = speed
+  def desired_driver_max_speed= speed
+    driver.desired_max_speed = speed
   end
   attr_accessor(:driver)
 end
