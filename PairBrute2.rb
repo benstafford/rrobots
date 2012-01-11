@@ -12,6 +12,7 @@ class PairBrute2
   GUN_TURN_RANGE = 6..12
   FIRE_POWER = 2.9
   MAX_DISTANCE_FROM_ENEMY = 60
+  DODGE = 40
 
   def initialize
     @logbook = Logbook.new(self)
@@ -111,11 +112,15 @@ class PairBrute2
     (my_location.distance_to center) > MAX_DISTANCE_FROM_CENTER
   end
 
+  def turn_towards_enemy
+    (my_heading.shortest_turn_toward_heading @logbook.last_known_enemy_heading) + DODGE
+  end
+
   def desired_turn
     case
       when center_too_far_away?  then shortest_turn_toward_point center
       when partner_too_close?    then turn_away_from_point partner_location
-      when enemy_too_far_away?   then my_heading.shortest_turn_toward_heading @logbook.last_known_enemy_heading
+      when enemy_too_far_away?   then turn_towards_enemy
       when partner_too_far_away? then shortest_turn_toward_point partner_location
       else 0
     end
