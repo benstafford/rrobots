@@ -4,3 +4,5 @@
 .idea/*
 *.rb~
 *.txt
+*.html
+*.yml
