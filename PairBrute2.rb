@@ -5,7 +5,6 @@ class PairBrute2
   attr_reader :partner
 
   GAME_RULES_ROBOT_TURN_LIMIT = 10
-
   MAX_DISTANCE_FROM_CENTER  = 725
   DESIRED_DISTANCE_FROM_PARTNER = 500..800
   MIN_PARTNER_SAFETY_ANGLE = 26
@@ -32,12 +31,10 @@ class PairBrute2
   def tick events
     @logbook.take_reading!
     set_ticks_since_enemy_scanned_and_desired_gun_move!
-
     if shootable_enemy?
       @logbook.shootable_enemy_sighted!
       fire FIRE_POWER
     end
-
     turned_robot_degrees = move_robot!
     turn_gun_accounting_for turned_robot_degrees
     broadcast my_location.to_msg
@@ -113,7 +110,7 @@ class PairBrute2
   end
 
   def turn_towards_enemy
-    (my_heading.shortest_turn_toward_heading @logbook.last_known_enemy_heading) + DODGE
+    my_heading.shortest_turn_toward_heading(@logbook.last_known_enemy_heading + DODGE)
   end
 
   def desired_turn
@@ -184,7 +181,6 @@ class PairBrute2
     def to_msg
       "#{x.round}|#{y.round}"
     end
-
   end
 
   class Readout
@@ -251,4 +247,3 @@ class PairBrute2
      end
   end
 end
-
