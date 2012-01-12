@@ -5,7 +5,9 @@ class FooSetter < DestinationSetter
 
   def calculate_destination bot
     @angle_direction = -1 if @angle_direction.nil?
-    #@angle_direction *= -1 if (@ticks_used % 150) == 0
-    return bot.return_cord bot.x_location, bot.y_location, bot.my_gun_heading + (90 * @angle_direction), -100
+    angle = 90
+    @angle_direction *= -1 if (@ticks_used % 25) == 0
+
+    return bot.return_cord bot.x_location, bot.y_location, bot.my_gun_heading + (angle * @angle_direction), -100
   end
 end

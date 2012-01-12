@@ -101,9 +101,9 @@ class LcfVersion03
     @pair_y_destination = @@pairs_y_destination
 
     if time == 0
-      @destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      @destination_setters[1] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      @destination_setters[2] = FooSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      #@destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[0] = FooSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      #@destination_setters[2] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
     end
   end
 
@@ -159,7 +159,7 @@ class LcfVersion03
   end
 
   def fire_fire
-    fire_power = 0.1
+    fire_power = 3.0
     if (@dont_shoot_max_right != nil) && (@dont_shoot_max_left != nil)
       if (@dont_shoot_max_right < gun_heading.to_f) && (gun_heading.to_f < @dont_shoot_max_left)
         fire_power = 0
