@@ -19,6 +19,7 @@ require 'PolarIce/Radar'
 require 'PolarIce/Loader'
 require 'PolarIce/Commander'
 require 'PolarIce/Status'
+require 'PolarIce/Target'
 
 class PolarIce
   include Robot
@@ -249,6 +250,7 @@ class PolarIce
 
   def start_quick_scan
     radar.scan
+    gunner.clear_target
   end
 
   def quick_scan_successful(targets)
@@ -268,10 +270,6 @@ class PolarIce
   def update_target(target)
     log "polarIce.update_target #{target}\n"
     commander.update_target(target)
-  end
-
-  def aim_at_position position
-    gunner.aim_at_position position
   end
 
   def track(target)

@@ -270,6 +270,7 @@ class Radar
     log "radar.lock_target_found #{target}\n"
     @current_target = target
     @desired_heading = @current_target.start_angle
+    @polarIce.update_target(target)
     @state_machine.target_locked(target)
   end
 

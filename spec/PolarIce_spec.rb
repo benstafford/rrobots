@@ -823,7 +823,6 @@ describe 'PolarIce' do
         target = Vector[968,1540]
         angle = Math.atan2(position[1] - target[1], target[0] - position[0]).to_deg.normalize_angle
         distance = Math.hypot(target[0] - position[0], target[1] - position[1])
-#        print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
 
         @bot.stub!(:x).and_return(position[0])
         @bot.stub!(:y).and_return(position[1])
@@ -979,6 +978,60 @@ describe 'Sighting' do
       sighting = Sighting.new(15, 355, 100, -1, @position, 0)
       sighting.broaden(10)
       sighting.start_angle.should == 25
+    end
+  end
+end
+
+describe 'Target' do
+  before (:each) do
+    @target = Target.new(Vector[800,800], 0)
+  end
+  it 'should have a current position' do
+    @target.position.should == Vector[800,800]
+  end
+  it 'should have the time of the last update' do
+    @target.time.should == 0
+  end
+  it 'should have velocity of 0' do
+    @target.velocity.should == 0
+  end
+  it 'should have a heading of 0' do
+    @target.heading.should == 0
+  end
+  it 'should have a velocity vector of 0,0' do
+    @target.velocity_vector.should == Vector[0,0]
+  end
+  describe 'It should accept updates' do
+    before(:each) do
+      @new_position = Vector[792,800]
+      @new_time = 1
+      @target.update(@new_position, @new_time)
+    end
+    it 'should update its position' do
+      @target.position.should == @new_position
+    end
+    it 'should update its time' do
+      @target.time.should == @new_time
+    end
+    it 'should update its velocity' do
+      @target.velocity.should == 8
+    end
+    it 'should update its heading' do
+      @target.heading.should == 180
+    end
+  end
+  it 'should provide a velocity vector' do
+    target = Target.new(Vector[800,800], 0)
+    target.update(Vector[805,795],1)
+    target.velocity_vector.should == Vector[5,-5]
+    target.update(Vector[795, 805], 3)
+    target.velocity_vector.should == Vector[-5,5]
+  end
+  describe 'It should calculate linear firing angles' do
+    it 'should calculate impact times' do
+      target = Target.new(Vector[800,800], 0)
+      target.update(Vector[800,800], 1)
+      target.impact_time(Vector[740,800], 30).should == 2
     end
   end
 end
