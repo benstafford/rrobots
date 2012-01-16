@@ -27,7 +27,7 @@ class NewInvader
   attr_accessor :fire_engine
   attr_accessor :radar_engine
 
-  PERSISTENT_TARGET_TIME = 4
+  PERSISTENT_TARGET_TIME = 15
   def initialize
     @is_master = false
     if @@number_classes_initialized % 2 == 1
@@ -53,12 +53,10 @@ class NewInvader
     @enemy_speed = nil
     @current_direction = 1
     @at_edge = false
+    @energy_last_turn = 100
   end
 
   def tick events
-   # if time == 0
-   #   declare_victory
-   # end
     react_to_events
     move
     fire_gun
@@ -66,22 +64,13 @@ class NewInvader
     make_turns
     send_broadcast
     @@logger.LogStatusToFile self
-  end
-
-  def declare_victory
-    ObjectSpace.each_object(Robot) {|o|
-      if o.class != self.class
-        classname = "#{o.class}"
-        require classname
-        if classname == "LcfVersion02" or classname == "LcfVersion03"
-          say "Loren!"
-        end
-      end
-    }
+    @energy_last_turn = energy
   end
 
   def got_hit?
-    !events['got_hit'].empty?
+    strength = @energy_last_turn - energy
+    #puts "#{strength}" if strength > 0
+    return !events['got_hit'].empty?, strength
   end
 
   def opposite_edge
@@ -129,7 +118,7 @@ class NewInvader
     if !@last_target_time.nil?
       if time - @last_target_time == PERSISTENT_TARGET_TIME
         @last_target_time = nil
-        #@target = nil
+        @target = nil
       end
     end
   end

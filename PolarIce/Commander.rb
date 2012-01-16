@@ -13,7 +13,7 @@ class Commander
 
       state :initializing do
         event :base_test, :base_test
-        event :scan, :stop_for_quick_scan
+        event :scan, :quick_scan
         event :await_comm, :await_comm
       end
 
@@ -24,33 +24,36 @@ class Commander
 
       state :await_comm do
         on_entry :await_comm
-        event :become_alone, :stop_for_quick_scan
-        event :become_master, :stop_for_quick_scan
-        event :become_slave, :stop_for_quick_scan
+        event :become_alone, :quick_scan
+        event :become_master, :quick_scan
+        event :become_slave, :quick_scan
       end
 
       state :await_orders do
         on_entry :await_orders
         event :target, :await_orders, :target
-        event :become_alone, :stop_for_quick_scan
-      end
-
-      state :stop_for_quick_scan do
-        on_entry :stop_for_quick_scan
-        event :stopped, :quick_scan
-      end
-
-      state :quick_scan do
-        on_entry :start_quick_scan
-        on_exit :end_quick_scan
-        event :quick_scan_successful, :track, :add_targets
-        event :quick_scan_failed, :quick_scan, :start_quick_scan
         event :become_alone, :quick_scan
       end
-      
+
+      superstate :quick_scan do
+        event :quick_scan_successful, :track, :add_targets
+
+        state :stop_for_quick_scan do
+          on_entry :stop_for_quick_scan
+          event :stopped, :scanning
+        end
+
+        state :scanning do
+          on_entry :start_quick_scan
+          on_exit :end_quick_scan
+          event :quick_scan_failed, :scanning, :start_quick_scan
+          event :become_alone, :scanning
+        end
+      end
+
       state :track do
         on_entry :start_tracking
-        event :target_lost, :stop_for_quick_scan
+        event :target_lost, :quick_scan
         event :update_target, :track, :aim_at_target
         event :become_alone, :track
       end
@@ -97,10 +100,6 @@ class Commander
     @state_machine.target(position)
   end
   
-  def aim_at_position position
-    polarIce.aim_at_position position
-  end
-
   def stop_for_quick_scan
     log "commander.stop_for_quick_scan\n"
     polarIce.stop
@@ -160,12 +159,12 @@ class Commander
   end
 
   def update_target(target)
-    log "commander.update_target #{target}"
+    log "commander.update_target #{target}\n"
     @state_machine.update_target(target)
   end
 
   def aim_at_target(target)
-    log "commander.aim_at_target #{target}"
+    log "commander.aim_at_target #{target}\n"
     polarIce.target(target)
   end
 

@@ -9,6 +9,7 @@ class TkArena
   attr_accessor :speed_multiplier, :on_game_over_handlers
   attr_accessor :canvas, :boom, :robots, :bullets, :explosions, :colors
   attr_accessor :default_skin_prefix
+  attr_accessor :show_radar
 
   def initialize battlefield, xres, yres, speed_multiplier
     @battlefield = battlefield
@@ -17,6 +18,8 @@ class TkArena
     @text_colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff', '#ffffff', '#777777']
     @default_skin_prefix = "images/red_"
     @on_game_over_handlers = []
+    @radar_lines = []
+    @show_radar = false
     init_canvas
     init_simulation
   end
@@ -80,6 +83,7 @@ class TkArena
 
   def draw_frame
     simulate(@speed_multiplier)
+    #TkcRectangle.new(@canvas, 0,0, xres, yres, :fill=>'black' )
     draw_battlefield
   end
 
@@ -117,6 +121,10 @@ class TkArena
   end
 
   def draw_battlefield
+    while !@radar_lines.empty?
+      old_line = @radar_lines.pop
+      @canvas.delete(old_line)
+    end
     draw_robots
     draw_bullets
     draw_explosions
@@ -144,11 +152,23 @@ class TkArena
                                   :coords => [ai.x / 2, ai.y / 2])
       @robots[ai].radar.configure(:image => @colors[ai.team].radar[(ai.radar_heading+5) / 10],
                                   :coords => [ai.x / 2, ai.y / 2])
+      draw_radar ai
       @robots[ai].speech.configure(:text => "#{ai.speech}",
                                    :coords => [ai.x / 2, ai.y / 2 - ai.size / 2])
       @robots[ai].info.configure(:text => "#{ai.name}\n#{'|' * (ai.energy / 5)}",
                                  :coords => [ai.x / 2, ai.y / 2 + ai.size / 2])
       @robots[ai].status.configure(:text => "#{ai.name.ljust(20)} #{'%.1f' % ai.energy}")
+    end
+  end
+
+  def draw_radar robot
+    if @show_radar
+      angle = robot.radar_heading
+      x = robot.x + (Math.cos(angle * Math::PI/180) * 3200)
+      y = robot.y - (Math.sin(angle * Math::PI/180) * 3200)
+      radar_line = TkcLine.new(@canvas, robot.x/2, robot.y/2, x/2, y/2)
+      radar_line.fill @text_colors[robot.team]
+      @radar_lines << radar_line
     end
   end
 

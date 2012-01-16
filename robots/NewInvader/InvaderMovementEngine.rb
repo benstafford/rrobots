@@ -14,14 +14,17 @@ class InvaderMovementEngine
     @patrol = InvaderDriverPatroller.new(invader, self)
     @evade = InvaderDriverEvader.new(invader, self)
     @last_hit = 0
+    @strength = 0
   end
 
   def move
     @accelerate = 0
     @turn = 0
     @robot.at_edge = at_edge?
-    @last_hit = @robot.time if @robot.got_hit?
-    if @last_hit > 0 and @robot.time - @last_hit < 36
+    got_hit, strength = @robot.got_hit?
+    @last_hit = @robot.time if got_hit
+    @strength = strength if got_hit
+    if @last_hit > 0 and @robot.time - @last_hit < 36 and @strength < 2.8
       @evade.move
     else
       if @robot.at_edge and !edge_conflict?

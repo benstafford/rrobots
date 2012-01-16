@@ -6,12 +6,25 @@ class Vector
   T = 0
   R = 1
 
+
+  def cross_product(v)
+    self[X] * v[Y] - self[Y] * v[X]
+  end
+
   def angle_to(position)
     (Math.atan2(self[Y] - position[Y], position[X] - self[X]).to_deg.normalize_angle).round
   end
 
   def distance_to(desired_target)
     Math.hypot(desired_target[X] - self[X], desired_target[Y] - self[Y])
+  end
+
+  def velocity_to(position, time)
+    (position - self) / time
+  end
+
+  def vector_to(position)
+    position - self
   end
 
   def to_cartesian
