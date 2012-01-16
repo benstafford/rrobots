@@ -28,10 +28,8 @@ class InvaderFiringEngine
   def power_based_on_distance
     this = InvaderPoint.new(@robot.x, @robot.y)
     distance = distance_between_objects(this, target)
-    firepower = 3.0 - (distance/780)
-    return firepower
-    #0.3
-    #3.0
+    firepower = 3.0 - ((distance-120)/226)
+    [[firepower, 3.0].min, 0.3].max
   end
 
   def dont_fire_at_friend
@@ -77,9 +75,6 @@ class InvaderFiringEngine
       new_y = new_y - enemy_y_velocity
     end
     InvaderPoint.new(new_x, new_y)
-    #x_component = (x_distance/time + enemy_x_velocity)/30
-    #y_component = (y_distance/time + enemy_y_velocity)/30
-
   end
 
   def shoot
