@@ -36,9 +36,10 @@ def run_out_of_gui(battlefield)
   exit 0
 end
 
-def run_in_gui(battlefield, xres, yres, speed_multiplier)
+def run_in_gui(battlefield, xres, yres, speed_multiplier, show_radar)
   require 'tkarena'
   arena = TkArena.new(battlefield, xres, yres, speed_multiplier)
+  arena.show_radar = show_radar
   game_over_counter = battlefield.teams.all?{|k,t| t.size < 2} ? 250 : 500
   outcome_printed = false
   arena.on_game_over{|battlefield|
@@ -121,6 +122,12 @@ ARGV.grep( /^-timeout=(\d+)/ )do |item|
   ARGV.delete(item)
 end
 
+ show_radar = false
+ARGV.grep( /^show_radar/ )do |item|
+  show_radar = true
+  ARGV.delete(item)
+end
+
 #look for teams arg
 team_count = 8
 ARGV.grep( /^-teams=(\d)/ )do |item|
@@ -130,7 +137,7 @@ ARGV.grep( /^-teams=(\d)/ )do |item|
 end
 teams = Array.new([team_count, ARGV.size].min){ [] }
 
-usage if ARGV.size > 8 || ARGV.empty?
+usage if ARGV.size > 9 || ARGV.empty?
 
 battlefield = Battlefield.new xres*2, yres*2, timeout, seed
 
@@ -163,5 +170,5 @@ end
 if mode == :run_out_of_gui
   run_out_of_gui(battlefield)
 else
-  run_in_gui(battlefield, xres, yres, speed_multiplier)
+  run_in_gui(battlefield, xres, yres, speed_multiplier, show_radar)
 end

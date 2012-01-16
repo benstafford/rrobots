@@ -1,3 +1,4 @@
+#The Loader is responsible for determining the fire power to use in the gun.
 class Loader
   def tick
   end
@@ -13,12 +14,13 @@ class Loader
 
   attr_accessor(:power)
 end
+
 module LoaderAccessor
-  def desiredLoaderPower
+  def desired_loader_power
     loader.power
   end
 
-  def desiredLoaderPower= power
+  def desired_loader_power= power
     loader.power = power
   end
   attr_accessor(:loader)

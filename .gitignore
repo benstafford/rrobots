@@ -3,3 +3,6 @@
 .DS_Store
 .idea/*
 *.rb~
+*.txt
+*.html
+*.yml

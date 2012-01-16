@@ -1,3 +1,4 @@
+#The Commander is responsible for giving instructions to the other crew members.
 class Commander
   X = 0
   Y = 1
@@ -7,34 +8,54 @@ class Commander
 
   def initialize_state_machine
     commander = self
-    @stateMachine = Statemachine.build do
+    @state_machine = Statemachine.build do
       context commander
 
       state :initializing do
-        event :scan, :stop_for_quick_scan
         event :base_test, :base_test
+        event :scan, :quick_scan
+        event :await_comm, :await_comm
       end
 
       state :base_test do
         event :scan, :base_test
+        event :await_comm, :base_test
       end
 
-      state :stop_for_quick_scan do
-        on_entry :stop_for_quick_scan
-        event :stopped, :quick_scan
+      state :await_comm do
+        on_entry :await_comm
+        event :become_alone, :quick_scan
+        event :become_master, :quick_scan
+        event :become_slave, :quick_scan
       end
 
-      state :quick_scan do
-        on_entry :start_quick_scan
-        on_exit :end_quick_scan
+      state :await_orders do
+        on_entry :await_orders
+        event :target, :await_orders, :target
+        event :become_alone, :quick_scan
+      end
+
+      superstate :quick_scan do
         event :quick_scan_successful, :track, :add_targets
-        event :quick_scan_failed, :quick_scan, :start_quick_scan
+
+        state :stop_for_quick_scan do
+          on_entry :stop_for_quick_scan
+          event :stopped, :scanning
+        end
+
+        state :scanning do
+          on_entry :start_quick_scan
+          on_exit :end_quick_scan
+          event :quick_scan_failed, :scanning, :start_quick_scan
+          event :become_alone, :scanning
+        end
       end
-      
+
       state :track do
         on_entry :start_tracking
-        event :target_lost, :stop_for_quick_scan
+        event :target_lost, :quick_scan
         event :update_target, :track, :aim_at_target
+        event :become_alone, :track
       end
     end
   end
@@ -44,14 +65,41 @@ class Commander
 
   def base_test
     log "commander.base_test\n"
-    @stateMachine.base_test
+    @state_machine.base_test
   end
 
   def init
-    log "commander.scan\n"
-    @stateMachine.scan
+    log "commander.init\n"
+    @state_machine.await_comm
   end
 
+  def await_comm
+    log "commander.await_comm\n"
+  end
+
+  def become_master
+    log "commander.become_master\n"
+    @state_machine.become_master
+  end
+
+  def become_slave
+    log "commander.become_slave\n"
+    @state_machine.become_slave
+  end
+
+  def become_alone
+    log "commander.become_alone\n"
+    @state_machine.become_alone
+  end
+
+  def await_orders
+    log "commander.await_orders\n"
+  end
+
+  def target position
+    @state_machine.target(position)
+  end
+  
   def stop_for_quick_scan
     log "commander.stop_for_quick_scan\n"
     polarIce.stop
@@ -59,16 +107,14 @@ class Commander
 
   def stopped
     log "commander.stopped\n"
-    @stateMachine.stopped
+    @state_machine.stopped
   end
   
   def start_quick_scan
     log "commander.start_quick_scan\n"
-    @originalHeading = polarIce.heading
-    @sectorsScanned = 0
     @targets.clear
-    polarIce.start_quick_scan
     polarIce.lock
+    polarIce.start_quick_scan
   end
 
   def end_quick_scan
@@ -77,12 +123,12 @@ class Commander
 
   def quick_scan_failed
     log "commander.quick_scan_failed\n"
-    @stateMachine.quick_scan_failed
+    @state_machine.quick_scan_failed
   end
 
   def quick_scan_successful(targets)
     log "commander.quick_scan_successful #{targets}\n"
-    @stateMachine.quick_scan_successful(targets)
+    @state_machine.quick_scan_successful(targets)
   end
 
   def add_targets targets_scanned
@@ -97,45 +143,33 @@ class Commander
       aim_at_target(target)
       polarIce.track(target)
     else
-      @stateMachine.target_lost
+      @state_machine.target_lost
     end
   end
 
   def choose_target
     log "commander.choose_target\n"
-    remove_partners_from_targets if (polarIce.currentPartnerPosition != nil)
-    closest_target
+    remove_partners_from_targets if (polarIce.current_partner_position != nil)
+    closest_target(@targets)
   end
 
   def remove_partners_from_targets
     log "commander.remove_partners_from_targets\n"
-    polarIce.currentPartnerPosition.each{|partner| remove_partner_from_targets(partner) if partner != nil}
-  end
-
-  def remove_partner_from_targets(partner)
-    log "commander.remove_partner_from_targets\n"
-    @targets.delete_if{|target| target.contains(partner)}
-  end
-
-  def closest_target
-    log "commander.choose_target"
-    closest = @targets[0]
-    @targets.each {|target| closest = target if target.distance < closest.distance }
-    closest
+    polarIce.current_partner_position.each{|partner| remove_partner_from_targets(partner, @targets) if partner != nil}
   end
 
   def update_target(target)
-    log "commander.update_target #{target}"
-    @stateMachine.update_target(target)
+    log "commander.update_target #{target}\n"
+    @state_machine.update_target(target)
   end
 
   def aim_at_target(target)
-    log "commander.aim_at_target #{target}"
+    log "commander.aim_at_target #{target}\n"
     polarIce.target(target)
   end
 
   def target_lost
-    @stateMachine.target_lost
+    @state_machine.target_lost
   end
 
   def initialize(polarIce)

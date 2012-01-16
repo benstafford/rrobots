@@ -351,7 +351,7 @@ robots.each do |bot1|
     matches = []
     matches_per_round.times do |i|
       puts "- Match #{i+1} of #{matches_per_round} -"
-      cmd = "ruby rrobots.rb -nogui -timeout=#{timeout} #{folder}/#{bot1} #{folder}/#{bot2}"
+      cmd = "ruby rrobots.rb -teams=2 -nogui -timeout=#{timeout} #{folder}/#{bot1} #{folder}/#{bot1} #{folder}/#{bot2} #{folder}/#{bot2}"
       
       # using popen instead of `cmd` lets us see the progress dots (......) output as the match progresses.
       sub = IO.popen(cmd)

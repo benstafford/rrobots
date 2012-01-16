@@ -1,11 +1,3 @@
-class InvaderMode
-  HEAD_TO_EDGE = 1
-  PROVIDED_TARGET = 2
-  FOUND_TARGET = 3
-  SEARCHING = 4
-  SEARCH_OPPOSITE_CORNER = 5
-end
-
 class InvaderPoint
   attr_accessor :x,:y
   def initialize(x,y)
@@ -13,10 +5,23 @@ class InvaderPoint
   end
 end
 
-class InvaderMath
+module InvaderMath
 
     CLOCKWISE = -1
     COUNTERCLOCKWISE = 1
+
+    def distance_to_edge edge, location, battlefield_width, battlefield_height
+      case edge.to_i
+        when 0
+          return battlefield_width - location.x
+        when 90
+          return location.y
+        when 180
+          return location.x
+        when 270
+          return battlefield_height - location.y
+      end
+    end
 
     def turn_toward current_heading, desired_heading
       difference_between = desired_heading - current_heading
@@ -73,5 +78,4 @@ class InvaderMath
     end
     return false
   end
-
 end

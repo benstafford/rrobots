@@ -1,4 +1,7 @@
 class DestinationSetter
+  attr_reader(:damage_taken)
+  attr_reader(:ticks_used)
+
   def initialize battlefield_width, battlefield_height, clipping_offset
     @damage_taken = 0
     @ticks_used = 0
@@ -7,7 +10,11 @@ class DestinationSetter
     @clipping_offset = clipping_offset
   end
 
-  def add_damage damage
+  def get_name
+    return "base setter"
+  end
+
+  def add_damage_for_this_tick damage
     @damage_taken += damage
   end
 
@@ -23,7 +30,8 @@ class DestinationSetter
     end
   end
 
-  def calculate_destination x_destination, y_destination
+  def calculate_destination bot
     #all child classes need to implement this
+    return bot.x_destination, bot.y_destination
   end
 end
