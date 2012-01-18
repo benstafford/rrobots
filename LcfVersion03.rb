@@ -73,7 +73,7 @@ class LcfVersion03
     determine_if_your_pair_is_alive
     set_dont_shoot
     assess_damage
-    say "Inconceivable!" if got_hit events
+    say "Inconceivable!" if got_hit
     fire_fire
     determine_target
     aim_at_closest_target
@@ -101,9 +101,9 @@ class LcfVersion03
     @pair_y_destination = @@pairs_y_destination
 
     if time == 0
-      #@destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      @destination_setters[0] = FooSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      #@destination_setters[2] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      #@destination_setters[0] = FooSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[1] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
     end
   end
 
@@ -147,14 +147,14 @@ class LcfVersion03
   end
 
   def assess_damage
-    if got_hit events
+    if got_hit
       @destination_setters[@@current_destination_setter].add_damage_for_this_tick(@last_turns_energy - energy)
       @last_turns_energy = energy
     end
     @destination_setters[@@current_destination_setter].add_tick if 0 < @destination_setters[@@current_destination_setter].damage_taken
   end
 
-  def got_hit events
+  def got_hit
     events.has_key? "got_hit"
   end
 
@@ -233,25 +233,25 @@ class LcfVersion03
   end
 
   def is_this_pairs_target distance_to_target, radar_heading_arg
-    return_val = 1
-    radi_angle = radar_heading_arg * Math::PI / 180
-    x_scanned = x.to_f + (Math.cos(radi_angle) * distance_to_target)
-    y_scanned = y.to_f - (Math.sin(radi_angle) * distance_to_target)
+    return_val = 0
+    if (time - @@pairs_time_target) < 15
+      radi_angle = radar_heading_arg * Math::PI / 180
+      x_scanned = x.to_f + (Math.cos(radi_angle) * distance_to_target)
+      y_scanned = y.to_f - (Math.sin(radi_angle) * distance_to_target)
 
-    #puts "#{@is_master}|(#{x_scanned.to_i}, #{y_scanned.to_i})@#{time}|(#{@@pairs_x_target.to_i}, #{@@pairs_y_target.to_i})@#{@@pairs_time_target}"
-    if time == @@pairs_time_target
-      #puts "  dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}"
-      if (distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f) > 30
-        return_val = 0
+      #puts "#{@is_master}|(#{x_scanned.to_i}, #{y_scanned.to_i})@#{time}|(#{@@pairs_x_target.to_i}, #{@@pairs_y_target.to_i})@#{@@pairs_time_target}"
+      if time == @@pairs_time_target
+        #puts "  dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}"
+        unless (distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f) > 30
+          #puts "#{@is_master}|Pair's Target|keep looking|dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}|pairs_target_age = #{time - @@pairs_time_target}"
+          return_val = 1
+        end
       else
-        #puts "#{@is_master}|Pair's Target|keep looking|dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}"
-      end
-    else
-      #puts "  ave speed #{(((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f)/(time - @@pairs_time_target).to_f).to_f}"
-      if (@pair_is_alive == 0) || (((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f > 8)
-        return_val = 0
-      else
-        #puts "#{@is_master}|Pair's Target|keep looking|avespeed #{((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f}"
+        #puts "  ave speed #{(((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f)/(time - @@pairs_time_target).to_f).to_f}"
+        unless (@pair_is_alive == 0) || (((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f > 8)
+          #puts "#{@is_master}|Pair's Target|keep looking|avespeed #{((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f}|pairs_target_age = #{time - @@pairs_time_target}"
+          return_val = 1
+        end
       end
     end
     return_val
