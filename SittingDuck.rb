@@ -10,7 +10,7 @@ class SittingDuck
   def tick events
     output "SittingDuck Location: #{x}, #{y}"
     turn_radar 5 if time == 0
-    #fire 3 unless events['robot_scanned'].empty?
+    fire 3 unless events['robot_scanned'].empty?
     turn_gun 10
 	  broadcast "SittingDuck"
     say "#{events['broadcasts'][0]}"

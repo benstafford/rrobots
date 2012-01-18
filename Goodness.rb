@@ -1,38 +1,35 @@
 require 'robot'
 require 'numeric'
-require 'Matrix'
 
-class VHGoodness
+class Goodness
   include Robot
 
   def initialize
     @speed_modifier = 1
     @gun_turn = -10
+    @fire_power = 0.1
+    @turn_bot = 0
     @my_heading = nil
     @id = rand(100)
     @p_x, @p_y = 0, 0
+    @center = [0,0]
   end
 
   def tick events
+    @center = [(battlefield_width/2),(battlefield_height/2)]
     @last_robot_turn = 0
     @p_x, @p_y = location_from_broadcasts events
-    if !events['robot_scanned'].empty? and !pointed_at_partner? @p_x, @p_y
-      @gun_turn = -@gun_turn
-      @e_x, @e_y = position_from_distance_and_angle events['robot_scanned'][0][0]
-    end
+    @e_x, @e_y = enemy_location
 
-    if (speed == 4 or speed == -4)
-      @speed_modifier = -@speed_modifier
-    end
 
-    turn_gun(@gun_turn)
-    accelerate @speed_modifier
-    fire(0.1)
+    move_around
+    #orbit @center
+
+    turn(@turn_bot)
+    turn_gun(adjusted_gun_turn)
+    #accelerate(@speed_modifier)
+    fire(@fire_power)
     broadcast_location
-  end
-
-  def output string
-    puts "#{@id}|#{time}|#{string}"
   end
 
   def broadcast_location
@@ -42,33 +39,81 @@ class VHGoodness
   def location_from_broadcasts events
     if !events['broadcasts'].empty?
       p_vars = events['broadcasts'][0][0].split('|')
-      p_x = p_vars[1].to_i
-      p_y = p_vars[2].to_i
-    else
-      p_x, p_y = 0, 0
+      return p_vars[1].to_i, p_vars[2].to_i
     end
-    return p_x, p_y
+    return 0, 0
+  end
+
+  def enemy_location
+    if !events['robot_scanned'].empty? and !pointed_at_partner? @p_x, @p_y
+      @gun_turn = -@gun_turn
+      return position_from_distance_and_angle events['robot_scanned'][0][0]
+    end
+    return nil, nil
+  end
+
+  def pointed_at_partner? p_x, p_y
+    (radar_heading - heading_to_point(p_x, p_y)).abs < 15
+  end
+
+  def heading_to_point h_x, h_y
+    offset_for_y_axis = -1
+    d_x = (h_x-x)
+    d_y = ((offset_for_y_axis*h_y)-(offset_for_y_axis*y))
+    angle = Math.atan2(d_y, d_x).to_deg
+    angle += 360 if angle < 0
+    angle
   end
 
   def position_from_distance_and_angle(distance, angle = radar_heading-5)
     d_x = distance * Math.cos(angle * Math::PI/180)
     d_y = -distance * Math.sin(angle * Math::PI/180)
-    output "Delta X: #{d_x} + my x: #{x} = E Loc: #{x+d_x}"
-    output "Delta Y: #{d_y} + my y: #{y} = E Loc: #{y+d_y}"
     return x + d_x, y + d_y
   end
 
-  def pointed_at_partner? p_x, p_y
-    offset_for_y_axis = -1
-    d_x = (p_x-x)
-    d_y = ((offset_for_y_axis*p_y)-(offset_for_y_axis*y))
-    angle = Math.atan2(d_y, d_x).to_deg
-    angle += 360 if angle < 0
-    (radar_heading - angle).abs < 15
+  def move_around
+    #if (speed == 4 or speed == -4)
+    #  @speed_modifier = -@speed_modifier
+    #end
+
+    orbit @center
+
+    accelerate(@speed_modifier) if time % 5 == 0
+
+    #if time % 5 == 0
+    #  @turn_bot = 10
+    #else
+    #  @turn_bot = 0
+    #end
   end
 
-  def trim number
-    (number * 1000).round.to_f / 1000
+  def orbit point, orbit_range = 100
+    if distance_between_points(point) <= orbit_range
+      approach_point point
+    end
+  end
+
+  def distance_between_points point
+    d_x, d_y = (point[0] - x), (-point[1] - (-y))
+    Math.hypot(d_x, d_y)
+  end
+
+  def approach_point point
+    new_heading = heading_to_point(point[0], point[1])
+
+    if(heading - new_heading).abs > 10
+      @turn_bot = 10
+    else
+      @turn_bot = (heading - new_heading).abs
+    end
+  end
+
+  def adjusted_gun_turn
+    @gun_turn - @turn_bot
+  end
+
+  def output string
+    puts "#{@id}|#{time}|#{string}"
   end
 end
 
