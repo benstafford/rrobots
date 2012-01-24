@@ -6,27 +6,16 @@ class DeathSpiralLcf
   include Robot
   @@number_classes_initialized = 0
   @@was_here = 2
-  @@pairs_x_destination = -1.0
-  @@pairs_y_destination = -1.0
   @@pairs_x_location = -1.0
   @@pairs_y_location = -1.0
   @@pairs_x_target = -1.0
   @@pairs_y_target = -1.0
   @@pairs_time_target = 0
-  @@pairs_x_last_target = -1.0
-  @@pairs_y_last_target = -1.0
-  @@pairs_time_last_target = 0
-  @@pairs_energy = 100
-  @@current_destination_setter = 0
 
   def initialize
-    #Process.exit if (caller[1].to_s[0,10] != "rrobots.rb") && (caller[1].to_s[0,19] != "teamexperimenter.rb")
     @@number_classes_initialized = @@number_classes_initialized + 1
     @x_destination = -1.0
     @y_destination = -1.0
-    @x_last_target = -1.0
-    @y_last_target = -1.0
-    @time_last_target = 0
     @x_target = -1.0
     @y_target = -1.0
     @distance_to_target = 1
@@ -37,21 +26,11 @@ class DeathSpiralLcf
     @current_scan_angle = 60
     @last_scan_angle = 60
     @@was_here = 2
-    @@current_destination_setter = 0
-    @destination_setters = []
-    @time_last_destination_setter_change = 0
-    @last_turns_energy = 100
-    @@pairs_x_destination = -1.0
-    @@pairs_y_destination = -1.0
     @@pairs_x_location = -1.0
     @@pairs_y_location = -1.0
     @@pairs_x_target = -1.0
     @@pairs_y_target = -1.0
     @@pairs_time_target = 0
-    @@pairs_x_last_target = -1.0
-    @@pairs_y_last_target = -1.0
-    @@pairs_time_last_target = 0
-    @@pairs_energy = 100
     @is_master = @@number_classes_initialized % 2
     @find_target_in = 1
     @tick_gun_turn = 0
@@ -61,40 +40,26 @@ class DeathSpiralLcf
     @last_last_lead_shot = 0
   end
 
-  attr_reader(:x_destination)
-  attr_reader(:y_destination)
   attr_reader(:x_location)
   attr_reader(:y_location)
   attr_reader(:last_x_location)
   attr_reader(:last_y_location)
   attr_reader(:my_speed)
-  attr_reader(:my_heading)
   attr_reader(:my_gun_heading)
-  attr_reader(:pair_x_destination)
-  attr_reader(:pair_y_destination)
   attr_reader(:last_last_lead_shot)
   attr_reader(:my_time)
 
   def tick events
-    slow_motion 0, 0.75
     initialize_tick_vars
     determine_if_your_pair_is_alive
     set_dont_shoot
-    assess_damage
     say "Inconceivable!" if got_hit
     fire_fire
-    determine_target
+    find_target_in_out
     aim_at_closest_target
-    calculate_destination_based_on_damage
     got_to_destination
     resolve_all_turns
     send_pair_communication
-  end
-
-  def slow_motion enabled, seconds
-    if (enabled == 1) && (@is_master == 1)
-      sleep(seconds)
-    end
   end
 
   def initialize_tick_vars
@@ -103,17 +68,9 @@ class DeathSpiralLcf
     @x_location = x.to_f
     @y_location = y.to_f
     @my_speed = speed
-    @my_heading = heading.to_f
     @my_gun_heading = gun_heading.to_f
-    @pair_x_destination = @@pairs_x_destination
-    @pair_y_destination = @@pairs_y_destination
     @my_time = time
-
-    if time == 0
-      #@destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      #@destination_setters[0] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      @destination_setters[0] = SpiralIntoTargetSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-    end
+    @spiral_into_target_setter = SpiralIntoTargetSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f if time == 0
   end
 
   def determine_if_your_pair_is_alive
@@ -155,14 +112,6 @@ class DeathSpiralLcf
     Math.atan(size.to_f/(distance_between_points x.to_f, y.to_f, x_bot, y_bot)) / Math::PI * 180 % 360
   end
 
-  def assess_damage
-    if got_hit
-      @destination_setters[@@current_destination_setter].add_damage_for_this_tick(@last_turns_energy - energy)
-      @last_turns_energy = energy
-    end
-    @destination_setters[@@current_destination_setter].add_tick if 0 < @destination_setters[@@current_destination_setter].damage_taken
-  end
-
   def got_hit
     events.has_key? "got_hit"
   end
@@ -177,21 +126,14 @@ class DeathSpiralLcf
     fire fire_power
   end
 
-  def determine_target
-    find_target_in_out
-  end
-
   def find_target_in_out
     @ignore_scan_time = -1 if @ignore_scan_time.nil?
     if (events['robot_scanned'].empty?) || (time == @ignore_scan_time)
-      #puts "EMPTY scan" if @is_master == 1
       handle_empty
     else
       if ((is_this_the_same_as_pairs_distance events['robot_scanned'][0][0].to_f) == 0)
-        #puts "ENEMY scanned" if @is_master == 1
         if @current_scan_angle < (0.7 * 2 * (get_angle_to_edge_of_bot_from_distance events['robot_scanned'][0][0].to_f))
           if ((is_this_pairs_target events['robot_scanned'][0][0].to_f, (@current_scan_angle/2 * @radar_scan_direction * -1) + radar_heading.to_f) == 0)
-            #puts "TARGET set" if @is_master == 1
             set_target_from_distance_heading events['robot_scanned'][0][0].to_f, (@current_scan_angle/2 * @radar_scan_direction * -1) + radar_heading.to_f
             @find_target_in = 0
           else
@@ -205,12 +147,10 @@ class DeathSpiralLcf
         end
         @radar_scan_direction *= -1
       else
-        #puts "PAIR scanned" if @is_master == 1
         handle_empty
       end
     end
     @tick_radar_turn = @current_scan_angle * @radar_scan_direction
-    #puts "@find_target_in#{@find_target_in}|scan at #{@current_scan_angle * @radar_scan_direction}" if @is_master == 1
   end
 
   def handle_empty
@@ -243,24 +183,17 @@ class DeathSpiralLcf
 
   def is_this_pairs_target distance_to_target, radar_heading_arg
     return_val = 0
-
-    #puts "#{(time - @@pairs_time_target)}"
     if (time - @@pairs_time_target) < 6
       radi_angle = radar_heading_arg * Math::PI / 180
       x_scanned = x.to_f + (Math.cos(radi_angle) * distance_to_target)
       y_scanned = y.to_f - (Math.sin(radi_angle) * distance_to_target)
 
-      #puts "#{@is_master}|(#{x_scanned.to_i}, #{y_scanned.to_i})@#{time}|(#{@@pairs_x_target.to_i}, #{@@pairs_y_target.to_i})@#{@@pairs_time_target}"
       if time == @@pairs_time_target
-        #puts "  dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}"
         unless (distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f) > 30
-          #puts "#{@is_master}|Pair's Target|keep looking|dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}|pairs_target_age = #{time - @@pairs_time_target}"
           return_val = 1
         end
       else
-        #puts "  ave speed #{(((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f)/(time - @@pairs_time_target).to_f).to_f}"
         unless (@pair_is_alive == 0) || (((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f > 8)
-          #puts "#{@is_master}|Pair's Target|keep looking|avespeed #{((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f}|pairs_target_age = #{time - @@pairs_time_target}"
           return_val = 1
         end
       end
@@ -274,9 +207,6 @@ class DeathSpiralLcf
   end
 
   def set_target x_target, y_target, distance_to_target
-    @x_last_target = @x_target
-    @y_last_target = @y_target
-    @time_last_target = @time_target
     @x_target = x_target
     @y_target = y_target
     @distance_to_target = distance_to_target
@@ -312,29 +242,19 @@ class DeathSpiralLcf
     tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - heading_to_target
   end
 
-  def aim_at_right_edge_of_target
-    heading_to_target = (get_angle_to_location @x_target, @y_target).to_f
-    tick_gun_turn heading_to_target - gun_heading.to_f
-  end
-
   def tick_gun_turn degrees_to_turn
     dead_zone = 0.4
     @gun_turn_history.pop if @gun_turn_history.size == @gun_turn_history_max_ticks
     @gun_turn_history.insert(0, degrees_to_turn + @last_lead_shot)
     @last_last_lead_shot = @last_lead_shot
-    #degrees_to_turn -= degrees_lead_shot_offset
     if @gun_turn_history.size == @gun_turn_history_max_ticks
-      #puts "#{@is_master}|@last_lead_shot #{@last_lead_shot}|#{@gun_turn_history.inspect}"
       if (@gun_turn_history[0] < (-1 * dead_zone)) && (@gun_turn_history[1] < (-1 * dead_zone)) && (@gun_turn_history[2] < (-1 * dead_zone))
-        #puts "lead RIGHT" if @is_master == 1
         @last_lead_shot = -1 * degrees_lead_shot_offset
         degrees_to_turn -= degrees_lead_shot_offset
       elsif (@gun_turn_history[0] > dead_zone) && (@gun_turn_history[1] > dead_zone) && (@gun_turn_history[2] > dead_zone)
-        #puts "lead LEFT" if @is_master == 1
         @last_lead_shot = degrees_lead_shot_offset
         degrees_to_turn += degrees_lead_shot_offset
       else
-        #puts "No lead" if @is_master == 1
         @last_lead_shot = 0
       end
     end
@@ -357,22 +277,8 @@ class DeathSpiralLcf
     angle
   end
 
-  def calculate_destination_based_on_damage
-    if (energy.to_f < @@pairs_energy) || (@pair_is_alive == 0)
-      lowest_damage_destination_setter = @@current_destination_setter
-      @destination_setters.each_with_index { |x, i| lowest_damage_destination_setter = i if x.average_damage_per_tick < @destination_setters[lowest_damage_destination_setter].average_damage_per_tick}
-      if (@time_last_destination_setter_change == 0) || ((time - @time_last_destination_setter_change) > 15)
-        if (lowest_damage_destination_setter != @@current_destination_setter)
-          say @destination_setters[lowest_damage_destination_setter].get_name
-        end
-        @@current_destination_setter = lowest_damage_destination_setter
-        @time_last_destination_setter_change = time
-      end
-    end
-    @x_destination, @y_destination = @destination_setters[@@current_destination_setter].calculate_destination self
-  end
-
   def got_to_destination
+    @x_destination, @y_destination = @spiral_into_target_setter.calculate_destination self
     turn_to_location @x_destination, @y_destination
     accelerate_bot
   end
@@ -428,16 +334,10 @@ class DeathSpiralLcf
   end
 
   def send_pair_communication
-    @@pairs_energy = energy
-    @@pairs_x_destination = @x_destination
-    @@pairs_y_destination = @y_destination
     @@pairs_x_location = x.to_f
     @@pairs_y_location = y.to_f
     @@pairs_x_target = @x_target
     @@pairs_y_target = @y_target
     @@pairs_time_target = @time_target
-    @@pairs_x_last_target = @x_last_target
-    @@pairs_y_last_target = @y_last_target
-    @@pairs_time_last_target = @time_last_target
   end
 end
