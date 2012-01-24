@@ -7,7 +7,8 @@ class TightFigureEightSetter < DestinationSetter
     @current_deg = 0  if @current_deg.nil?
     @turn_direction = 1 if @turn_direction.nil?
     bot_turn = 10
-    if @current_deg.abs > 360
+    #puts "#{(bot.my_heading.to_i - bot.my_gun_heading.to_i).abs}"
+    if (@current_deg.abs > 360) #((bot.my_heading.to_i - bot.my_gun_heading.to_i).abs < 6) ||
       @current_deg = 0
       @turn_direction *= -1
     end

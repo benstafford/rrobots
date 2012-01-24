@@ -1,6 +1,6 @@
-class FooSetter < DestinationSetter
+class SpiralIntoTargetSetter < DestinationSetter
   def get_name
-    return "Foo Setter'"
+    return "Spiral Into Target'"
   end
 
   def calculate_destination bot

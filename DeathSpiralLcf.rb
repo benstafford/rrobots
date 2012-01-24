@@ -2,7 +2,7 @@ require 'robot'
 require 'LCF/destination_setter'
 require 'LCF/spiral_into_target_setter'
 
-class LcfVersion03
+class DeathSpiralLcf
   include Robot
   @@number_classes_initialized = 0
   @@was_here = 2
