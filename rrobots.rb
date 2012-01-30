@@ -123,7 +123,7 @@ ARGV.grep( /^-timeout=(\d+)/ )do |item|
   ARGV.delete(item)
 end
 
- show_radar = false
+show_radar = false
 ARGV.grep( /^show_radar/ )do |item|
   show_radar = true
   ARGV.delete(item)

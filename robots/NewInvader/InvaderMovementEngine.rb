@@ -24,7 +24,8 @@ class InvaderMovementEngine
     got_hit, strength = @robot.got_hit?
     @last_hit = @robot.time if got_hit
     @strength = strength if got_hit
-    if @last_hit > 0 and @robot.time - @last_hit < 36 and @strength < 2.8
+    @evade.hit_strength = strength if got_hit
+    if @last_hit > 0 and @robot.time - @last_hit < 36 and @strength < 1.2
       @evade.move
     else
       if @robot.at_edge and !edge_conflict?
@@ -199,6 +200,7 @@ class InvaderDriverPatroller < DrivingMode
 end
 
 class InvaderDriverEvader < DrivingMode
+  attr_accessor :hit_strength
   def initialize invader, driver
     super invader, driver
     @turn_direction = -1
@@ -220,8 +222,22 @@ class InvaderDriverEvader < DrivingMode
   end
 
   def move
-    @intended_edge = right_of_edge if @intended_edge.nil?
-    turn_around if need_to_turn?
-    accelerate @robot.current_direction
+    if @hit_strength < 1.2
+      @intended_edge = right_of_edge if @intended_edge.nil?
+      turn_around if need_to_turn?
+      accelerate @robot.current_direction
+    else
+      @start_evade = @robot.time if @start_evade == 0
+      @start_evade = @robot.time if @driver.last_hit == @robot.time
+      if @robot.time - @start_evade <= 12
+        accelerate 1
+      else
+        stop
+      end
+    end
+
   end
 end
+
+
+

@@ -83,7 +83,6 @@ class TkArena
 
   def draw_frame
     simulate(@speed_multiplier)
-    #TkcRectangle.new(@canvas, 0,0, xres, yres, :fill=>'black' )
     draw_battlefield
   end
 

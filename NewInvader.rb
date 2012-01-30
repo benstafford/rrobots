@@ -68,8 +68,9 @@ class NewInvader
   end
 
   def got_hit?
-    strength = @energy_last_turn - energy
-    #puts "#{strength}" if strength > 0
+    strength = 0
+    strength = (@energy_last_turn - energy)/3 if !events['got_hit'].empty?
+    #strength = events['got_hit'].first.first/3 if !events['got_hit'].empty?
     return !events['got_hit'].empty?, strength
   end
 
