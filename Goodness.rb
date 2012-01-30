@@ -1,119 +1,44 @@
 require 'robot'
-require 'numeric'
 
 class Goodness
   include Robot
 
-  def initialize
-    @speed_modifier = 1
-    @gun_turn = -10
-    @fire_power = 0.1
-    @turn_bot = 0
-    @my_heading = nil
-    @id = rand(100)
-    @p_x, @p_y = 0, 0
-    @center = [0,0]
+  attr_reader :id
+  attr_reader :partner
+  @@team = nil
+
+  def initialize(id = rand(100))
+    @id = id
+    me_hash = {@id => self}
+    if @@team.nil?
+      @@team = me_hash
+    else
+      @@team.merge! me_hash
+    end
   end
 
   def tick events
-    @center = [(battlefield_width/2),(battlefield_height/2)]
-    @last_robot_turn = 0
-    @p_x, @p_y = location_from_broadcasts events
-    @e_x, @e_y = enemy_location
-
-
-    move_around
-    #orbit @center
-
-    turn(@turn_bot)
-    turn_gun(adjusted_gun_turn)
-    #accelerate(@speed_modifier)
-    fire(@fire_power)
-    broadcast_location
+    turn_radar 1 if time == 0
+    turn_gun 30 if time < 3
+    accelerate 1
+    turn 2
+    fire 3 unless events['robot_scanned'].empty?
   end
 
-  def broadcast_location
-    broadcast "loc|#{x.to_i}|#{y.to_i}"
-  end
-
-  def location_from_broadcasts events
-    if !events['broadcasts'].empty?
-      p_vars = events['broadcasts'][0][0].split('|')
-      return p_vars[1].to_i, p_vars[2].to_i
-    end
-    return 0, 0
-  end
-
-  def enemy_location
-    if !events['robot_scanned'].empty? and !pointed_at_partner? @p_x, @p_y
-      @gun_turn = -@gun_turn
-      return position_from_distance_and_angle events['robot_scanned'][0][0]
-    end
-    return nil, nil
-  end
-
-  def pointed_at_partner? p_x, p_y
-    (radar_heading - heading_to_point(p_x, p_y)).abs < 15
-  end
-
-  def heading_to_point h_x, h_y
-    offset_for_y_axis = -1
-    d_x = (h_x-x)
-    d_y = ((offset_for_y_axis*h_y)-(offset_for_y_axis*y))
-    angle = Math.atan2(d_y, d_x).to_deg
-    angle += 360 if angle < 0
-    angle
-  end
-
-  def position_from_distance_and_angle(distance, angle = radar_heading-5)
-    d_x = distance * Math.cos(angle * Math::PI/180)
-    d_y = -distance * Math.sin(angle * Math::PI/180)
-    return x + d_x, y + d_y
-  end
-
-  def move_around
-    #if (speed == 4 or speed == -4)
-    #  @speed_modifier = -@speed_modifier
-    #end
-
-    orbit @center
-
-    accelerate(@speed_modifier) if time % 5 == 0
-
-    #if time % 5 == 0
-    #  @turn_bot = 10
-    #else
-    #  @turn_bot = 0
-    #end
-  end
-
-  def orbit point, orbit_range = 100
-    if distance_between_points(point) <= orbit_range
-      approach_point point
+  def get_partner
+    @@team.each do |id, p|
+      if p != self
+        @partner = p
+      end
     end
   end
 
-  def distance_between_points point
-    d_x, d_y = (point[0] - x), (-point[1] - (-y))
-    Math.hypot(d_x, d_y)
+  def reset_team
+    @@team = nil
   end
 
-  def approach_point point
-    new_heading = heading_to_point(point[0], point[1])
-
-    if(heading - new_heading).abs > 10
-      @turn_bot = 10
-    else
-      @turn_bot = (heading - new_heading).abs
-    end
-  end
-
-  def adjusted_gun_turn
-    @gun_turn - @turn_bot
-  end
-
-  def output string
-    puts "#{@id}|#{time}|#{string}"
+  def change_id id
+    @id = id
   end
 end
 

@@ -9,7 +9,5 @@ class NervousDuck
     accelerate 1
     turn 2
     fire 3 unless events['robot_scanned'].empty?
-    broadcast "NervousDuck"
-    say "#{events['broadcasts'].inspect}"
   end
 end
