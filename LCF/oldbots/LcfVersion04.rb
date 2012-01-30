@@ -1,10 +1,8 @@
 require 'robot'
 require 'LCF/destination_setter'
-require 'LCF/side_walker_setter'
-require 'LCF/tight_figure_eight_setter'
-require 'LCF/foo_setter'
+require 'LCF/spiral_into_target_setter'
 
-class LcfVersion03
+class LcfVersion04
   include Robot
   @@number_classes_initialized = 0
   @@was_here = 2
@@ -31,7 +29,7 @@ class LcfVersion03
     @time_last_target = 0
     @x_target = -1.0
     @y_target = -1.0
-    @distance_to_target = 0
+    @distance_to_target = 1
     @time_target = 0
     @clipping_offset = 121
     @pair_is_alive = 1
@@ -56,16 +54,26 @@ class LcfVersion03
     @@pairs_energy = 100
     @is_master = @@number_classes_initialized % 2
     @find_target_in = 1
+    @tick_gun_turn = 0
+    @gun_turn_history = []
+    @gun_turn_history_max_ticks = 3
+    @last_lead_shot = 0
+    @last_last_lead_shot = 0
   end
 
   attr_reader(:x_destination)
   attr_reader(:y_destination)
   attr_reader(:x_location)
   attr_reader(:y_location)
+  attr_reader(:last_x_location)
+  attr_reader(:last_y_location)
+  attr_reader(:my_speed)
   attr_reader(:my_heading)
   attr_reader(:my_gun_heading)
   attr_reader(:pair_x_destination)
   attr_reader(:pair_y_destination)
+  attr_reader(:last_last_lead_shot)
+  attr_reader(:my_time)
 
   def tick events
     slow_motion 0, 0.75
@@ -73,7 +81,7 @@ class LcfVersion03
     determine_if_your_pair_is_alive
     set_dont_shoot
     assess_damage
-    say "Inconceivable!" if got_hit events
+    say "Inconceivable!" if got_hit
     fire_fire
     determine_target
     aim_at_closest_target
@@ -90,20 +98,21 @@ class LcfVersion03
   end
 
   def initialize_tick_vars
-    @tick_bot_turn = 0
-    @tick_gun_turn = 0
-    @tick_radar_turn = 0
+    @last_x_location = @x_location
+    @last_y_location = @y_location
     @x_location = x.to_f
     @y_location = y.to_f
+    @my_speed = speed
     @my_heading = heading.to_f
     @my_gun_heading = gun_heading.to_f
     @pair_x_destination = @@pairs_x_destination
     @pair_y_destination = @@pairs_y_destination
+    @my_time = time
 
     if time == 0
-      @destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      @destination_setters[1] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
-      #@destination_setters[2] = FooSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      #@destination_setters[0] = SideWalkerSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      #@destination_setters[0] = TightFigureEightSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
+      @destination_setters[0] = SpiralIntoTargetSetter.new @battlefield_width.to_f, @battlefield_height.to_f, @clipping_offset.to_f
     end
   end
 
@@ -147,14 +156,14 @@ class LcfVersion03
   end
 
   def assess_damage
-    if got_hit events
+    if got_hit
       @destination_setters[@@current_destination_setter].add_damage_for_this_tick(@last_turns_energy - energy)
       @last_turns_energy = energy
     end
     @destination_setters[@@current_destination_setter].add_tick if 0 < @destination_setters[@@current_destination_setter].damage_taken
   end
 
-  def got_hit events
+  def got_hit
     events.has_key? "got_hit"
   end
 
@@ -233,25 +242,27 @@ class LcfVersion03
   end
 
   def is_this_pairs_target distance_to_target, radar_heading_arg
-    return_val = 1
-    radi_angle = radar_heading_arg * Math::PI / 180
-    x_scanned = x.to_f + (Math.cos(radi_angle) * distance_to_target)
-    y_scanned = y.to_f - (Math.sin(radi_angle) * distance_to_target)
+    return_val = 0
 
-    #puts "#{@is_master}|(#{x_scanned.to_i}, #{y_scanned.to_i})@#{time}|(#{@@pairs_x_target.to_i}, #{@@pairs_y_target.to_i})@#{@@pairs_time_target}"
-    if time == @@pairs_time_target
-      #puts "  dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}"
-      if (distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f) > 30
-        return_val = 0
+    #puts "#{(time - @@pairs_time_target)}"
+    if (time - @@pairs_time_target) < 6
+      radi_angle = radar_heading_arg * Math::PI / 180
+      x_scanned = x.to_f + (Math.cos(radi_angle) * distance_to_target)
+      y_scanned = y.to_f - (Math.sin(radi_angle) * distance_to_target)
+
+      #puts "#{@is_master}|(#{x_scanned.to_i}, #{y_scanned.to_i})@#{time}|(#{@@pairs_x_target.to_i}, #{@@pairs_y_target.to_i})@#{@@pairs_time_target}"
+      if time == @@pairs_time_target
+        #puts "  dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}"
+        unless (distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f) > 30
+          #puts "#{@is_master}|Pair's Target|keep looking|dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}|pairs_target_age = #{time - @@pairs_time_target}"
+          return_val = 1
+        end
       else
-        #puts "#{@is_master}|Pair's Target|keep looking|dist #{distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f}"
-      end
-    else
-      #puts "  ave speed #{(((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f)/(time - @@pairs_time_target).to_f).to_f}"
-      if (@pair_is_alive == 0) || (((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f > 8)
-        return_val = 0
-      else
-        #puts "#{@is_master}|Pair's Target|keep looking|avespeed #{((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f}"
+        #puts "  ave speed #{(((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f)/(time - @@pairs_time_target).to_f).to_f}"
+        unless (@pair_is_alive == 0) || (((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f > 8)
+          #puts "#{@is_master}|Pair's Target|keep looking|avespeed #{((distance_between_points @@pairs_x_target.to_f, @@pairs_y_target.to_f, x_scanned.to_f, y_scanned.to_f).to_f/(time - @@pairs_time_target).to_f).to_f}|pairs_target_age = #{time - @@pairs_time_target}"
+          return_val = 1
+        end
       end
     end
     return_val
@@ -283,7 +294,9 @@ class LcfVersion03
 
   def aim_at_closest_target
     if (@@pairs_x_target != -1) && (@@pairs_y_target != -1) && (@pair_is_alive == 1)
-      if (@distance_to_target > distance_between_points(x.to_f, y.to_f, @@pairs_x_target, @@pairs_y_target)) || ((@x_target == -1) && (@y_target == -1))
+      if ((@distance_to_target > distance_between_points(x.to_f, y.to_f, @@pairs_x_target, @@pairs_y_target)) &&
+          ((size.to_i * 4) < distance_between_points(x.to_f, y.to_f, @@pairs_x_location, @@pairs_y_location))) ||
+          ((@x_target == -1) && (@y_target == -1))
         aim_at_pairs_target
         return
       end
@@ -292,11 +305,48 @@ class LcfVersion03
   end
 
   def aim_at_pairs_target heading_to_target = gun_heading.to_f
-    @tick_gun_turn = (get_angle_to_location @@pairs_x_target, @@pairs_y_target).to_f - heading_to_target
+    tick_gun_turn (get_angle_to_location @@pairs_x_target, @@pairs_y_target).to_f - heading_to_target
   end
 
   def aim_at_target heading_to_target = gun_heading.to_f
-    @tick_gun_turn = (get_angle_to_location @x_target, @y_target).to_f - heading_to_target
+    tick_gun_turn (get_angle_to_location @x_target, @y_target).to_f - heading_to_target
+  end
+
+  def aim_at_right_edge_of_target
+    heading_to_target = (get_angle_to_location @x_target, @y_target).to_f
+    tick_gun_turn heading_to_target - gun_heading.to_f
+  end
+
+  def tick_gun_turn degrees_to_turn
+    dead_zone = 0.4
+    @gun_turn_history.pop if @gun_turn_history.size == @gun_turn_history_max_ticks
+    @gun_turn_history.insert(0, degrees_to_turn + @last_lead_shot)
+    @last_last_lead_shot = @last_lead_shot
+    #degrees_to_turn -= degrees_lead_shot_offset
+    if @gun_turn_history.size == @gun_turn_history_max_ticks
+      #puts "#{@is_master}|@last_lead_shot #{@last_lead_shot}|#{@gun_turn_history.inspect}"
+      if (@gun_turn_history[0] < (-1 * dead_zone)) && (@gun_turn_history[1] < (-1 * dead_zone)) && (@gun_turn_history[2] < (-1 * dead_zone))
+        #puts "lead RIGHT" if @is_master == 1
+        @last_lead_shot = -1 * degrees_lead_shot_offset
+        degrees_to_turn -= degrees_lead_shot_offset
+      elsif (@gun_turn_history[0] > dead_zone) && (@gun_turn_history[1] > dead_zone) && (@gun_turn_history[2] > dead_zone)
+        #puts "lead LEFT" if @is_master == 1
+        @last_lead_shot = degrees_lead_shot_offset
+        degrees_to_turn += degrees_lead_shot_offset
+      else
+        #puts "No lead" if @is_master == 1
+        @last_lead_shot = 0
+      end
+    end
+    @tick_gun_turn = degrees_to_turn
+  end
+
+  def degrees_lead_shot_offset
+    max_speed = 8
+    bots_width = 2 * size.to_f
+    ticks_til_impact = (@distance_to_target.to_f/30.0).to_f
+    enemys_degrees_of_movement_per_tick = (max_speed/bots_width).to_f * (2 * (get_angle_to_edge_of_bot_from_distance @distance_to_target.to_f)).to_f
+    ticks_til_impact * enemys_degrees_of_movement_per_tick
   end
 
   def get_angle_to_location arg_x, arg_y
@@ -351,21 +401,22 @@ class LcfVersion03
     end
     turn @tick_bot_turn
 
-    @tick_gun_turn -= 360 if @tick_gun_turn > 180
-    @tick_gun_turn += 360 if @tick_gun_turn < -180
-    @tick_gun_turn -= @tick_bot_turn
-    if (@tick_gun_turn).abs > 30
-      if (@tick_gun_turn) > 0
-        @tick_gun_turn =  30
+    gun_turn = @tick_gun_turn
+    gun_turn -= 360 if gun_turn > 180
+    gun_turn += 360 if gun_turn < -180
+    gun_turn -= @tick_bot_turn
+    if (gun_turn).abs > 30
+      if (gun_turn) > 0
+        gun_turn =  30
       else
-        @tick_gun_turn = -30
+        gun_turn = -30
       end
     end
-    turn_gun @tick_gun_turn
+    turn_gun gun_turn
 
     @tick_radar_turn -= 360 if @tick_radar_turn > 180
     @tick_radar_turn += 360 if @tick_radar_turn < -180
-    @tick_radar_turn -= @tick_gun_turn + @tick_bot_turn
+    @tick_radar_turn -= gun_turn + @tick_bot_turn
     if (@tick_radar_turn).abs > 60
       if (@tick_radar_turn) > 0
         @tick_radar_turn = 60
