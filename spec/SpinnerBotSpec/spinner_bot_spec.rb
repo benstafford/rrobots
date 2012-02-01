@@ -18,6 +18,7 @@ describe 'SpinnerBot' do
         set_location(spinnerbot, [test_case.x,test_case.y],test_case.heading)
         spinnerbot.should_receive(:turn).with(test_case.desired_turn)
         spinnerbot.should_receive(:accelerate).with(1)
+        spinnerbot.should_receive(:broadcast)
         spinnerbot.tick nil
       end
     end
@@ -30,6 +31,7 @@ describe 'SpinnerBot' do
         set_location(spinnerbot, [test_case.x,test_case.y],test_case.heading)
         spinnerbot.should_receive(:turn).with(test_case.desired_turn)
         spinnerbot.should_receive(:accelerate).with(1)
+        spinnerbot.should_receive(:broadcast)
         spinnerbot.tick nil
       end
     end
@@ -42,8 +44,27 @@ describe 'SpinnerBot' do
         set_location(spinnerbot, [test_case.x,test_case.y],test_case.heading)
         spinnerbot.should_receive(:turn).with(test_case.desired_turn)
         spinnerbot.should_receive(:accelerate).with(1)
+        spinnerbot.should_receive(:broadcast)
         spinnerbot.tick nil
       end
+    end
+
+    it 'should broadcast its location' do
+      spinnerbot = SpinnerBot.new
+      set_location spinnerbot, [800,1100], 90
+      spinnerbot.should_receive(:broadcast).with("800.0,1099.0,90.0,1")
+      spinnerbot.should_receive(:accelerate).with(1)
+      spinnerbot.tick nil
+    end
+
+    it 'should record its partners broadcast location' do
+      spinnerbot = SpinnerBot.new
+      set_location spinnerbot, [800,1100], 90
+      spinnerbot.should_receive(:broadcast)
+      spinnerbot.should_receive(:accelerate).with(1)
+      spinnerbot.tick({"broadcasts"=>[["800.0,1099.0,90.0,1"]]})
+      spinnerbot.partner_location.x.should == 800.0
+      spinnerbot.partner_location.y.should == 1099.0
     end
 
     def set_location spinnerbot, location, heading
@@ -51,6 +72,8 @@ describe 'SpinnerBot' do
       spinnerbot.stub!(:y).and_return(location[1])
       spinnerbot.stub!(:heading).and_return(heading)
       spinnerbot.stub(:speed).and_return(0)
+      #spinnerbot.should_receive(:broadcast)
+      #spinnerbot.should_receive(:turn)
     end
   end
 end
