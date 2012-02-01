@@ -50,12 +50,17 @@ class InvaderLogger
   end
 
   def LogStatusToFile robot
-    @logger.debug(",#{robot.time}, #{robot.my_id}, #{robot.x}, #{robot.y}, #{robot.heading}, #{robot.gun_heading}, #{robot.radar_heading}, #{robot.speed}, #{robot.move_engine.turn}, #{robot.fire_engine.turn_gun}, #{robot.radar_engine.turn_radar}, #{robot.heading_of_edge}, #{robot.target.inspect}")
+    #@logger.debug(",#{robot.time}, #{robot.my_id}, #{robot.x}, #{robot.y}, #{robot.heading}, #{robot.gun_heading}, #{robot.radar_heading}, #{robot.speed}, #{robot.move_engine.turn}, #{robot.fire_engine.turn_gun}, #{robot.radar_engine.turn_radar}, #{robot.heading_of_edge}, #{robot.target.inspect}")
   end
 
   def initialize_logfile
-    @logger = Logger.new('application.csv')
-    @logger.debug(',time, id, x, y, heading, gun_heading, radar_heading, speed, body_turn, gun_turn, radar_turn, selected_edge, radar_target_found')
+    begin
+      #@logger = Logger.new('application.csv')
+      #@logger.sev_threshold = Logger::Error
+      #@logger.debug(',time, id, x, y, heading, gun_heading, radar_heading, speed, body_turn, gun_turn, radar_turn, selected_edge, radar_target_found')
+    rescue Exception => e
+      puts "error trying to initialize log file: #{e.inspect}"
+    end
   end
 end
 
