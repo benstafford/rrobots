@@ -3,17 +3,21 @@ class SpinnerBot
   include Robot
   attr_accessor :target
   attr_reader :partner_location
+  attr_reader :dominant
 
   MAINTAIN_DISTANCE = 100..150
-
+  DISTANCE_BETWEEN_PARTNERS = 120
   def initialize
     @target = Point.new(800,800)
+    @dominant = false
   end
 
   def tick events
+    turn_radar 5 if time == 0
     process_broadcast events['broadcasts'] unless events.nil?
 
     drive
+    aim
 
     location_next_turn = my_location_next_turn
     message = "#{location_next_turn.x},#{location_next_turn.y},#{my_heading_next_turn},#{my_speed_next_turn}"
@@ -21,10 +25,14 @@ class SpinnerBot
   end
 
   def process_broadcast broadcast_event
+    @partner_location = nil
+    #puts "time = #{time}, count = #{broadcast_event.count}, broadcast = #{broadcast_event.inspect}"
     if broadcast_event.count > 0
       message = broadcast_event[0][0]
       message_parcels = message.split(",")
       @partner_location = Point.new(message_parcels[0].to_f, message_parcels[1].to_f)
+    else
+      @dominant = true if time == 1
     end
   end
 
@@ -50,11 +58,23 @@ class SpinnerBot
     @desired_turn = 0
     accelerate 1 if speed < 8
     distance_to_target = distance_between_objects(my_location, target)
+    distance_to_partner = 1600
+    distance_to_partner = distance_between_objects(my_location, @partner_location) unless @partner_location.nil?
     case
+      when distance_to_partner < DISTANCE_BETWEEN_PARTNERS && !@dominant then stop
       when distance_to_target > MAINTAIN_DISTANCE.max then driver_turn_toward_target
       when distance_to_target < MAINTAIN_DISTANCE.min then driver_turn_away_from_target
       else circle_target
     end
+    turn @desired_turn
+  end
+
+  def aim
+    @desired_gun_turn = 0
+    @desired_gun_turn = turn_toward gun_heading, rotate(degree_from_point_to_point(my_location, target),180)
+    @desired_gun_turn = [[@desired_gun_turn, -30].max,30].min
+    turn_gun @desired_gun_turn
+    fire 3.0 if events && (events['robot_scanned'].count > 0)
   end
 
   def driver_turn_toward_target
@@ -72,7 +92,6 @@ class SpinnerBot
   def turn_toward_heading desired_heading
     desired_turn = turn_toward heading, desired_heading
     @desired_turn = [[desired_turn,-10].max,10].min
-    turn @desired_turn if @desired_turn != 0
   end
 
   SHORTEST_POSSIBLE_TURNS = -180..180
