@@ -2,7 +2,7 @@ class SpinnerBotTestSituation
   def initialize
     @test_rounds = 1
     @x = 800
-    @y = 1100
+    @y = 800 + SpinnerBot::MAINTAIN_DISTANCE.max + 100
     @heading = 90
     @time = 100
     @speed = 0

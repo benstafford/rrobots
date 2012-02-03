@@ -4,16 +4,21 @@ class SpinnerBot
   attr_accessor :target
   attr_reader :partner_location
   attr_reader :dominant
+  attr_accessor :radar_size
 
-  MAINTAIN_DISTANCE = 100..150
+  MAINTAIN_DISTANCE = 300..400
   DISTANCE_BETWEEN_PARTNERS = 120
   RADAR_SCAN_SIZE = 3..60
+
+  def puts message
+  end
 
   def initialize
     @target = Point.new(800,800)
     @dominant = false
     @radar_direction = 1
     @radar_size = 60
+    @suppress_radar = false
     @time_bot_detected = nil
   end
 
@@ -22,9 +27,10 @@ class SpinnerBot
   end
 
   def tick events
+    puts "tick"
+    process_broadcast events['broadcasts'] unless events.nil?
     process_radar_results events['robot_scanned'] unless events.nil?
     @old_radar_heading = radar_heading
-    process_broadcast events['broadcasts'] unless events.nil?
     drive
     aim
     sweep_radar
@@ -34,15 +40,21 @@ class SpinnerBot
   def send_broadcast
     location_next_turn = my_location_next_turn
     message = "#{location_next_turn.x},#{location_next_turn.y},#{my_heading_next_turn},#{my_speed_next_turn}"
+    if !@bot_detected.nil?
+      message += ",#{@bot_detected.x},#{@bot_detected.y}"
+    end
     broadcast message
   end
 
   def process_broadcast broadcast_event
     @partner_location = nil
+    @partner_target = nil
     if broadcast_event.count > 0
       message = broadcast_event[0][0]
       message_parcels = message.split(",")
       @partner_location = Point.new(message_parcels[0].to_f, message_parcels[1].to_f)
+      @partner_target = Point.new(message_parcels[4].to_f, message_parcels[5].to_f) if message_parcels.count > 4
+      @target = @partner_target if !@dominant && !@partner_target.nil?
     else
       @dominant = true if time == 1
     end
@@ -55,7 +67,7 @@ class SpinnerBot
   def my_location_next_turn
     new_x = x + Math.cos(my_heading_next_turn.to_rad) * my_speed_next_turn
     new_y = y - Math.sin(my_heading_next_turn.to_rad) * my_speed_next_turn
-    Point.new(new_x, new_y)
+    Point.new(new_x.to_i, new_y.to_i)
   end
 
   def my_speed_next_turn
@@ -70,8 +82,7 @@ class SpinnerBot
     @desired_turn = 0
     accelerate 1 if speed < 8
     distance_to_target = distance_between_objects(my_location, target)
-    distance_to_partner = 1600
-    distance_to_partner = distance_between_objects(my_location, @partner_location) unless @partner_location.nil?
+    distance_to_partner =  @partner_location.nil? ? 3200 : distance_between_objects(my_location, @partner_location)
     case
       when distance_to_partner < DISTANCE_BETWEEN_PARTNERS && !@dominant then stop
       when distance_to_target > MAINTAIN_DISTANCE.max then driver_turn_toward_target
@@ -82,21 +93,40 @@ class SpinnerBot
   end
 
   def aim
-    @desired_gun_turn = 0
     @desired_gun_turn = turn_toward gun_heading, degree_from_point_to_point(my_location, target)
     @desired_gun_turn = [[(0 - @desired_turn) + @desired_gun_turn,30].min, -30].max
-    @desired_gun_turn = [[@desired_gun_turn, -30].max,30].min
     turn_gun @desired_gun_turn
-    fire 3.0 if !@bot_detected.nil? && (gun_heat == 0)
+    fire 3.0 if !@bot_detected.nil? && (gun_heat == 0) && @radar_size == RADAR_SCAN_SIZE.min
   end
 
   def sweep_radar
+    puts "starting: #{@radar_size}, #{@radar_direction}"
     case
+      when !@dominant && !@partner_target.nil? then point_radar_to_partner_target
       when !@bot_detected.nil? then reverse_and_narrow_radar_direction
       when lost_target? then reverse_and_expand_direction
     end
+    return if @suppress_radar
+    puts "after decision, before clamping: #{@radar_size}, #{@radar_direction}"
     @radar_size = [[@radar_size, RADAR_SCAN_SIZE.min ].max, RADAR_SCAN_SIZE.max].min
     radar_turn = (@radar_direction * @radar_size)
+    puts "after scan clamp, before adjusting for move: #{@radar_size}, #{@radar_direction}.  Robot turn=#{@desired_turn}, gun turn = #{@desired_gun_turn}"
+    radar_turn = [[(0 - (@desired_gun_turn + @desired_turn)) + radar_turn, 60].min, -60].max
+    turn_radar radar_turn
+  end
+
+  def point_radar_to_partner_target
+    @radar_size = RADAR_SCAN_SIZE.min
+    @time_bot_detected = time
+    @suppress_radar = true
+    radar_turn = turn_toward(radar_heading, degree_from_point_to_point(my_location_next_turn, @target))
+    if radar_turn > 0
+      @radar_direction = 1
+      radar_turn = rotate(radar_turn, -1.5)
+    else
+      @radar_direction = -1
+      radar_turn = rotate(radar_turn, 1.5)
+    end
     radar_turn = [[(0 - (@desired_gun_turn + @desired_turn)) + radar_turn, 60].min, -60].max
     turn_radar radar_turn
   end
@@ -131,6 +161,10 @@ class SpinnerBot
 
   def process_radar_results detected_bots
     @bot_detected = nil
+    if @suppress_radar
+      @suppress_radar = false
+      return
+    end
     return if detected_bots.nil?
     return if detected_bots.count == 0
     scan_list = []
@@ -144,6 +178,7 @@ class SpinnerBot
         friend_direction = degree_from_point_to_point(my_location, @partner_location)
         friend = radar_heading_between?(friend_direction, @old_radar_heading, radar_heading, @radar_direction)
       end
+      puts "friend? #{friend}: #{@partner_location.inspect}"
       if !friend
         @bot_detected = locate_target(distance)
         @time_bot_detected = time
@@ -163,12 +198,17 @@ class SpinnerBot
     Point.new(x + b, y - a)
   end
 
+  def dodge(degree)
+    return degree + 40 if @dominant
+    return degree - 40
+  end
+
   def driver_turn_toward_target
-    turn_toward_heading degree_from_point_to_point(my_location, target)
+    turn_toward_heading dodge(degree_from_point_to_point(my_location, target))
   end
 
   def driver_turn_away_from_target
-    turn_toward_heading rotate(degree_from_point_to_point(my_location, target),180)
+    turn_toward_heading dodge(rotate(degree_from_point_to_point(my_location, target),180))
   end
 
   def circle_target
