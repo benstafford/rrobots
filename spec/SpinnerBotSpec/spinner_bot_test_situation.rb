@@ -32,6 +32,8 @@ class SpinnerBotTestSituation
     spinner_bot.should_receive(:turn).exactly(@test_rounds).times unless @ignore_turn == false
     spinner_bot.should_receive(:turn_gun).exactly(@test_rounds).times unless @ignore_gun_turn == false
     spinner_bot.should_receive(:turn_radar).exactly(@test_rounds).times unless @ignore_radar_turn == false
+    spinner_bot.should_receive(:say).exactly(@test_rounds).times
+    spinner_bot.should_receive(:fire).exactly(@test_rounds).times
     spinner_bot
   end
 

@@ -8,7 +8,7 @@ class SpinnerBot
 
   MAINTAIN_DISTANCE = 300..400
   DISTANCE_BETWEEN_PARTNERS = 120
-  RADAR_SCAN_SIZE = 3..60
+  RADAR_SCAN_SIZE = 3..48
 
   def puts message
   end
@@ -20,6 +20,7 @@ class SpinnerBot
     @radar_size = 60
     @suppress_radar = false
     @time_bot_detected = nil
+    @turning_to_partner_target = false
   end
 
   def set_old_radar_heading  heading
@@ -28,6 +29,8 @@ class SpinnerBot
 
   def tick events
     puts "tick"
+    say "Master" if (@dominant || @partner_location.nil?)
+    say "Servant" if !(@dominant || @partner_location.nil?)
     process_broadcast events['broadcasts'] unless events.nil?
     process_radar_results events['robot_scanned'] unless events.nil?
     @old_radar_heading = radar_heading
@@ -96,13 +99,16 @@ class SpinnerBot
     @desired_gun_turn = turn_toward gun_heading, degree_from_point_to_point(my_location, target)
     @desired_gun_turn = [[(0 - @desired_turn) + @desired_gun_turn,30].min, -30].max
     turn_gun @desired_gun_turn
-    fire 3.0 if !@bot_detected.nil? && (gun_heat == 0) && @radar_size == RADAR_SCAN_SIZE.min
+    #fire 3.0 if !@bot_detected.nil? && (gun_heat == 0) && @radar_size == RADAR_SCAN_SIZE.min
+    fire 0.1
   end
 
   def sweep_radar
     puts "starting: #{@radar_size}, #{@radar_direction}"
     case
-      when !@dominant && !@partner_target.nil? then point_radar_to_partner_target
+      when partner_has_provided_close_target? then scan_over_partner_target
+      when partner_has_provided_a_distant_target? then point_radar_to_partner_target
+      when @turning_to_partner_target then point_radar_to_partner_target
       when !@bot_detected.nil? then reverse_and_narrow_radar_direction
       when lost_target? then reverse_and_expand_direction
     end
@@ -115,19 +121,50 @@ class SpinnerBot
     turn_radar radar_turn
   end
 
+  def scan_over_partner_target
+    @radar_size = RADAR_SCAN_SIZE.min
+    desired_radar_degree = degree_from_point_to_point(my_location_next_turn, @target)
+    radar_turn = turn_toward(radar_heading, desired_radar_degree)
+    @radar_direction = [[radar_turn,1].min,-1].max
+  end
+
+  def partner_has_provided_close_target?
+    return false if @dominant
+    return false if @partner_target.nil?
+    desired_radar_degree = degree_from_point_to_point(my_location_next_turn, @target)
+    radar_turn = turn_toward(radar_heading, desired_radar_degree)
+    return true if radar_turn.abs < 3
+    false
+  end
+
+  def partner_has_provided_a_distant_target?
+    return false if @dominant
+    return false if @partner_target.nil?
+    desired_radar_degree = degree_from_point_to_point(my_location_next_turn, @target)
+    radar_turn = turn_toward(radar_heading, desired_radar_degree)
+    return false if radar_turn.abs < 3
+    true
+  end
+
   def point_radar_to_partner_target
+    puts "turning radar to partners target"
     @radar_size = RADAR_SCAN_SIZE.min
     @time_bot_detected = time
     @suppress_radar = true
-    radar_turn = turn_toward(radar_heading, degree_from_point_to_point(my_location_next_turn, @target))
+    desired_radar_degree = degree_from_point_to_point(my_location_next_turn, @target)
+    radar_turn = turn_toward(radar_heading, desired_radar_degree)
     if radar_turn > 0
       @radar_direction = 1
-      radar_turn = rotate(radar_turn, -1.5)
+      desired_radar_degree = rotate(desired_radar_degree, -2)
     else
       @radar_direction = -1
-      radar_turn = rotate(radar_turn, 1.5)
+      desired_radar_degree = rotate(desired_radar_degree, 2)
     end
+    radar_turn = turn_toward(radar_heading, desired_radar_degree)
+    puts "current radar = #{radar_heading}, target radar = #{@target.inspect}, needed turn = #{radar_turn}"
     radar_turn = [[(0 - (@desired_gun_turn + @desired_turn)) + radar_turn, 60].min, -60].max
+    puts "clamped radar turn = #{radar_turn}"
+    @turning_to_partner_target = !(rotate(radar_heading, radar_turn) == desired_radar_degree)
     turn_radar radar_turn
   end
 
@@ -176,7 +213,8 @@ class SpinnerBot
       friend = false
       if !@partner_location.nil?
         friend_direction = degree_from_point_to_point(my_location, @partner_location)
-        friend = radar_heading_between?(friend_direction, @old_radar_heading, radar_heading, @radar_direction)
+        friend_distance = distance_between_objects(my_location, @partner_location)
+        friend = radar_heading_between?(friend_direction, @old_radar_heading, radar_heading, @radar_direction) && (friend_distance - distance).abs < 32
       end
       puts "friend? #{friend}: #{@partner_location.inspect}"
       if !friend

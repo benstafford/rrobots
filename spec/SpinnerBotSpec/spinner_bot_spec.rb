@@ -81,14 +81,14 @@ describe SpinnerBot do
 
   it 'should scan for enemies' do
     spinner_bot = SpinnerBotTestSituation.new.set_test_turn_radar.get_spinner_bot
-    spinner_bot.should_receive(:turn_radar).with(60)
+    spinner_bot.should_receive(:turn_radar).with(SpinnerBot::RADAR_SCAN_SIZE.max)
     spinner_bot.tick({"broadcasts"=>[],"robot_scanned"=>[]})
   end
 
   it 'should not detect partner as an enemy' do
     spinner_bot = SpinnerBotTestSituation.new.set_test_turn_radar.set_radar_heading(120).get_spinner_bot
     spinner_bot.set_old_radar_heading(60)
-    spinner_bot.should_receive(:turn_radar).with(60)
+    spinner_bot.should_receive(:turn_radar).with(SpinnerBot::RADAR_SCAN_SIZE.max)
     spinner_bot.tick({"broadcasts"=>[["800.0,809.0,90.0,1"]], "robot_scanned"=>[[500]]})
   end
 
@@ -99,7 +99,7 @@ describe SpinnerBot do
     spinner_bot.tick({"broadcasts"=>[["1100.0,1100.0,90.0,1"]], "robot_scanned"=>[[300]]})
   end
 
-  it 'should narrow focus repeatedly to a minimum sufficient accuracy', :failing=>true do
+  it 'should narrow focus repeatedly to a minimum sufficient accuracy' do
     spinner_bot = SpinnerBotTestSituation.new.set_radar_heading(120).set_test_rounds(5).get_spinner_bot
     spinner_bot.set_old_radar_heading(60)
     spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1"]], "robot_scanned"=>[[500]]})
@@ -135,12 +135,12 @@ describe SpinnerBot do
     spinner_bot.should_receive(:turn_radar).with(-30)
     spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1"]], "robot_scanned"=>[]})
     spinner_bot.stub!(:time).and_return(102)
-    spinner_bot.stub!(:radar_heading).and_return(60)
+    spinner_bot.stub!(:radar_heading).and_return(SpinnerBot::RADAR_SCAN_SIZE.max)
     spinner_bot.should_receive(:turn_radar)#.with(-30)
     spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1"]], "robot_scanned"=>[]})
     spinner_bot.stub!(:time).and_return(103)
     spinner_bot.stub!(:radar_heading).and_return(30)
-    spinner_bot.should_receive(:turn_radar).with(60)
+    spinner_bot.should_receive(:turn_radar).with(SpinnerBot::RADAR_SCAN_SIZE.max)
     spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1"]], "robot_scanned"=>[]})
   end
 
@@ -152,11 +152,26 @@ describe SpinnerBot do
     spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1"]], "robot_scanned"=>[[500]]})
   end
 
-  it 'should change target to master target' do
+  it 'servant should change target to master target' do
     spinner_bot = SpinnerBotTestSituation.new.get_spinner_bot
     spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1,800.0,600.0"]], "robot_scanned"=>[]})
     spinner_bot.target.x.should == 800
     spinner_bot.target.y.should == 600
+  end
+
+  it 'servant should rotate its radar to orient on masters target', :failing=>true do
+    spinner_bot = SpinnerBotTestSituation.new.set_radar_heading(0).set_test_rounds(2).set_test_turn_radar.get_spinner_bot()
+    spinner_bot.should_receive(:turn_radar).with(60)
+    spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1,800.0,600.0"]], "robot_scanned"=>[]})
+    spinner_bot.stub!(:radar_heading).and_return(60)
+    spinner_bot.should_receive(:turn_radar).with(28)
+    spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1"]], "robot_scanned"=>[]})
+  end
+
+  it 'servant should know when its radar is already close enough to masters target' do
+    spinner_bot = SpinnerBotTestSituation.new.set_radar_heading(88).set_test_turn_radar.get_spinner_bot()
+    spinner_bot.should_receive(:turn_radar).with(SpinnerBot::RADAR_SCAN_SIZE.min)
+    spinner_bot.tick({"broadcasts"=>[["1100.0,1109.0,90.0,1,800.0,600.0"]], "robot_scanned"=>[]})
   end
 end
 
