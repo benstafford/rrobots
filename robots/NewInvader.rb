@@ -1,5 +1,4 @@
-
-$LOAD_PATH.unshift File.join(File.dirname(__FILE__), 'robots/NewInvader')
+$LOAD_PATH.unshift File.join(File.dirname(__FILE__), 'NewInvader')
 require 'robot'
 require 'InvaderFiringEngine'
 require 'InvaderMath'

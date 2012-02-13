@@ -2,7 +2,7 @@ class SpinnerBotTestSituation
   def initialize
     @test_rounds = 1
     @x = 800
-    @y = 800 + SpinnerBot::MAINTAIN_DISTANCE.max + 100
+    @y = 800 + SpinnerDriver::MAINTAIN_DISTANCE.max + 100
     @heading = 90
     @time = 100
     @speed = 0
@@ -84,6 +84,11 @@ class SpinnerBotTestSituation
 
   def set_test_rounds rounds
     @test_rounds = rounds
+    self
+  end
+
+  def set_speed speed
+    @speed = speed
     self
   end
 end
