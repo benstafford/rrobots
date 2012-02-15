@@ -12,6 +12,6 @@ class SpinnerLogger
   end
 
   def LogStatusToFile robot
-    @logger.debug(",#{robot.time}, #{robot.x}, #{robot.y}, #{robot.heading}, #{robot.gun_heading}, #{robot.radar_heading}, #{robot.speed}, #{robot.events['broadcasts']}, 1, #{robot.desired_turn}, #{robot.desired_gun_turn}, #{robot.desired_radar_turn}, #{robot.broadcast_sent}, #{robot.target.inspect}, #{robot.bot_detected.inspect}")
+    @logger.debug(",#{robot.time}, #{robot.x}, #{robot.y}, #{robot.heading}, #{robot.gun_heading}, #{robot.radar_heading}, #{robot.speed}, #{robot.events['broadcasts']}, 1, #{robot.desired_turn}, #{robot.desired_gun_turn}, #{robot.desired_radar_turn}, #{robot.broadcast_sent}, #{robot.target.inspect}, #{robot.bot_detected.inspect}, #{robot.target_range}")
   end
 end
