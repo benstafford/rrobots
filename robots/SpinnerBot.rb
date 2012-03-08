@@ -34,6 +34,7 @@ class SpinnerBot
     @time_bot_detected = nil
     @target_range = 0
     @radar = SpinnerRadar.new(self)
+    @detect_log = []
   end
 
   def tick events
@@ -76,7 +77,7 @@ class SpinnerBot
   end
 
   def aim
-    @desired_gun_turn, fire_strength = SpinnerGunner.new.aim(@desired_turn, gun_heading, my_location_next_turn, @target, @target_range, time)
+    @desired_gun_turn, fire_strength = SpinnerGunner.new(self).aim
     turn_gun @desired_gun_turn
     fire fire_strength
   end
@@ -97,7 +98,27 @@ class SpinnerBot
   def get_radar_size
     @radar.radar_size
   end
-  
+
+  def log_detected_bot bot_detected, time
+    prev_log_hash = @detect_log[@detect_log.count - 1] unless @detect_log.count < 1
+    direction = nil
+    velocity = 0
+    if !prev_log_hash.nil?
+      prev_location = Point.new(prev_log_hash['x'], prev_log_hash['y'])
+      prev_time = prev_log_hash['time']
+      direction = SpinnerMath.degree_from_point_to_point(prev_location, bot_detected)
+      velocity = SpinnerMath.distance_between_objects(prev_location, bot_detected)/(time - prev_time)
+    end
+    @detect_log << {"x"=>bot_detected.x, "y"=>bot_detected.y, "time"=>time, "direction"=>direction, "velocity"=>velocity }
+  end
+
+  def get_previous_bot_location index
+    count = @detect_log.count
+    return nil, 0 if count < (index + 1)
+    log_hash = @detect_log[count - (index + 1)]
+    return Point.new(log_hash['x'], log_hash['y']), log_hash['time']
+  end
+
   class Point
     attr_accessor :x
     attr_accessor :y

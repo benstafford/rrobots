@@ -26,6 +26,7 @@ class SpinnerTargeting
       if !friend
         @robot.bot_detected = locate_target(distance)
         @robot.time_bot_detected = @robot.time
+        @robot.log_detected_bot @robot.bot_detected, @robot.time if @robot.target_range <= 3
         @robot.target = @robot.bot_detected
       end
     end
