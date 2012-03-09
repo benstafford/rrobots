@@ -1,4 +1,5 @@
 class SpinnerTargeting
+  SERVANT_SCAN_TOLERANCE = 120
   def initialize spinner_bot
     @robot = spinner_bot
   end
@@ -24,10 +25,22 @@ class SpinnerTargeting
         friend = radar_heading_between?(friend_direction, @robot.old_radar_heading, @robot.radar_heading, @robot.radar.radar_direction) && (friend_distance - distance).abs < 32
       end
       if !friend
-        @robot.bot_detected = locate_target(distance)
-        @robot.time_bot_detected = @robot.time
-        @robot.log_detected_bot @robot.bot_detected, @robot.time if @robot.target_range <= 3
-        @robot.target = lead_the_shot
+        bot = locate_target(distance)
+        if @robot.dominant
+          @robot.bot_detected = bot
+          @robot.time_bot_detected = @robot.time
+          @robot.log_detected_bot @robot.bot_detected, @robot.time if @robot.target_range <= 3
+          @robot.target = lead_the_shot
+        else
+          distance_from_bot_to_target = 0
+          distance_from_bot_to_target = SpinnerMath.distance_between_objects(bot, @robot.partner_target) unless @robot.partner_target.nil?
+          if distance_from_bot_to_target < SERVANT_SCAN_TOLERANCE
+            @robot.bot_detected = bot
+            @robot.time_bot_detected = @robot.time
+            @robot.log_detected_bot @robot.bot_detected, @robot.time if @robot.target_range <= 3
+            @robot.target = lead_the_shot
+          end
+        end
       end
     end
   end
