@@ -23,9 +23,13 @@ class SpinnerMath
   end
 
   def self.degree_from_point_to_point point1, point2
-    if (point1.y - point2.y) == 0 and (point2.x - point1.x) == 0
+    begin
+      if (point1.y - point2.y) == 0 and (point2.x - point1.x) == 0
+        return -1
+      end
+      Math.atan2(point1.y - point2.y, point2.x - point1.x) / Math::PI * 180 % 360
+    rescue
       return -1
     end
-    Math.atan2(point1.y - point2.y, point2.x - point1.x) / Math::PI * 180 % 360
   end
 end

@@ -1,6 +1,6 @@
 class SpinnerTargeting
-  def initialize spinnerBot
-    @robot = spinnerBot
+  def initialize spinner_bot
+    @robot = spinner_bot
   end
 
   def process_radar_results detected_bots
@@ -27,7 +27,7 @@ class SpinnerTargeting
         @robot.bot_detected = locate_target(distance)
         @robot.time_bot_detected = @robot.time
         @robot.log_detected_bot @robot.bot_detected, @robot.time if @robot.target_range <= 3
-        @robot.target = @robot.bot_detected
+        @robot.target = lead_the_shot
       end
     end
   end
@@ -56,6 +56,46 @@ class SpinnerTargeting
       return true
     end
     false
+  end
+
+  def get_enemy_location_and_speed
+    current_location = @robot.bot_detected
+    previous_location, previous_time = @robot.get_previous_bot_location 1
+    return current_location, 90, 0 if previous_time == 0
+    current_location = get_average_location(current_location, previous_location)
+    second_previous_location, previous_time = @robot.get_previous_bot_location 2
+    return current_location, 90, 0 if previous_time == 0
+    previous_location = get_average_location(previous_location, second_previous_location)
+
+    distance = SpinnerMath::distance_between_objects(previous_location, current_location)
+    direction_of_travel = SpinnerMath::degree_from_point_to_point(previous_location, current_location)
+    speed = distance/(@robot.time - previous_time)
+    return current_location, direction_of_travel, speed
+  end
+
+  def get_average_location location1, location2
+    average_x = (location1.x + location2.x)/2
+    average_y = (location1.y + location2.y)/2
+    SpinnerBot::Point.new(average_x.to_i, average_y.to_i)
+  end
+
+  def lead_the_shot
+    current_location, direction_of_travel, speed = get_enemy_location_and_speed
+    return current_location if speed == 0
+
+    enemy_x_velocity = speed * Math.cos(direction_of_travel.to_rad)
+    enemy_y_velocity = speed * Math.sin(direction_of_travel.to_rad)
+    x_distance = (current_location.x - @robot.my_location_next_turn.x)
+    y_distance = (current_location.y - @robot.my_location_next_turn.y)
+    new_x = current_location.x
+    new_y = current_location.y
+    time = 1
+    while ((x_distance/time + enemy_x_velocity).abs > 30 or (y_distance/time - enemy_y_velocity).abs > 30) and (time<100)
+      time = time + 1
+      new_x = new_x + enemy_x_velocity
+      new_y = new_y - enemy_y_velocity
+    end
+    SpinnerBot::Point.new(new_x, new_y)
   end
 
 end

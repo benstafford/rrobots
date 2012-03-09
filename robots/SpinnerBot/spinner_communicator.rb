@@ -6,8 +6,8 @@ class SpinnerCommunicator
   def send_broadcast
     location_next_turn = @robot.my_location_next_turn
     message = "#{location_next_turn.x.to_i},#{location_next_turn.y.to_i}"
-    if !@robot.bot_detected.nil?
-      message += ",#{@robot.bot_detected.x.to_i},#{@robot.bot_detected.y.to_i}, #{@robot.target_range}"
+    if !@robot.target.nil?
+      message += ",#{@robot.target.x.to_i},#{@robot.target.y.to_i}, #{@robot.target_range}"
     end
     message
   end
