@@ -32,4 +32,12 @@ class SpinnerMath
       return -1
     end
   end
+
+  def self.distance_from_point_to_line point_off_the_line, point1_on_line, point2_on_line
+    direction_of_line = degree_from_point_to_point(point1_on_line, point2_on_line)
+    direction_from_point1_to_point_off_line = degree_from_point_to_point(point1_on_line, point_off_the_line)
+    theta = turn_toward(direction_of_line, direction_from_point1_to_point_off_line)
+    distance_from_point1_to_point_off_line = distance_between_objects(point1_on_line, point_off_the_line)
+    return (Math.sin(theta.to_rad) * distance_from_point1_to_point_off_line).abs
+  end
 end

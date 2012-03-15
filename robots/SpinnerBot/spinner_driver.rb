@@ -4,41 +4,62 @@ class SpinnerDriver
   DISTANCE_BETWEEN_PARTNERS = 120
   MAINTAIN_DISTANCE = 300..400
 
-  def drive speed, my_location, target, partner_location, dominant, heading
+  def initialize spinner_bot
+    @robot = spinner_bot
+  end
+
+  def drive 
     @desired_turn = 0
     accelerate = 0
-    accelerate = 1 if speed < 8
-    distance_to_target = SpinnerMath.distance_between_objects(my_location, target)
-    distance_to_partner =  partner_location.nil? ? 3200 : SpinnerMath.distance_between_objects(my_location, partner_location)
-    direction_to_target = SpinnerMath.degree_from_point_to_point(my_location, target)
+    accelerate = 1 if @robot.speed < 8
+    distance_to_target = SpinnerMath.distance_between_objects(@robot.my_location, @robot.target)
+    direction_to_target = SpinnerMath.degree_from_point_to_point(@robot.my_location, @robot.target)
     case
-      when distance_to_partner < DISTANCE_BETWEEN_PARTNERS && !dominant && speed > 0 then accelerate = -1
-      when distance_to_target > MAINTAIN_DISTANCE.max then driver_turn_toward_target(direction_to_target, dominant, heading)
-      when distance_to_target < MAINTAIN_DISTANCE.min then driver_turn_away_from_target(direction_to_target, dominant, heading)
-      else circle_target(direction_to_target, heading)
+      when in_partners_path then drive_out_of_partner_path
+      when distance_to_target > MAINTAIN_DISTANCE.max then driver_turn_toward_target(direction_to_target)
+      when distance_to_target < MAINTAIN_DISTANCE.min then driver_turn_away_from_target(direction_to_target)
+      else circle_target(direction_to_target)
     end
     return @desired_turn, accelerate
   end
 
- def driver_turn_toward_target direction_to_target, dominant, heading
-    turn_toward_heading dodge(direction_to_target, dominant), heading
+  def in_partners_path
+    return false if @robot.dominant
+    return false if @robot.partner_location.nil?
+    return false if @robot.partner_target.nil?
+    distance_to_partner_path = SpinnerMath.distance_from_point_to_line(@robot.my_location, @robot.partner_location, @robot.partner_target)
+    return distance_to_partner_path < DISTANCE_BETWEEN_PARTNERS
   end
 
-  def driver_turn_away_from_target direction_to_target, dominant, heading
-    turn_toward_heading dodge(SpinnerMath.rotate(direction_to_target,180), dominant), heading
+  def drive_out_of_partner_path
+    direction_of_line = SpinnerMath.degree_from_point_to_point(@robot.partner_location, @robot.partner_target)
+    direction_from_point1_to_point_off_line = SpinnerMath.degree_from_point_to_point(@robot.partner_location, @robot.my_location)
+    theta = SpinnerMath.turn_toward(direction_of_line, direction_from_point1_to_point_off_line)
+    rotation = theta > 0 ? 90 : -90
+    desired_direction = SpinnerMath.rotate(direction_of_line, rotation)
+    turn_toward_heading desired_direction
   end
 
-  def circle_target direction_to_target, heading
-    turn_toward_heading SpinnerMath.rotate(direction_to_target,90), heading
+  def driver_turn_toward_target direction_to_target
+    turn_toward_heading dodge(direction_to_target)
   end
 
-  def dodge degree, dominant
-    return degree + 40 if dominant
+  def driver_turn_away_from_target direction_to_target
+    turn_toward_heading dodge(SpinnerMath.rotate(direction_to_target,180))
+  end
+
+  def circle_target direction_to_target
+    turn_toward_heading SpinnerMath.rotate(direction_to_target,90)
+  end
+
+  def dodge degree
+    #degree
+    return degree + 40 if @robot.dominant
     degree - 40
   end
 
-  def turn_toward_heading desired_heading, heading
-    desired_turn = SpinnerMath.turn_toward heading, desired_heading
+  def turn_toward_heading desired_heading
+    desired_turn = SpinnerMath.turn_toward @robot.heading, desired_heading
     @desired_turn = [[desired_turn,-10].max,10].min
   end
 end

@@ -70,7 +70,7 @@ class SpinnerBot
   end
 
   def drive
-    @desired_turn, acceleration = SpinnerDriver.new.drive(speed, my_location, @target, @partner_location, @dominant, heading)
+    @desired_turn, acceleration = SpinnerDriver.new(self).drive
     accelerate acceleration
     stop if acceleration < 0
     turn @desired_turn
