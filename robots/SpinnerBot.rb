@@ -24,6 +24,7 @@ class SpinnerBot
   attr_reader :desired_gun_turn
   attr_reader :desired_turn
   attr_reader :radar
+  attr_reader :last_hit
 
   #@@logger = SpinnerLogger.new
 
@@ -35,9 +36,11 @@ class SpinnerBot
     @target_range = 0
     @radar = SpinnerRadar.new(self)
     @detect_log = []
+    @last_hit = 0
   end
 
   def tick events
+    @last_hit = time unless events['got_hit'].empty?
     say "Master #{@target_range}" if (@dominant || @partner_location.nil?)
     say "Servant #{@target_range}" if !(@dominant || @partner_location.nil?)
     SpinnerCommunicator.new(self).process_broadcast events['broadcasts'] unless events.nil?

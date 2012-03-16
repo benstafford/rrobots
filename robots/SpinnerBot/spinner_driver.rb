@@ -1,9 +1,10 @@
 require 'spinner_math'
 
 class SpinnerDriver
-  DISTANCE_BETWEEN_PARTNERS = 120
+  DISTANCE_BETWEEN_PARTNERS = 180
   MAINTAIN_DISTANCE = 300..400
-
+  EVASION_TIME = 8
+  
   def initialize spinner_bot
     @robot = spinner_bot
   end
@@ -18,6 +19,7 @@ class SpinnerDriver
       when in_partners_path then drive_out_of_partner_path
       when distance_to_target > MAINTAIN_DISTANCE.max then driver_turn_toward_target(direction_to_target)
       when distance_to_target < MAINTAIN_DISTANCE.min then driver_turn_away_from_target(direction_to_target)
+      when recently_hit? then evade
       else circle_target(direction_to_target)
     end
     return @desired_turn, accelerate
@@ -29,6 +31,15 @@ class SpinnerDriver
     return false if @robot.partner_target.nil?
     distance_to_partner_path = SpinnerMath.distance_from_point_to_line(@robot.my_location, @robot.partner_location, @robot.partner_target)
     return distance_to_partner_path < DISTANCE_BETWEEN_PARTNERS
+  end
+
+  def recently_hit?
+    @robot.time - @robot.last_hit < EVASION_TIME
+  end
+
+  def evade
+    direction_to_target = SpinnerMath.degree_from_point_to_point(@robot.my_location, @robot.target)
+    driver_turn_toward_target(direction_to_target)
   end
 
   def drive_out_of_partner_path
