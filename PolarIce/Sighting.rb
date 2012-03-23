@@ -57,13 +57,13 @@ class Sighting
     @start_angle = (@start_angle - @direction * amount).normalize_angle
   end
 
-  def contains(position)
+  def contains(position, margin=6)
     vector = origin.polar_vector_to(position)
     radius, angle = vector[R], vector[T]
     if (radius == distance)
       contains_angle(angle)
     elsif (radius < distance)
-      central_angle < 6 && contains_angle(angle)
+      central_angle < margin && contains_angle(angle)
     else
       false
     end
@@ -86,6 +86,22 @@ class Sighting
     start = start_angle
     start += 360 if start_angle < end_angle
     start >= angle && angle >= end_angle
+  end
+
+  def midpoint
+    point_on_arc(bisector)
+  end
+
+  def start_point
+    point_on_arc(start_angle)
+  end
+
+  def end_point
+    point_on_arc(end_angle)
+  end
+
+  def point_on_arc(angle)
+    @origin + Vector[angle, @distance].to_cartesian
   end
 
   attr_accessor(:start_angle)

@@ -23,10 +23,10 @@ require 'PolarIce/Target'
 
 class PolarIce
   include Robot
-  include DriverAccessor
-  include GunnerAccessor
-  include RadarAccessor
-  include LoaderAccessor
+  attr_accessor(:driver)
+  attr_accessor(:gunner)
+  attr_accessor(:radar)
+  attr_accessor(:loader)
 
   CENTER_POSITION = Vector[800,800]
 
@@ -103,10 +103,6 @@ class PolarIce
     end
   end
 
-  def process_partner_position_message(message_source, message_data)
-    @current_partner_position[message_source] = decode_vector(message_data)
-  end
-
   def process_partner_message(message)
     log "process_partner_message #{message}\n"
     message_string = message[0]
@@ -114,12 +110,25 @@ class PolarIce
     message_source = message_string[1].to_i
     message_data = message_string[2..-1]
 
-    if message_type == "P"
-      process_partner_position_message(message_source, message_data)
-      log "current_partner_position = #{@current_partner_position}\n"
-    elsif message_type == "T"
-#      gunner.desiredTarget = decode_vector(message_data)
+    case message_type
+      when "P" then process_position_message(message_source, message_data)
+      when "R" then process_partner_radar_message(message_source, message_data)
+#      when "T" then gunner.desiredTarget = decode_vector(message_data)
     end
+  end
+
+  def process_position_message(message_source, message_data)
+    @current_partner_position[message_source] = decode_vector(message_data)
+  end
+
+  def process_partner_radar_message(message_source, message_data)
+    position_data, radar_data = message_data.split(';')
+    process_position_message(message_source, position_data)
+    process_radar_data(message_source, radar_data)
+  end
+
+  def process_radar_data(message_source, radar_data)
+
   end
 
   def determine_role(message_count)
@@ -178,18 +187,25 @@ class PolarIce
     @broadcast_message = "P" + @id.to_s + @current_position.encode
   end
 
-  def send_target_to_partner
-    @broadcast_message = "T" + @id.to_s + gunner.desired_target.encode
-  end
-
   def process_radar(robots_scanned)
     targets_scanned = Array.new
-    if (robots_scanned != nil)
+    if ((robots_scanned != nil) && (!robots_scanned.empty?))
       robots_scanned.each do |target|
         targets_scanned << Sighting.new(@previous_status.radar_heading, radar_heading, target[0], radar.rotation.direction, current_position, time)
       end
+      send_radar_to_partner(robots_scanned)
     end
     radar.scanned targets_scanned
+  end
+
+  def send_radar_to_partner(robots_scanned)
+    @broadcast_message = "R" + @id.to_s + @current_position.encode +
+        ";" + time.encode +
+        "," + @previous_status.radar_heading.encode +
+        "," + radar_heading.encode
+    robots_scanned.each do |target|
+      @broadcast_message += "," + target[0].encode
+    end
   end
 
   def move_the_bot
@@ -264,7 +280,6 @@ class PolarIce
   def target(target)
     log "polarIce.target #{target}\n"
     gunner.target(target)
-    send_target_to_partner
   end
 
   def update_target(target)

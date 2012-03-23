@@ -14,14 +14,3 @@ class Loader
 
   attr_accessor(:power)
 end
-
-module LoaderAccessor
-  def desired_loader_power
-    loader.power
-  end
-
-  def desired_loader_power= power
-    loader.power = power
-  end
-  attr_accessor(:loader)
-end

@@ -1,40 +1,40 @@
 $LOAD_PATH.unshift(File.dirname(__FILE__))
-$LOAD_PATH.unshift File.join(File.dirname(__FILE__), '../')
+$LOAD_PATH.unshift File.join(File.dirname(__FILE__), '../../')
 
 require 'PolarIce'
 require 'Matrix'
 
 def test_acceleration(desiredSpeed, expectedAcceleration)
-  @bot.stub!(:speed).and_return(0)
-  @bot.desired_driver_speed = desiredSpeed
-  @bot.should_receive(:accelerate).with(expectedAcceleration)
-  @bot.tick nil
+  @simplicity.stub!(:speed).and_return(0)
+  @simplicity.driver.desired_speed = desiredSpeed
+  @simplicity.should_receive(:accelerate).with(expectedAcceleration)
+  @simplicity.tick nil
 end
 
 def test_move_to_position(desired_target, expected_speed)
-  @bot.desired_driver_target = desired_target
-  @bot.tick nil
-  @bot.desired_driver_speed.should == expected_speed
+  @simplicity.driver.desired_target = desired_target
+  @simplicity.tick nil
+  @simplicity.driver.desired_speed.should == expected_speed
 end
 
 def test_rotation(rotator, desired_heading, expected_rotation)
   rotator.desired_heading = desired_heading
-  @bot.tick nil
+  @simplicity.tick nil
   rotator.rotation.should == expected_rotation
 end
 
 def test_aim_at_target(rotator, desired_target, expected_heading)
   rotator.desired_target = desired_target
-  @bot.tick nil
+  @simplicity.tick nil
   rotator.desired_heading.should == expected_heading
 end
 
 def total_rotation
-  (@bot.radar_rotation + @bot.gunner_rotation + @bot.driver_rotation)
+  (@simplicity.radar.rotation + @simplicity.gunner.rotation + @simplicity.driver.rotation)
 end
 
 def scan_60_degrees
-  @bot.tick @events
+  @simplicity.tick @events
   total_rotation.should == 60
 end
 
@@ -42,358 +42,234 @@ def do_quick_scan(targets = nil)
   5.times { scan_60_degrees }
   if (targets != nil)
     if (targets.class == Array)
-      @bot.radar.targets += targets
+      @simplicity.radar.sightings += targets
     else
-      @bot.radar.targets << targets
+      @simplicity.radar.sightings << targets
     end
   end
 #  scan_60_degrees
-  @bot.tick @events
+  @simplicity.tick @events
 end
 
 def expect_first_scan(radarHeading, gunHeading, turn, robotScanned=nil)
   @events['robot_scanned'].clear
   @events['robot_scanned'] << robotScanned if robotScanned != nil
-  @bot.stub!(:radar_heading).and_return(radarHeading)
-  @bot.stub!(:gun_heading).and_return(gunHeading)
-  @bot.tick @events
-  (@bot.driver_rotation + @bot.gunner_rotation + @bot.radar_rotation).should == turn
+  @simplicity.stub!(:radar_heading).and_return(radarHeading)
+  @simplicity.stub!(:gun_heading).and_return(gunHeading)
+  @simplicity.tick @events
+  (@simplicity.driver.rotation + @simplicity.gunner.rotation + @simplicity.radar.rotation).should == turn
 end
 
 def expect_scan(heading, turn, robotScanned=nil)
   @events['robot_scanned'].clear
   @events['robot_scanned'] << robotScanned if robotScanned != nil
-  @bot.stub!(:radar_heading).and_return(heading)
-  @bot.stub!(:gun_heading).and_return(heading)
-  @bot.tick @events
-  (@bot.driver_rotation + @bot.gunner_rotation + @bot.radar_rotation).should == turn
+  @simplicity.stub!(:radar_heading).and_return(heading)
+  @simplicity.stub!(:gun_heading).and_return(heading)
+  @simplicity.tick @events
+  (@simplicity.driver.rotation + @simplicity.gunner.rotation + @simplicity.radar.rotation).should == turn
+end
+
+def stub_actions
+  @simplicity.stub!(:accelerate)
+  @simplicity.stub!(:turn)
+  @simplicity.stub!(:turn_gun)
+  @simplicity.stub!(:turn_radar)
+  @simplicity.stub!(:fire)
+  @simplicity.stub!(:broadcast)
+  @simplicity.stub!(:say)
+end
+
+def stub_status
+  @simplicity.stub!(:x).and_return(800)
+  @simplicity.stub!(:y).and_return(800)
+  @simplicity.stub!(:speed).and_return(0)
+  @simplicity.stub!(:heading).and_return(0)
+  @simplicity.stub!(:gun_heading).and_return(0)
+  @simplicity.stub!(:radar_heading).and_return(0)
+  @simplicity.stub!(:time).and_return(2)
+  @simplicity.stub!(:size).and_return(60)
+end
+
+def set_defaults
+  @simplicity.driver.desired_target = nil
+  @simplicity.driver.desired_heading = nil
+  @simplicity.driver.desired_speed = nil
+  @simplicity.driver.desired_max_speed = 8
+  @simplicity.gunner.desired_target = nil
+  @simplicity.gunner.desired_heading = nil
+  @simplicity.radar.desired_target = nil
+  @simplicity.radar.desired_heading = nil
 end
 
 describe 'PolarIce' do
   before(:each) do
-    @bot = PolarIce.new
-
+    @simplicity = PolarIce.new
     @events = Hash.new{|h, k| h[k]=[]}
-
-    @bot.stub!(:accelerate)
-    @bot.stub!(:turn)
-    @bot.stub!(:turn_gun)
-    @bot.stub!(:turn_radar)
-    @bot.stub!(:fire)
-    @bot.stub!(:broadcast)
-    @bot.stub!(:say)
-
-    @bot.stub!(:x).and_return(800)
-    @bot.stub!(:y).and_return(800)
-    @bot.stub!(:speed).and_return(0)
-    @bot.stub!(:heading).and_return(0)
-    @bot.stub!(:gun_heading).and_return(0)
-    @bot.stub!(:radar_heading).and_return(0)
-    @bot.stub!(:time).and_return(2)
-    @bot.stub!(:size).and_return(60)
-
     @position = Vector[800,800]
 
-    @bot.desired_driver_target = nil
-    @bot.desired_driver_heading = nil
-    @bot.desired_driver_speed = nil
-    @bot.desired_driver_max_speed = 8
-    @bot.desired_gunner_target = nil
-    @bot.desired_gunner_heading = nil
-    @bot.desired_radar_target = nil
-    @bot.desired_radar_heading = nil
+    stub_actions
+    stub_status
+    set_defaults
   end
 
-  describe 'It should know its environment' do
-    describe 'It should know its location' do
-      it 'should know its x value' do
-        @bot.stub!(:x).and_return(5)
-        @bot.x.should == 5
-      end
-      it 'should know its y value' do
-        @bot.stub!(:y).and_return(5)
-        @bot.y.should == 5
-      end
-    end
-    describe 'It should know its headings' do
-      it 'should know its heading' do
-        @bot.stub!(:heading).and_return(1)
-        @bot.heading.should == 1
-      end
-      it 'should know its gun heading' do
-        @bot.stub!(:gun_heading).and_return(2)
-        @bot.gun_heading.should == 2
-      end
-      it 'should know its radar heading' do
-        @bot.stub!(:radar_heading).and_return(3)
-        @bot.radar_heading.should == 3
-      end
-    end
-    describe 'It should know the battlefield' do
-      it 'should know the battlefield width' do
-        @bot.stub!(:battlefield_width).and_return(1)
-        @bot.battlefield_width.should == 1
-      end
-      it 'should know the battlefield height' do
-        @bot.stub!(:battlefield_height).and_return(1)
-        @bot.battlefield_height.should == 1
-      end
-      it 'should know the time' do
-        @bot.stub!(:time).and_return(5)
-        @bot.time.should == 5
-      end
-    end
-    describe 'It should know its life' do
-      it 'should know its remaining energy' do
-        @bot.stub!(:energy).and_return(1)
-        @bot.energy.should == 1
-      end
-      it 'should know that it is alive' do
-        @bot.stub!(:dead).and_return(false)
-        @bot.dead.should == false
-      end
-    end
-    describe 'It should know its other status' do
-      it 'should know the heat of its gun' do
-        @bot.stub!(:gun_heat).and_return(1)
-        @bot.gun_heat.should == 1
-      end
-      it 'should know its size' do
-        @bot.stub!(:size).and_return(1)
-        @bot.size.should == 1
-      end
-      it 'should know its current speed' do
-        @bot.stub!(:speed).and_return(1)
-        @bot.speed.should == 1
-      end
-    end
+  it 'should initialize variables' do
+    @simplicity.driver.acceleration.should_not == nil
+    @simplicity.driver.rotation.should_not == nil
+    @simplicity.gunner.rotation.should_not == nil
+    @simplicity.radar.rotation.should_not == nil
+    @simplicity.loader.power.should_not == nil
+    @simplicity.broadcast_message.should_not == nil
+    @simplicity.quote.should_not == nil
   end
-  describe 'It should initialize variables' do
-    it 'should have a default acceleration rate' do
-      @bot.driver.acceleration.should_not == nil
-    end
-    it 'should have a default hull rotation' do
-      @bot.driver.rotation.should_not == nil
-    end
-    it 'should have a default gun rotation' do
-      @bot.gunner.rotation.should_not == nil
-    end
-    it 'should have a default radar rotation' do
-      @bot.radar.rotation.should_not == nil
-    end
-    it 'should have a default fire power' do
-      @bot.desired_loader_power.should_not == nil
-    end
-    it 'should have a default broadcast message' do
-      @bot.broadcast_message.should_not == nil
-    end
-    it 'should have a default quote' do
-      @bot.quote.should_not == nil
-    end
-  end
-  describe 'It should perform actions on each tick' do
+
+  describe 'Basic Functionality' do
     before(:each) do
-      @bot.base_test
+      @simplicity.base_test
     end
-    it 'should handle a nil tick' do
-      @bot.tick nil
+    it 'should store its position as a vector' do
+      @simplicity.tick nil
+      @simplicity.current_position.should == Vector[800,800]
     end
-    describe 'It should initialize variables on a tick' do
-      it 'should store its position as a vector' do
-        @bot.tick nil
-        @bot.current_position.should == Vector[800,800]
-      end
-    end
-    describe 'It should move its parts' do
-      it 'should accelerate' do
-        @bot.should_receive(:accelerate)
-        @bot.tick nil
-      end
-      it 'should rotate its hull' do
-        @bot.should_receive(:turn)
-        @bot.tick nil
-      end
-      it 'should rotate its gun' do
-        @bot.should_receive(:turn_gun)
-        @bot.tick nil
-      end
-      it 'should rotate its radar' do
-        @bot.should_receive(:turn_radar)
-        @bot.tick nil
-      end
-      it 'should fire' do
-        @bot.should_receive(:fire)
-        @bot.tick nil
-      end
-      it 'should broadcast' do
-        @bot.should_receive(:broadcast)
-        @bot.tick nil
-      end
-      it 'should say' do
-        @bot.should_receive(:say)
-        @bot.tick nil
-      end
-    end
-    describe 'It should move its parts desired amounts' do
-      it 'should accelerate the desired amount' do
-        @bot.driver.acceleration = 1
-        @bot.should_receive(:accelerate).with(1)
-        @bot.perform_actions
-      end
-      it 'should rotate its hull the desired amount' do
-        @bot.driver.rotation = 10
-        @bot.should_receive(:turn).with(10)
-        @bot.perform_actions
-      end
-      it 'should rotate its gun the desired amount' do
-        @bot.gunner.rotation = 15
-        @bot.should_receive(:turn_gun).with(15)
-        @bot.perform_actions
-      end
-      it 'should rotate its radar the desired amount' do
-        @bot.radar.rotation = 15
-        @bot.should_receive(:turn_radar).with(15)
-        @bot.perform_actions
-      end
-      it 'should fire the desired amount' do
-        @bot.desired_loader_power = 0.1
-        @bot.should_receive(:fire).with(0.1)
-        @bot.perform_actions
-      end
-      it 'should broadcast the desired message' do
-        @bot.broadcast_message = "message"
-        @bot.should_receive(:broadcast).with("message")
-        @bot.perform_actions
-      end
-      it 'should say the desired quote' do
-        @bot.quote = "quote"
-        @bot.should_receive(:say).with("quote")
-        @bot.perform_actions
-      end
+    it 'should perform desired actions on each tick' do
+      @simplicity.driver.acceleration = 1
+      @simplicity.should_receive(:turn).with(10)
+      @simplicity.driver.rotation = 10
+      @simplicity.should_receive(:accelerate).with(1)
+      @simplicity.gunner.rotation = 15
+      @simplicity.should_receive(:turn_gun).with(15)
+      @simplicity.radar.rotation = 15
+      @simplicity.should_receive(:turn_radar).with(15)
+      @simplicity.loader.power = 0.1
+      @simplicity.should_receive(:fire).with(0.1)
+      @simplicity.broadcast_message = "message"
+      @simplicity.should_receive(:broadcast).with("message")
+      @simplicity.quote = "quote"
+      @simplicity.should_receive(:say).with("quote")
+      @simplicity.perform_actions
     end
   end
   describe 'It should know information from the previous tick' do
     before(:each) do
-      @bot.stub!(:radar_heading).and_return(3)
-      @bot.tick nil
-      @bot.stub!(:radar_heading).and_return(4)
+      @simplicity.stub!(:radar_heading).and_return(3)
+      @simplicity.tick nil
+      @simplicity.stub!(:radar_heading).and_return(4)
     end
     it 'should know its previous radar heading' do
-      @bot.previous_status.radar_heading.should == 3
+      @simplicity.previous_status.radar_heading.should == 3
     end
   end
   describe 'It should turn' do
     before(:each) do
-      @bot.stub!(:x).and_return(800)
-      @bot.stub!(:y).and_return(800)
-      @bot.stub!(:speed).and_return(0)
-      @bot.stub!(:heading).and_return(90)
-      @bot.stub!(:gun_heading).and_return(90)
-      @bot.stub!(:radar_heading).and_return(90)
-      @bot.base_test
+      @simplicity.stub!(:x).and_return(800)
+      @simplicity.stub!(:y).and_return(800)
+      @simplicity.stub!(:speed).and_return(0)
+      @simplicity.stub!(:heading).and_return(90)
+      @simplicity.stub!(:gun_heading).and_return(90)
+      @simplicity.stub!(:radar_heading).and_return(90)
+      @simplicity.base_test
     end
     describe 'towards headings' do
       describe 'It should turn its hull toward a desired heading' do
         it 'should not turn if it is at the desired heading' do
-          test_rotation(@bot.driver, 90, 0)
+          test_rotation(@simplicity.driver, 90, 0)
         end
         it 'should turn left immediately to the desired heading if within range' do
-          test_rotation(@bot.driver, 8, -10)
+          test_rotation(@simplicity.driver, 8, -10)
         end
         it 'should turn right immediately to the desired heading if within range' do
-          test_rotation(@bot.driver, 100, 10)
+          test_rotation(@simplicity.driver, 100, 10)
         end
         it 'should turn left the maximum amount toward the desired heading if outside of range' do
-          test_rotation(@bot.driver, 79, -10)
+          test_rotation(@simplicity.driver, 79, -10)
         end
         it 'should turn right the maximum amount toward the desired heading if outside of range' do
-          test_rotation(@bot.driver, 101, 10)
+          test_rotation(@simplicity.driver, 101, 10)
         end
         it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-          test_rotation(@bot.driver, 359, -10)
+          test_rotation(@simplicity.driver, 359, -10)
         end
         it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-          test_rotation(@bot.driver, -91, 10)
+          test_rotation(@simplicity.driver, -91, 10)
         end
       end
       describe 'It should turn its gun toward a desired heading' do
         describe 'It should turn its gun just like the hull if the hull is not turning' do
           before (:each) do
-            @bot.desired_driver_heading = 90
+            @simplicity.driver.desired_heading = 90
           end
           it 'should not turn if it is at the desired heading' do
-            test_rotation(@bot.gunner, @bot.desired_driver_heading, 0)
+            test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading, 0)
           end
           it 'should turn left immediately to the desired heading if within range' do
-            test_rotation(@bot.gunner, @bot.desired_driver_heading-30, -30)
+            test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-30, -30)
           end
           it 'should turn right immediately to the desired heading if within range' do
-            test_rotation(@bot.gunner, @bot.desired_driver_heading+30, 30)
+            test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+30, 30)
           end
           it 'should turn left the maximum amount toward the desired heading if outside of range' do
-            test_rotation(@bot.gunner, @bot.desired_driver_heading-31, -30)
+            test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-31, -30)
           end
           it 'should turn right the maximum amount toward the desired heading if outside of range' do
-            test_rotation(@bot.gunner, @bot.desired_driver_heading+31, 30)
+            test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+31, 30)
           end
           it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-            test_rotation(@bot.gunner, @bot.desired_driver_heading+181, -30)
+            test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+181, -30)
           end
           it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-            test_rotation(@bot.gunner, @bot.desired_driver_heading-181, 30)
+            test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-181, 30)
           end
         end
         describe 'It should adjust for any hull movement' do
           describe 'It should adjust for left hull movement' do
             before (:each) do
-              @bot.desired_driver_heading = 100
+              @simplicity.driver.desired_heading = 100
             end
             it 'should not turn if it is at the desired heading' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading, 0)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading, 0)
             end
             it 'should turn left immediately to the desired heading if within range' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading-30, -30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-30, -30)
             end
             it 'should turn right immediately to the desired heading if within range' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading+30, 30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+30, 30)
             end
             it 'should turn left the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading-31, -30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-31, -30)
             end
             it 'should turn right the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading+31, 30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+31, 30)
             end
             it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading+181, -30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+181, -30)
             end
             it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading-181, 30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-181, 30)
             end
           end
           describe 'It should adjust for right hull movement' do
             before (:each) do
-              @bot.desired_driver_heading = 80
+              @simplicity.driver.desired_heading = 80
             end
             it 'should not turn if it is at the desired heading' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading, 0)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading, 0)
             end
             it 'should turn left immediately to the desired heading if within range' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading-30, -30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-30, -30)
             end
             it 'should turn right immediately to the desired heading if within range' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading+30, 30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+30, 30)
             end
             it 'should turn left the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading-31, -30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-31, -30)
             end
             it 'should turn right the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading+31, 30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+31, 30)
             end
             it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading+181, -30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading+181, -30)
             end
             it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.gunner, @bot.desired_driver_heading-181, 30)
+              test_rotation(@simplicity.gunner, @simplicity.driver.desired_heading-181, 30)
             end
           end
         end
@@ -401,140 +277,140 @@ describe 'PolarIce' do
       describe 'It should turn its radar toward a desired heading' do
         describe 'It should turn just like the hull if the hull and gun are not turning' do
           before (:each) do
-            @bot.desired_driver_heading = 90
-            @bot.desired_gunner_heading = @bot.desired_driver_heading
+            @simplicity.driver.desired_heading = 90
+            @simplicity.gunner.desired_heading = @simplicity.driver.desired_heading
           end
           it 'should not turn if it is at the desired heading' do
-            test_rotation(@bot.radar, @bot.desired_gunner_heading, 0)
+            test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading, 0)
           end
           it 'should turn left immediately to the desired heading if within range' do
-            test_rotation(@bot.radar, @bot.desired_gunner_heading-60, -60)
+            test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-60, -60)
           end
           it 'should turn right immediately to the desired heading if within range' do
-            test_rotation(@bot.radar, @bot.desired_gunner_heading+60, 60)
+            test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+60, 60)
           end
           it 'should turn left the maximum amount toward the desired heading if outside of range' do
-            test_rotation(@bot.radar, @bot.desired_gunner_heading-61, -60)
+            test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-61, -60)
           end
           it 'should turn right the maximum amount toward the desired heading if outside of range' do
-            test_rotation(@bot.radar, @bot.desired_gunner_heading+61, 60)
+            test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+61, 60)
           end
           it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-            test_rotation(@bot.radar, @bot.desired_gunner_heading+181, -60)
+            test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+181, -60)
           end
           it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-            test_rotation(@bot.radar, @bot.desired_gunner_heading-181, 60)
+            test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-181, 60)
           end
         end
         describe 'It should adjust for any hull movement' do
           describe 'It should adjust for left hull movement' do
             before (:each) do
-              @bot.desired_driver_heading = 100
-              @bot.desired_gunner_heading = @bot.desired_driver_heading
+              @simplicity.driver.desired_heading = 100
+              @simplicity.gunner.desired_heading = @simplicity.driver.desired_heading
             end
             it 'should not turn if it is at the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading, 0)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading, 0)
             end
             it 'should turn left immediately to the desired heading if within range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-60, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-60, -60)
             end
             it 'should turn right immediately to the desired heading if within range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+60, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+60, 60)
             end
             it 'should turn left the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-61, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-61, -60)
             end
             it 'should turn right the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+61, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+61, 60)
             end
             it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+181, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+181, -60)
             end
             it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-181, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-181, 60)
             end
           end
           describe 'It should adjust for right hull movement' do
             before (:each) do
-              @bot.desired_driver_heading = 80
-              @bot.desired_gunner_heading = @bot.desired_driver_heading
+              @simplicity.driver.desired_heading = 80
+              @simplicity.gunner.desired_heading = @simplicity.driver.desired_heading
             end
             it 'should not turn if it is at the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading, 0)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading, 0)
             end
             it 'should turn left immediately to the desired heading if within range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-60, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-60, -60)
             end
             it 'should turn right immediately to the desired heading if within range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+60, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+60, 60)
             end
             it 'should turn left the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-61, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-61, -60)
             end
             it 'should turn right the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+61, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+61, 60)
             end
             it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+181, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+181, -60)
             end
             it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-181, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-181, 60)
             end
           end
         end
         describe 'It should adjust for any gun movement' do
           describe 'It should adjust for left gun movement' do
             before (:each) do
-              @bot.desired_driver_heading = 90
-              @bot.desired_gunner_heading = @bot.desired_driver_heading + 30
+              @simplicity.driver.desired_heading = 90
+              @simplicity.gunner.desired_heading = @simplicity.driver.desired_heading + 30
             end
             it 'should not turn if it is at the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading, 0)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading, 0)
             end
             it 'should turn left immediately to the desired heading if within range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-60, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-60, -60)
             end
             it 'should turn right immediately to the desired heading if within range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+60, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+60, 60)
             end
             it 'should turn left the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-61, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-61, -60)
             end
             it 'should turn right the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+61, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+61, 60)
             end
             it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+181, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+181, -60)
             end
             it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-181, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-181, 60)
             end
           end
           describe 'It should adjust for right gun movement' do
             before (:each) do
-              @bot.desired_driver_heading = 90
-              @bot.desired_gunner_heading = @bot.desired_driver_heading - 30
+              @simplicity.driver.desired_heading = 90
+              @simplicity.gunner.desired_heading = @simplicity.driver.desired_heading - 30
             end
             it 'should not turn if it is at the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading, 0)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading, 0)
             end
             it 'should turn left immediately to the desired heading if within range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-60, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-60, -60)
             end
             it 'should turn right immediately to the desired heading if within range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+60, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+60, 60)
             end
             it 'should turn left the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-61, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-61, -60)
             end
             it 'should turn right the maximum amount toward the desired heading if outside of range' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+61, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+61, 60)
             end
             it 'should turn right the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading+181, -60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading+181, -60)
             end
             it 'should turn left the maximum amount if that is the shortest angular distance from the desired heading' do
-              test_rotation(@bot.radar, @bot.desired_gunner_heading-181, 60)
+              test_rotation(@simplicity.radar, @simplicity.gunner.desired_heading-181, 60)
             end
           end
         end
@@ -543,93 +419,93 @@ describe 'PolarIce' do
     describe 'towards targets' do
       describe 'It should aim its hull toward a desired position' do
         it 'should be able to aim east' do
-          test_aim_at_target(@bot.driver, Vector[1600,800], 0)
+          test_aim_at_target(@simplicity.driver, Vector[1600,800], 0)
         end
         it 'should be able to aim northeast' do
-          test_aim_at_target(@bot.driver, Vector[1600,0], 45)
+          test_aim_at_target(@simplicity.driver, Vector[1600,0], 45)
         end
         it 'should be able to aim north' do
-          test_aim_at_target(@bot.driver, Vector[800,0], 90)
+          test_aim_at_target(@simplicity.driver, Vector[800,0], 90)
         end
         it 'should be able to aim northwest' do
-          test_aim_at_target(@bot.driver, Vector[0,0], 135)
+          test_aim_at_target(@simplicity.driver, Vector[0,0], 135)
         end
         it 'should be able to aim west' do
-          test_aim_at_target(@bot.driver, Vector[0,800], 180)
+          test_aim_at_target(@simplicity.driver, Vector[0,800], 180)
         end
         it 'should be able to aim southwest' do
-          test_aim_at_target(@bot.driver, Vector[0,1600], 225)
+          test_aim_at_target(@simplicity.driver, Vector[0,1600], 225)
         end
         it 'should be able to aim south' do
-          test_aim_at_target(@bot.driver, Vector[800,1600], 270)
+          test_aim_at_target(@simplicity.driver, Vector[800,1600], 270)
         end
         it 'should be able to aim southeast' do
-          test_aim_at_target(@bot.driver, Vector[1600,1600], 315)
+          test_aim_at_target(@simplicity.driver, Vector[1600,1600], 315)
         end
       end
       describe 'It should aim its gun toward desired targets' do
         it 'should be able to aim east' do
-          test_aim_at_target(@bot.gunner, Vector[1600,800], 0)
+          test_aim_at_target(@simplicity.gunner, Vector[1600,800], 0)
         end
         it 'should be able to aim northeast' do
-          test_aim_at_target(@bot.gunner, Vector[1600,0], 45)
+          test_aim_at_target(@simplicity.gunner, Vector[1600,0], 45)
         end
         it 'should be able to aim north' do
-          test_aim_at_target(@bot.gunner, Vector[800,0], 90)
+          test_aim_at_target(@simplicity.gunner, Vector[800,0], 90)
         end
         it 'should be able to aim northwest' do
-          test_aim_at_target(@bot.gunner, Vector[0,0], 135)
+          test_aim_at_target(@simplicity.gunner, Vector[0,0], 135)
         end
         it 'should be able to aim west' do
-          test_aim_at_target(@bot.gunner, Vector[0,800], 180)
+          test_aim_at_target(@simplicity.gunner, Vector[0,800], 180)
         end
         it 'should be able to aim southwest' do
-          test_aim_at_target(@bot.gunner, Vector[0,1600], 225)
+          test_aim_at_target(@simplicity.gunner, Vector[0,1600], 225)
         end
         it 'should be able to aim south' do
-          test_aim_at_target(@bot.gunner, Vector[800,1600], 270)
+          test_aim_at_target(@simplicity.gunner, Vector[800,1600], 270)
         end
         it 'should be able to aim southeast' do
-          test_aim_at_target(@bot.gunner, Vector[1600,1600], 315)
+          test_aim_at_target(@simplicity.gunner, Vector[1600,1600], 315)
         end
       end
       describe 'It should aim its radar toward desired targets' do
         it 'should be able to aim east' do
-          test_aim_at_target(@bot.radar, Vector[1600,800], 0)
+          test_aim_at_target(@simplicity.radar, Vector[1600,800], 0)
         end
         it 'should be able to aim northeast' do
-          test_aim_at_target(@bot.radar, Vector[1600,0], 45)
+          test_aim_at_target(@simplicity.radar, Vector[1600,0], 45)
         end
         it 'should be able to aim north' do
-          test_aim_at_target(@bot.radar, Vector[800,0], 90)
+          test_aim_at_target(@simplicity.radar, Vector[800,0], 90)
         end
         it 'should be able to aim northwest' do
-          test_aim_at_target(@bot.radar, Vector[0,0], 135)
+          test_aim_at_target(@simplicity.radar, Vector[0,0], 135)
         end
         it 'should be able to aim west' do
-          test_aim_at_target(@bot.radar, Vector[0,800], 180)
+          test_aim_at_target(@simplicity.radar, Vector[0,800], 180)
         end
         it 'should be able to aim southwest' do
-          test_aim_at_target(@bot.radar, Vector[0,1600], 225)
+          test_aim_at_target(@simplicity.radar, Vector[0,1600], 225)
         end
         it 'should be able to aim south' do
-          test_aim_at_target(@bot.radar, Vector[800,1600], 270)
+          test_aim_at_target(@simplicity.radar, Vector[800,1600], 270)
         end
         it 'should be able to aim southeast' do
-          test_aim_at_target(@bot.radar, Vector[1600,1600], 315)
+          test_aim_at_target(@simplicity.radar, Vector[1600,1600], 315)
         end
       end
     end
   end
   describe 'It should move' do
     before(:each) do
-      @bot.base_test
-      @bot.stub!(:x).and_return(800)
-      @bot.stub!(:y).and_return(800)
+      @simplicity.base_test
+      @simplicity.stub!(:x).and_return(800)
+      @simplicity.stub!(:y).and_return(800)
     end
     describe 'at a desired speed' do
       before(:each) do
-        @bot.desired_driver_target = nil
+        @simplicity.driver.desired_target = nil
       end
       it 'should not accelerate if already at desired speed' do
         test_acceleration(0,0)
@@ -673,41 +549,41 @@ describe 'PolarIce' do
         test_move_to_position(Vector[1600,800], 8)
       end
       it 'should clamp at desired maximum speed' do
-        @bot.desired_driver_max_speed = 4
+        @simplicity.driver.desired_max_speed = 4
         test_move_to_position(Vector[1600,800], 4)
       end
     end
   end
   describe 'It should fire' do
     it 'should fire at the desired power' do
-      @bot.desired_loader_power = 1
-      @bot.should_receive(:fire).with(1)
-      @bot.tick nil
+      @simplicity.loader.power = 1
+      @simplicity.should_receive(:fire).with(1)
+      @simplicity.tick nil
     end
   end
   describe 'It should know about being hit' do
     it 'should know if it was never hit' do
-      @bot.tick nil
-      @bot.last_hit_time.should == nil
+      @simplicity.tick nil
+      @simplicity.last_hit_time.should == nil
     end
 
     it 'should know when it was hit' do
       events = Hash.new{|h, k| h[k]=[]}
       events['got_hit'] << 1
-      @bot.tick events
-      @bot.last_hit_time.should == @bot.time
+      @simplicity.tick events
+      @simplicity.last_hit_time.should == @simplicity.time
     end
   end
   describe 'It should handle radar scans' do
     it 'should be ok with no scanned robots' do
-      @bot.tick @events
+      @simplicity.tick @events
     end
     it 'should store targets as sightings' do
-      @bot.previous_status.radar_heading = 270
-      @bot.stub!(:radar_heading).and_return(360)
+      @simplicity.previous_status.radar_heading = 270
+      @simplicity.stub!(:radar_heading).and_return(360)
       @events['robot_scanned'] << [400] << [300]
-      @bot.tick @events
-      @bot.radar.targets.should == [Sighting.new(270, 360, 400, 1, @position, 2), Sighting.new(270, 360, 300, 1, @position, 2)]
+      @simplicity.tick @events
+      @simplicity.radar.sightings.should == [Sighting.new(270, 360, 400, 1, @position, 2), Sighting.new(270, 360, 300, 1, @position, 2)]
     end
   end
   describe 'It should scan for the targets' do
@@ -722,40 +598,39 @@ describe 'PolarIce' do
       it 'should aim at the first sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(0, 60, 400, 1, @position, 0))
 #        print "#{@bot.radar.targets}\n"
-
         total_rotation.should == 0
       end
       it 'should aim at the second sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(60, 120, 400, 1, @position, 0))
-        @bot.desired_gunner_heading.should == 90
-        @bot.desired_radar_heading.should == 60
+        @simplicity.gunner.desired_heading.should == 90
+        @simplicity.radar.desired_heading.should == 60
       end
       it 'should aim at the third sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(120, 180, 400, 1, @position, 0))
-        @bot.desired_gunner_heading.should == 150
-        @bot.desired_radar_heading.should == 120
+        @simplicity.gunner.desired_heading.should == 150
+        @simplicity.radar.desired_heading.should == 120
       end
       it 'should aim at the fourth sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(180, 240, 400, 1, @position, 0))
-        @bot.desired_gunner_heading.should == 210
-        @bot.desired_radar_heading.should == 180
+        @simplicity.gunner.desired_heading.should == 210
+        @simplicity.radar.desired_heading.should == 180
       end
       it 'should aim at the fifth sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(240, 300, 400, 1, @position, 0))
-        @bot.desired_gunner_heading.should == 270
-        @bot.desired_radar_heading.should == 240
+        @simplicity.gunner.desired_heading.should == 270
+        @simplicity.radar.desired_heading.should == 240
       end
       it 'should aim at the sixth sextant if it only saw a target there' do
         do_quick_scan(Sighting.new(300, 360, 400, 1, @position, 0))
-        @bot.desired_gunner_heading.should == 330
-        @bot.desired_radar_heading.should == 300
+        @simplicity.gunner.desired_heading.should == 330
+        @simplicity.radar.desired_heading.should == 300
       end
       it 'should aim at the quadrant of the nearest target' do
         targets = Array.new
         targets << Sighting.new(0, 60, 600, 1, @position, 0) << Sighting.new(60, 120, 500, 1, @position, 0) << Sighting.new(120, 180, 400, 1, @position, 0) << Sighting.new(180, 240, 300, 1, @position, 0) << Sighting.new(240, 300, 200, 1, @position, 0) << Sighting.new(300, 360, 100, 1, @position, 0)
         do_quick_scan(targets)
-        @bot.desired_gunner_heading.should == 330
-        @bot.desired_radar_heading.should == 300
+        @simplicity.gunner.desired_heading.should == 330
+        @simplicity.radar.desired_heading.should == 300
       end
     end
   end
@@ -775,9 +650,9 @@ describe 'PolarIce' do
       distance = Math.hypot(target[0] - position[0], target[1] - position[1])
 #      print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
 
-      @bot.stub!(:x).and_return(position[0])
-      @bot.stub!(:y).and_return(position[1])
-      @bot.stub!(:radar_heading).and_return(105)
+      @simplicity.stub!(:x).and_return(position[0])
+      @simplicity.stub!(:y).and_return(position[1])
+      @simplicity.stub!(:radar_heading).and_return(105)
       do_quick_scan(Sighting.new(165, 225, 1188, 1, position, 0))
 
       expect_first_scan(165, 195, 30)
@@ -793,9 +668,9 @@ describe 'PolarIce' do
       distance = Math.hypot(target[0] - position[0], target[1] - position[1])
 #      print "target #{target} pos #{position} angle #{angle} dis #{distance}\n"
 
-      @bot.stub!(:x).and_return(position[0])
-      @bot.stub!(:y).and_return(position[1])
-      @bot.stub!(:radar_heading).and_return(97)
+      @simplicity.stub!(:x).and_return(position[0])
+      @simplicity.stub!(:y).and_return(position[1])
+      @simplicity.stub!(:radar_heading).and_return(97)
       do_quick_scan(Sighting.new(97, 157, 1081, 1, position, 0))
 
       expect_first_scan(97, 127, 30)
@@ -824,9 +699,9 @@ describe 'PolarIce' do
         angle = Math.atan2(position[1] - target[1], target[0] - position[0]).to_deg.normalize_angle
         distance = Math.hypot(target[0] - position[0], target[1] - position[1])
 
-        @bot.stub!(:x).and_return(position[0])
-        @bot.stub!(:y).and_return(position[1])
-        @bot.stub!(:radar_heading).and_return(97)
+        @simplicity.stub!(:x).and_return(position[0])
+        @simplicity.stub!(:y).and_return(position[1])
+        @simplicity.stub!(:radar_heading).and_return(97)
         do_quick_scan(Sighting.new(97, 157, 1081, 1, position, 0))
 
         expect_first_scan(97, 127, 30)
@@ -842,62 +717,86 @@ describe 'PolarIce' do
   end
   describe 'It should communicate with its partner' do
     it 'should send its position for 0,0' do
-      @bot.stub!(:x).and_return(0)
-      @bot.stub(:y).and_return(0)
-      @bot.should_receive(:broadcast).with("P10,0")
-      @bot.tick @events
+      @simplicity.stub!(:x).and_return(0)
+      @simplicity.stub(:y).and_return(0)
+      @simplicity.should_receive(:broadcast).with("P10,0")
+      @simplicity.tick @events
     end
     it 'should send its position for 123, 123 in base 36 as 3f,3f' do
-      @bot.stub!(:x).and_return(123)
-      @bot.stub(:y).and_return(123)
-      @bot.should_receive(:broadcast).with("P13f,3f")
-      @bot.tick @events
+      @simplicity.stub!(:x).and_return(123)
+      @simplicity.stub(:y).and_return(123)
+      @simplicity.should_receive(:broadcast).with("P13f,3f")
+      @simplicity.tick @events
+    end
+    it 'should send its position for 123, 123 in base 36 as 3f,3f' do
+      @simplicity.stub!(:x).and_return(123)
+      @simplicity.stub(:y).and_return(123)
+      @simplicity.should_receive(:broadcast).with("P13f,3f")
+      @simplicity.tick @events
     end
     it 'should receive its partners position P03f,3f as 123,123' do
       @events['broadcasts'] << ["P03f,3f", "east"]
-      @bot.tick @events
-      @bot.current_partner_position.should == [Vector[123,123]]
+      @simplicity.tick @events
+      @simplicity.current_partner_position.should == [Vector[123,123]]
     end
-    it 'should receive multiple partners positions' do
-      @events['broadcasts'] << ["P13f,3f", "east"] << ["P20,0", "west"]
-      @bot.tick @events
-      @bot.current_partner_position.should == [nil, Vector[123,123],Vector[0.0,0.0]]
+    describe 'It should determine its role based on communication' do
+      it 'should receive multiple partners positions' do
+        @events['broadcasts'] << ["P13f,3f", "east"] << ["P20,0", "west"]
+        @simplicity.tick @events
+        @simplicity.current_partner_position.should == [nil, Vector[123,123],Vector[0.0,0.0]]
+      end
+      it 'should be master if the first message is received at time 2' do
+        @simplicity.stub!(:time).and_return(2)
+        @events['broadcasts'] << ["P03f,3f", "east"]
+        @simplicity.tick @events
+        @simplicity.role.should == :master
+      end
+      it 'should be slave if the first message is received at time 1' do
+        @simplicity.stub!(:time).and_return(1)
+        @events['broadcasts'] << ["P03f,3f", "east"]
+        @simplicity.tick @events
+        @simplicity.role.should == :slave
+      end
+      it 'should be #1 if it sees 1 message on tick 1' do
+        @simplicity.stub!(:time).and_return(1)
+        @events['broadcasts'] << ["P03f,3f", "east"]
+        @simplicity.tick @events
+        @simplicity.id.should == 1
+      end
+      it 'should be #2 if it sees 2 messages on tick 1' do
+        @simplicity.stub!(:time).and_return(1)
+        @events['broadcasts'] << ["P03f,3f", "east"] << ["P22f,2f", "east"]
+        @simplicity.tick @events
+        @simplicity.id.should == 2
+      end
+      it 'should be #2 if it sees 1 messages on tick 2' do
+        @simplicity.stub!(:time).and_return(2)
+        @events['broadcasts'] << ["P03f,3f", "east"]
+        @simplicity.tick @events
+        @simplicity.id.should == 2
+      end
+      it 'should be #3 if it sees 2 messages on tick 2' do
+        @simplicity.stub!(:time).and_return(2)
+        @events['broadcasts'] << ["P03f,3f", "east"] << ["P02f,2f", "east"]
+        @simplicity.tick @events
+        @simplicity.id.should == 3
+      end
     end
-    it 'should be master if the first message is received at time 2' do
-      @bot.stub!(:time).and_return(2)
-      @events['broadcasts'] << ["P03f,3f", "east"]
-      @bot.tick @events
-      @bot.role.should == :master
-    end
-    it 'should be slave if the first message is received at time 1' do
-      @bot.stub!(:time).and_return(1)
-      @events['broadcasts'] << ["P03f,3f", "east"]
-      @bot.tick @events
-      @bot.role.should == :slave
-    end
-    it 'should be #1 if it sees 1 message on tick 1' do
-      @bot.stub!(:time).and_return(1)
-      @events['broadcasts'] << ["P03f,3f", "east"]
-      @bot.tick @events
-      @bot.id.should == 1
-    end
-    it 'should be #2 if it sees 2 messages on tick 1' do
-      @bot.stub!(:time).and_return(1)
-      @events['broadcasts'] << ["P03f,3f", "east"] << ["P22f,2f", "east"]
-      @bot.tick @events
-      @bot.id.should == 2
-    end
-    it 'should be #2 if it sees 1 messages on tick 2' do
-      @bot.stub!(:time).and_return(2)
-      @events['broadcasts'] << ["P03f,3f", "east"]
-      @bot.tick @events
-      @bot.id.should == 2
-    end
-    it 'should be #3 if it sees 2 messages on tick 2' do
-      @bot.stub!(:time).and_return(2)
-      @events['broadcasts'] << ["P03f,3f", "east"] << ["P02f,2f", "east"]
-      @bot.tick @events
-      @bot.id.should == 3
+    describe 'It should communicate radar information' do
+      it 'should send radar information' do
+        @simplicity.stub!(:x).and_return(123)
+        @simplicity.stub(:y).and_return(123)
+        @simplicity.previous_status = Status.new(Vector[123,123], 0, 0, 0, 0)
+        @simplicity.stub(:radar_heading).and_return(10)
+        @simplicity.should_receive(:broadcast).with("R13f,3f;2,0,a,1,2")
+        @events['robot_scanned'] << [1] << [2]
+        @simplicity.tick @events
+      end
+      it 'should receive its radar information' do
+        @events['broadcasts'] << ["R03f,3f,2,0,a,1,2", "east"]
+        @simplicity.tick @events
+        @simplicity.current_partner_position.should == [Vector[123,123]]
+      end
     end
   end
 end

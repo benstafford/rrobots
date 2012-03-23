@@ -112,7 +112,7 @@ class Commander
   
   def start_quick_scan
     log "commander.start_quick_scan\n"
-    @targets.clear
+    @sightings.clear
     polarIce.lock
     polarIce.start_quick_scan
   end
@@ -133,7 +133,7 @@ class Commander
 
   def add_targets targets_scanned
     log "commander.add_targets #{targets_scanned}\n"
-    @targets += targets_scanned
+    @sightings += targets_scanned
   end
 
   def start_tracking
@@ -149,23 +149,23 @@ class Commander
 
   def choose_target
     log "commander.choose_target\n"
-    remove_partners_from_targets if (polarIce.current_partner_position != nil)
-    closest_target(@targets)
+    remove_partners_from_sightings if (polarIce.current_partner_position != nil)
+    closest_target(@sightings)
   end
 
-  def remove_partners_from_targets
+  def remove_partners_from_sightings
     log "commander.remove_partners_from_targets\n"
-    polarIce.current_partner_position.each{|partner| remove_partner_from_targets(partner, @targets) if partner != nil}
+    polarIce.current_partner_position.each{|partner| remove_partner_from_sightings(partner, @sightings) if partner != nil}
   end
 
-  def update_target(target)
-    log "commander.update_target #{target}\n"
-    @state_machine.update_target(target)
+  def update_target(sighting)
+    log "commander.update_target #{sighting}\n"
+    @state_machine.update_target(sighting)
   end
 
-  def aim_at_target(target)
-    log "commander.aim_at_target #{target}\n"
-    polarIce.target(target)
+  def aim_at_target(sighting)
+    log "commander.aim_at_target #{sighting}\n"
+    polarIce.target(sighting)
   end
 
   def target_lost
@@ -173,7 +173,7 @@ class Commander
   end
 
   def initialize(polarIce)
-    @targets = Array.new
+    @sightings = Array.new
     @polarIce = polarIce
     initialize_state_machine
   end

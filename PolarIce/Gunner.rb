@@ -20,20 +20,15 @@ class Gunner
     @current_target = nil
   end
   
-  def target(target)
-#    if @current_target == nil
-#      @current_target = Target.new(target_position(target), target.time)
-#    else
-#      @current_target.update(target_position(target), target.time)
-#    end
-#    @desired_target = @current_target.projected_target_position(@current_position, BULLET_SPEED)
-    @desired_target = target_position(target)
-    log "gunner.target #{target} #{@desired_target}\n"
-  end
-
-  def target_position(target)
-    log "gunner.target_position #{target} #{target.origin} #{target.bisector} #{target.distance}\n"
-    (target.origin + Vector[target.bisector, target.distance].to_cartesian)
+  def target(sighting)
+    if @current_target == nil
+      @current_target = Target.new(sighting.midpoint, sighting.time)
+    else
+      @current_target.update(sighting.midpoint, sighting.time)
+    end
+    @desired_target = @current_target.projected_target_position(@current_position, BULLET_SPEED)
+    @desired_target = sighting.midpoint
+    log "gunner.sighting #{sighting} #{@desired_target}\n"
   end
 
   def initialize(polarIce)
@@ -51,23 +46,4 @@ class Gunner
   end
 
   attr_accessor(:polarIce)
-end
-module GunnerAccessor
-  def gunner_rotation
-    gunner.rotation
-  end
-
-  def desired_gunner_target= target
-    gunner.desired_target = target
-  end
-
-  def desired_gunner_heading
-    gunner.desired_heading
-  end
-
-  def desired_gunner_heading= heading
-    gunner.desired_heading = heading
-  end
-
-  attr_accessor(:gunner)
 end

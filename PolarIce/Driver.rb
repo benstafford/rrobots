@@ -60,6 +60,8 @@ class Driver
 
   def awaiting_orders
     log "driver.awaiting_orders\n"
+    @desired_speed = 8
+    @rotation = 10
   end
 
   def stop
@@ -71,7 +73,7 @@ class Driver
     log "driver.do_stop\n"
     @desired_speed = 0
     @desired_target = nil
-    @state_machine.tick
+#    @state_machine.tick
   end
 
   def wait_for_stop
@@ -162,39 +164,4 @@ class Driver
   attr_accessor(:acceleration)
   attr_accessor(:new_position)
   attr_accessor(:polarIce)
-end
-
-module DriverAccessor
-  def driver_rotation
-    driver.rotation
-  end
-
-  def desired_driver_target
-    driver.desired_target
-  end
-
-  def desired_driver_target= target
-    driver.desired_target = target
-  end
-
-  def desired_driver_heading
-    driver.desired_heading
-  end
-
-  def desired_driver_heading= heading
-    driver.desired_heading = heading
-  end
-
-  def desired_driver_speed
-    driver.desired_speed
-  end
-
-  def desired_driver_speed= speed
-    driver.desired_speed = speed
-  end
-
-  def desired_driver_max_speed= speed
-    driver.desired_max_speed = speed
-  end
-  attr_accessor(:driver)
 end

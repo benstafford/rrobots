@@ -3,20 +3,33 @@ class Target
   def initialize(position,time)
     log "target.initialize #{position} #{time}\n"
     @position = position
-    @velocity = 0
-    @velocity_vector = Vector[0,0]
+    initialize_velocity
     @heading = 0
     @time = time
   end
 
+  def initialize_velocity
+    log "target.initialize_velocity\n"
+    @velocity = 0
+    @velocity_vector = Vector[0, 0]
+  end
+
   def update(position, time)
-    log "target.update #{position} #{time}\n"
     elapsed_time = time - @time
     update_velocity(elapsed_time, position)
     @heading = @position.angle_to(position) if position != @position
     @position = position
     @time = time
     log "target.update #{position} #{time} ==> #{@position} #{@time} #{@heading} #{velocity} #{velocity_vector}\n"
+  end
+
+  def update_velocity(elapsed_time, position)
+    @velocity = @position.distance_to(position) / elapsed_time
+    if @velocity > 8
+      initialize_velocity
+    else
+      @velocity_vector = @position.velocity_to(position, elapsed_time)
+    end
   end
 
   def firing_angle(firing_position, muzzle_velocity)
@@ -45,10 +58,4 @@ class Target
   attr_reader(:velocity)
   attr_reader(:heading)
   attr_reader(:time)
-
-  private
-  def update_velocity(elapsed_time, position)
-    @velocity = @position.distance_to(position) / elapsed_time
-    @velocity_vector = @position.velocity_to(position, elapsed_time)
-  end
 end

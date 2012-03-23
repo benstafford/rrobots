@@ -12,6 +12,7 @@ class Vector
   end
 
   def angle_to(position)
+    log "vector.angle_to #{position}\n"
     (Math.atan2(self[Y] - position[Y], position[X] - self[X]).to_deg.normalize_angle).round
   end
 
